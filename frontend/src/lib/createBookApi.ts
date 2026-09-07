@@ -171,7 +171,7 @@ function buildBookPayload(input: BookInput) {
   const author = asText(getValue(input, "author"));
 
   if (!title) {
-    throw apiError("Escribe el tÃ­tulo del libro.", 400);
+    throw apiError("Escribe el título del libro.", 400);
   }
 
   if (!author) {
@@ -320,7 +320,7 @@ async function saveTaxonomy(input: BookInput, bookId: string) {
   const { error } = await supabase.from("book_taxonomy").insert(rows);
 
   if (error) {
-    throw apiError("El libro se creÃ³, pero no se pudieron guardar sus etiquetas.", 500);
+    throw apiError("El libro se creó, pero no se pudieron guardar sus etiquetas.", 500);
   }
 }
 
@@ -1288,4 +1288,3 @@ export async function deleteCatalogBook(input: BookInput) {
     id: bookId,
   };
 }
-
