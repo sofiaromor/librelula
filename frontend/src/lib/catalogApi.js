@@ -910,3 +910,20 @@ export async function saveCatalogUserBookProgress({
     item: mapUserBookRow(saved),
   };
 }
+
+export async function removeCatalogUserBook({ book_id: bookId }) {
+  const legacyUserId = await getCurrentLegacyUserId();
+  const cleanBookId = String(bookId || "").trim();
+  if (!legacyUserId) throw apiError("Inicia sesión para gestionar tu biblioteca.", 401);
+  if (!cleanBookId) throw apiError("Falta el libro.", 400);
+
+  const { error } = await supabase
+    .from("user_books")
+    .delete()
+    .eq("legacy_user_id", legacyUserId)
+    .eq("book_id", cleanBookId);
+
+  if (error) throw apiError(error.message || "No se pudo quitar el libro de tu biblioteca.", 500);
+  invalidateHomeReadingSnapshot();
+  return { ok: true, book_id: cleanBookId };
+}
