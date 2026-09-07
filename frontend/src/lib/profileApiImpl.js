@@ -16,6 +16,8 @@ const EMPTY_PROFILE_DATA = {
   activityDays: [],
   readerCircle: [],
   social: { followers: 0, following: 0 },
+  featuredCollection: "favorites",
+  featuredBooks: [],
   streak: 0,
   clubAchievements: [],
   isOwner: true,
@@ -108,7 +110,7 @@ async function getCurrentProfile() {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, is_admin, created_at")
+    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, featured_collection, is_admin, created_at")
     .eq("id", user.id)
     .single();
 
@@ -124,6 +126,7 @@ async function getCurrentProfile() {
     avatar: profile?.avatar || "images/avatar/avatar1.png",
     bio: profile?.bio || "",
     cover_image: profile?.cover_image || "",
+    featured_collection: profile?.featured_collection || "favorites",
     initial: profileInitial(profile?.display_name || profile?.username || user.email || "L"),
   };
 }
@@ -139,7 +142,7 @@ async function getProfileById(profileId) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, is_admin, created_at")
+    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, featured_collection, is_admin, created_at")
     .eq("id", cleanId)
     .single();
 
@@ -157,6 +160,7 @@ async function getProfileById(profileId) {
       avatar: data?.avatar || "images/avatar/avatar1.png",
       bio: data?.bio || "",
       cover_image: data?.cover_image || "",
+      featured_collection: data?.featured_collection || "favorites",
       initial: profileInitial(data?.display_name || data?.username || "L"),
     },
   };
@@ -482,6 +486,15 @@ function pickFavoriteBooks(rows, booksById) {
     .slice(0, 9);
 }
 
+function pickFeaturedBooks(profile, shelfBooks, favoriteBooks) {
+  const collection = asText(profile?.featured_collection) || "favorites";
+  if (collection === "favorites") return favoriteBooks.slice(0, 6);
+  if (collection === "reading") {
+    return shelfBooks.filter((book) => ["reading", "rereading", "paused"].includes(book.status)).slice(0, 6);
+  }
+  return shelfBooks.filter((book) => book.status === collection).slice(0, 6);
+}
+
 async function buildProfileOverview(viewer, profile) {
   const isOwner = viewer.id === profile.id;
 
@@ -530,6 +543,7 @@ async function buildProfileOverview(viewer, profile) {
   ]);
   const booksById = buildBookMap(books);
   const shelfBooks = mapShelfBooks(userBooks, booksById);
+  const favoriteBooks = pickFavoriteBooks(favoriteRows, booksById);
   const activity = buildActivityDays(userBooks);
 
   return {
@@ -539,7 +553,9 @@ async function buildProfileOverview(viewer, profile) {
     shelfCounts: buildShelfCounts(userBooks),
     shelfBooks,
     latestAdditions: shelfBooks.slice(0, 6),
-    favoriteBooks: pickFavoriteBooks(favoriteRows, booksById),
+    favoriteBooks,
+    featuredCollection: asText(profile.featured_collection) || "favorites",
+    featuredBooks: pickFeaturedBooks(profile, shelfBooks, favoriteBooks),
     favoriteAuthors,
     currentReadingBooks: buildCurrentReadingBooks(shelfBooks),
     recentActivity: buildRecentActivity(shelfBooks),
@@ -637,4 +653,21 @@ export async function uploadProfileCover(file) {
 
   invalidateProfileOverview(user.id);
   return publicUrlValue;
+}
+
+export async function updateFeaturedCollection(collection) {
+  const allowed = new Set(["favorites", "completed", "reading", "planned"]);
+  const value = allowed.has(collection) ? collection : "favorites";
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+
+  if (userError || !user) throw apiError("Inicia sesión para elegir tu colección.", 401);
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ featured_collection: value })
+    .eq("id", user.id);
+
+  if (error) throw apiError(error.message || "No se pudo guardar la colección destacada.");
+  invalidateProfileOverview(user.id);
+  return value;
 }
