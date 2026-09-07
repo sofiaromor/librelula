@@ -18,7 +18,7 @@ import {
   rejectBookProposal,
 } from "./lib/bookModerationApi.js";
 import { READING_STATUS_BY_VALUE } from "./readingStatuses.js";
-import { saveCatalogUserBookProgress } from "./lib/catalogApi.js";
+import { removeCatalogUserBook, saveCatalogUserBookProgress } from "./lib/catalogApi.js";
 
 const CATALOG_PAGE_SIZE = 25;
 
@@ -856,6 +856,16 @@ export default function BooksCatalog({
 
     try {
       const importedBook = await ensureExternalBook(book);
+      if (status === "remove") {
+        await removeCatalogUserBook({ book_id: String(importedBook.id) });
+        setUserBookItems((current) => {
+          const next = { ...current };
+          delete next[String(importedBook.id)];
+          return next;
+        });
+        setStatusFeedback({ type: "success", text: `«${importedBook.title}» se ha quitado de tu biblioteca.` });
+        return;
+      }
       const response = await apiFetch("catalog_user_books.php", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -901,6 +911,16 @@ export default function BooksCatalog({
     setStatusFeedback(null);
 
     try {
+      if (status === "remove") {
+        await removeCatalogUserBook({ book_id: bookId });
+        setUserBookItems((current) => {
+          const next = { ...current };
+          delete next[bookId];
+          return next;
+        });
+        setStatusFeedback({ type: "success", text: `«${book.title}» se ha quitado de tu biblioteca.` });
+        return;
+      }
       const response = await apiFetch("catalog_user_books.php", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
