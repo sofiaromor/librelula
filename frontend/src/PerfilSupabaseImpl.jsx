@@ -438,7 +438,7 @@ function ShelfView({ data, shelfFilter, onShelfFilter, onSelectBook }) {
         <div>
           <span className="profile-eyebrow">Tu biblioteca personal</span>
           <h2>Estantería</h2>
-          <p>Todos tus libros reunidos por estado de lectura.</p>
+          <p>Tus libros por estado de lectura.</p>
         </div>
         <strong>{formatNumber(visibleBooks.length)} libros</strong>
       </div>
@@ -491,7 +491,7 @@ function ActivityView({ data, onSelectBook }) {
         <div>
           <span className="profile-eyebrow">Tus huellas lectoras</span>
           <h2>Actividad</h2>
-          <p>Lecturas empezadas, avances, pausas y libros terminados.</p>
+          <p>Tu actividad lectora.</p>
         </div>
       </div>
       {data.recentActivity.length ? (
@@ -527,7 +527,7 @@ function FavoritesView({ data, onSelectBook }) {
         <div>
           <span className="profile-eyebrow">Tu mapa de afinidades</span>
           <h2>Favoritos</h2>
-          <p>Libros, autores y géneros que más se repiten en tus mejores lecturas.</p>
+          <p>Tus favoritos y géneros más leídos.</p>
         </div>
       </div>
       <div className="profile-favorites-layout">
@@ -814,6 +814,7 @@ export default function PerfilSupabase({
               role="tab"
               aria-controls={`profile-panel-${tab.id}`}
               aria-selected={currentTab === tab.id}
+              tabIndex={currentTab === tab.id ? 0 : -1}
               className={currentTab === tab.id ? "active" : ""}
               onClick={() => onTabChange?.(tab.id)}
             >
