@@ -19,6 +19,7 @@ import {
 } from "./lib/bookModerationApi.js";
 import { READING_STATUS_BY_VALUE } from "./readingStatuses.js";
 import { removeCatalogUserBook, saveCatalogUserBookProgress } from "./lib/catalogApi.js";
+import ReaderCollections from "./ReaderCollections.jsx";
 
 const CATALOG_PAGE_SIZE = 25;
 
@@ -1405,6 +1406,12 @@ export default function BooksCatalog({
           </div>
         </article>
       </section>
+
+      <ReaderCollections
+        isLoggedIn={isLoggedIn}
+        availableBooks={books}
+        onSelectBook={openBook}
+      />
 
       <header className="books-hero">
         <div>
