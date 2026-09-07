@@ -3692,6 +3692,26 @@ button {
   box-shadow: 0 8px 18px rgba(83, 60, 39, .12);
 }
 
+.catalog-status-remove {
+  display: grid !important;
+  grid-template-columns: 28px minmax(0, 1fr) !important;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  border-top: 1px solid rgba(105, 78, 58, .12) !important;
+  color: #a25245 !important;
+}
+
+.catalog-status-remove > span:first-child {
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  border-radius: 50%;
+  background: rgba(162, 82, 69, .1);
+  font-size: 1.1rem;
+}
+
 .reading-setup-backdrop {
   position: fixed;
   z-index: 10000;
