@@ -1345,7 +1345,7 @@ export default function BooksCatalog({
               <span>Los libros que están moviendo Librélula</span>
               <h2>Escaparate de la semana</h2>
             </div>
-            <small>Haz clic una vez para descubrirlo y otra para abrir su ficha</small>
+            <small>Descubre una lectura y abre su ficha</small>
           </header>
 
           <div className="catalog-showcase-layout">
