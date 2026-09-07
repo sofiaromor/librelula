@@ -1677,7 +1677,15 @@ export default function BooksCatalog({
                 <article className="external-book-card" key={key}>
                   <div className="external-book-cover">
                     {book.cover ? (
-                      <img src={book.cover} alt={`Portada de ${book.title}`} loading="lazy" />
+                      <img
+                        src={book.cover}
+                        alt={`Portada de ${book.title}`}
+                        loading="lazy"
+                        onError={(event) => {
+                          event.currentTarget.hidden = true;
+                          event.currentTarget.parentElement?.classList.add("is-missing");
+                        }}
+                      />
                     ) : (
                       <span>Sin portada</span>
                     )}
@@ -1848,6 +1856,10 @@ export default function BooksCatalog({
                       src={publicUrl(book.cover)}
                       alt={`Portada de ${book.title}`}
                       loading="lazy"
+                      onError={(event) => {
+                        event.currentTarget.hidden = true;
+                        event.currentTarget.parentElement?.classList.add("is-missing");
+                      }}
                     />
                   ) : (
                     <span>Sin portada</span>
