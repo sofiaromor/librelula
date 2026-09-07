@@ -655,6 +655,82 @@ export async function uploadProfileCover(file) {
   return publicUrlValue;
 }
 
+export async function uploadProfileAvatar(file) {
+  if (!(file instanceof File)) {
+    throw apiError("Selecciona una imagen válida.", 400);
+  }
+
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+  if (!allowedTypes.has(file.type)) {
+    throw apiError("El icono debe ser JPG, PNG o WebP.", 400);
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    throw apiError("El icono no puede superar los 5 MB.", 400);
+  }
+
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    throw apiError("Inicia sesión para cambiar tu icono.", 401);
+  }
+
+  const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const path = `${user.id}/avatar-${Date.now()}.${extension}`;
+  const { error: uploadError } = await supabase.storage
+    .from("profile-covers")
+    .upload(path, file, { cacheControl: "3600", upsert: false });
+
+  if (uploadError) {
+    throw apiError(uploadError.message || "No se pudo subir el icono.");
+  }
+
+  const { data: publicData } = supabase.storage.from("profile-covers").getPublicUrl(path);
+  const publicUrlValue = publicData?.publicUrl || "";
+  if (!publicUrlValue) throw apiError("No se pudo obtener la URL del icono.");
+
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({ avatar: publicUrlValue })
+    .eq("id", user.id);
+
+  if (updateError) {
+    await supabase.storage.from("profile-covers").remove([path]);
+    throw apiError(updateError.message || "No se pudo guardar el icono en tu perfil.");
+  }
+
+  invalidateProfileOverview(user.id);
+  return publicUrlValue;
+}
+
+export async function updateProfileAvatar(avatar) {
+  const value = asText(avatar);
+  const allowed = new Set([
+    "images/avatar/avatar1.png",
+    "images/avatar/avatar2.png",
+    "images/avatar/avatar3.png",
+    "images/avatar/avatar4.png",
+    "images/avatar/avatar5.png",
+    "images/avatar/avatar6.png",
+  ]);
+  if (!allowed.has(value)) throw apiError("Ese icono no está disponible.", 400);
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) throw apiError("Inicia sesión para cambiar tu icono.", 401);
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ avatar: value })
+    .eq("id", user.id);
+
+  if (error) throw apiError(error.message || "No se pudo guardar el icono.");
+  invalidateProfileOverview(user.id);
+  return value;
+}
+
 export async function updateFeaturedCollection(collection) {
   const allowed = new Set(["favorites", "completed", "reading", "planned"]);
   const value = allowed.has(collection) ? collection : "favorites";
