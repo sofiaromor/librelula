@@ -6,7 +6,7 @@ import { normalizeBookGenres } from "./bookGenres.js";
 import { parseTaxonomyItems } from "./bookTaxonomy.js";
 import ReadingStatusControl from "./ReadingStatusControl.jsx";
 import { getBookProgressThread } from "./lib/homeDashboardApi.js";
-import { saveCatalogUserBookProgress } from "./lib/catalogApi.js";
+import { removeCatalogUserBook, saveCatalogUserBookProgress } from "./lib/catalogApi.js";
 import { READING_STATUS_BY_VALUE } from "./readingStatuses.js";
 import {
   FALLBACK_HERO_COLOR,
@@ -981,6 +981,12 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
     setReadingStatusMessage("");
 
     try {
+      if (status === "remove") {
+        await removeCatalogUserBook({ book_id: String(currentBook.id) });
+        setReadingStatusItem(null);
+        setReadingStatusMessage("Quitado de tu biblioteca.");
+        return;
+      }
       const response = await apiFetch("catalog_user_books.php", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
