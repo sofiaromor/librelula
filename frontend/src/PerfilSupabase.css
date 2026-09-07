@@ -142,7 +142,7 @@
   border: 0;
   background: transparent;
   color: #4e392a;
-  cursor: default;
+  cursor: pointer;
 }
 
 .profile-social-counts strong {
@@ -192,7 +192,11 @@
   gap: 0.5rem;
   margin: 1rem 0;
   overflow-x: auto;
-  scrollbar-width: thin;
+  scrollbar-width: none;
+}
+
+.profile-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .profile-tabs button {
@@ -1141,6 +1145,11 @@
   .profile-tabs {
     margin: 0.75rem -0.75rem 1rem;
     padding: 0 0.75rem;
+    position: sticky;
+    z-index: 5;
+    top: 0;
+    background: rgba(250, 246, 239, 0.94);
+    backdrop-filter: blur(12px);
   }
 
   .profile-tabs button {
@@ -1174,6 +1183,18 @@
 
   .profile-featured-books {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .profile-connections-backdrop {
+    align-items: end;
+    padding: 0;
+  }
+
+  .profile-connections-modal {
+    width: 100%;
+    max-height: 82vh;
+    border-radius: 22px 22px 0 0;
+    padding-bottom: calc(1.25rem + env(safe-area-inset-bottom));
   }
 
   .profile-shelf-panel,
