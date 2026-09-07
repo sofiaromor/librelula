@@ -160,3 +160,19 @@ return follows
     })
     .filter(Boolean);
 }
+
+export async function getProfileConnections(profileId, direction = "followers") {
+    if (!profileId) return [];
+
+    const cleanDirection = direction === "following" ? "following" : "followers";
+    const { data, error } = await supabase.rpc("profile_social_connections", {
+        p_profile_id: profileId,
+        p_direction: cleanDirection,
+    });
+
+    if (error) {
+        throw new Error(error.message || "No se pudieron cargar las conexiones.");
+    }
+
+    return Array.isArray(data) ? data : [];
+}
