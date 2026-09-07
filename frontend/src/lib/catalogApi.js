@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { invalidateHomeReadingSnapshot } from "./profileApi.js";
 
 const VALID_READING_STATUSES = [
   "planned",
@@ -502,6 +503,11 @@ function mapUserBookRow(row) {
     started_at: row.started_at || null,
     finished_at: row.finished_at || null,
     read_count: row.read_count || 0,
+    progress_mode: row.progress_mode || "percentage",
+    total_minutes: row.total_minutes || 0,
+    minutes_read: row.minutes_read || 0,
+    total_chapters: row.total_chapters || 0,
+    current_chapter: row.current_chapter || 0,
     paused_at: row.paused_at || null,
     dropped_at: row.dropped_at || null,
   };
@@ -530,7 +536,12 @@ export async function getCatalogUserBooks({ bookId = "" } = {}) {
       finished_at,
       read_count,
       paused_at,
-      dropped_at
+      dropped_at,
+      progress_mode,
+      total_minutes,
+      minutes_read,
+      total_chapters,
+      current_chapter
     `)
     .eq("legacy_user_id", legacyUserId)
     .order("id", { ascending: false });
@@ -753,6 +764,8 @@ export async function saveCatalogUserBookStatus({ book_id: bookId, status }) {
     throw apiError("No se pudo guardar el estado del libro.", 500);
   }
 
+  invalidateHomeReadingSnapshot();
+
   return {
     ok: true,
     item: mapUserBookRow(saved),
@@ -765,7 +778,15 @@ function clampProgressValue(value) {
   return Math.max(0, Math.min(100, Math.round(number)));
 }
 
-export async function saveCatalogUserBookProgress({ book_id: bookId, progress }) {
+export async function saveCatalogUserBookProgress({
+  book_id: bookId,
+  progress,
+  progress_mode: progressMode = "percentage",
+  total_minutes: totalMinutes = 0,
+  minutes_read: minutesRead = 0,
+  total_chapters: totalChapters = 0,
+  current_chapter: currentChapter = 0,
+}) {
   const legacyUserId = await getCurrentLegacyUserId();
 
   if (!legacyUserId) {
@@ -773,7 +794,17 @@ export async function saveCatalogUserBookProgress({ book_id: bookId, progress })
   }
 
   const cleanBookId = String(bookId || "").trim();
-  const cleanProgress = clampProgressValue(progress);
+  const cleanMode = ["percentage", "minutes", "chapters"].includes(progressMode) ? progressMode : "percentage";
+  const cleanTotalMinutes = Math.max(0, Math.round(Number(totalMinutes) || 0));
+  const cleanMinutesRead = Math.max(0, Math.min(cleanTotalMinutes || Number.MAX_SAFE_INTEGER, Math.round(Number(minutesRead) || 0)));
+  const cleanTotalChapters = Math.max(0, Math.round(Number(totalChapters) || 0));
+  const cleanCurrentChapter = Math.max(0, Math.min(cleanTotalChapters || Number.MAX_SAFE_INTEGER, Math.round(Number(currentChapter) || 0)));
+  const derivedProgress = cleanMode === "minutes" && cleanTotalMinutes > 0
+    ? (cleanMinutesRead / cleanTotalMinutes) * 100
+    : cleanMode === "chapters" && cleanTotalChapters > 0
+      ? (cleanCurrentChapter / cleanTotalChapters) * 100
+      : progress;
+  const cleanProgress = clampProgressValue(derivedProgress);
 
   if (!cleanBookId) {
     throw apiError("Falta el libro.", 400);
@@ -822,6 +853,11 @@ export async function saveCatalogUserBookProgress({ book_id: bookId, progress })
         : previousReadCount,
     paused_at: null,
     dropped_at: null,
+    progress_mode: cleanMode,
+    total_minutes: cleanTotalMinutes || null,
+    minutes_read: cleanMode === "minutes" ? cleanMinutesRead : null,
+    total_chapters: cleanTotalChapters || null,
+    current_chapter: cleanMode === "chapters" ? cleanCurrentChapter : null,
   };
 
   const { data: saved, error: saveError } = await supabase
@@ -837,7 +873,12 @@ export async function saveCatalogUserBookProgress({ book_id: bookId, progress })
       finished_at,
       read_count,
       paused_at,
-      dropped_at
+      dropped_at,
+      progress_mode,
+      total_minutes,
+      minutes_read,
+      total_chapters,
+      current_chapter
     `)
     .single();
 
@@ -845,6 +886,24 @@ export async function saveCatalogUserBookProgress({ book_id: bookId, progress })
     console.error("Error guardando progreso lector:", saveError);
     throw apiError(saveError.message || "No se pudo guardar tu progreso.", 500);
   }
+
+  if (cleanMode === "chapters" && cleanTotalChapters > 0) {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error: metadataError } = await supabase
+      .from("book_reading_metadata")
+      .upsert({
+        book_id: cleanBookId,
+        total_chapters: cleanTotalChapters,
+        updated_by: user?.id || null,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "book_id" });
+    if (metadataError) {
+      console.error("Error guardando capítulos del libro:", metadataError);
+      throw apiError("El progreso se guardó, pero no se pudo guardar el total de capítulos.", 500);
+    }
+  }
+
+  invalidateHomeReadingSnapshot();
 
   return {
     ok: true,
