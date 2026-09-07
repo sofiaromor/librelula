@@ -329,8 +329,6 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
   const [publishing, setPublishing] = useState(false);
   const [busyActivities, setBusyActivities] = useState({});
   const [progressDrafts, setProgressDrafts] = useState({});
-  const [progressModes, setProgressModes] = useState({});
-  const [progressMetrics, setProgressMetrics] = useState({});
   const [progressNotes, setProgressNotes] = useState({});
   const [progressSpoilers, setProgressSpoilers] = useState({});
   const [progressComposerBookId, setProgressComposerBookId] = useState(null);
@@ -457,43 +455,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
 
   function displayedProgress(book) {
     const key = String(book?.id || "");
-    const mode = progressModes[key] || book?.progress_mode || "percentage";
-    const metric = progressMetrics[key] || {};
-    if (mode === "minutes" && Number(metric.total ?? book?.total_minutes) > 0) {
-      return clampPercent((Number(metric.read ?? book?.minutes_read ?? 0) / Number(metric.total ?? book.total_minutes)) * 100);
-    }
-    if (mode === "chapters" && Number(metric.total ?? book?.total_chapters) > 0) {
-      return clampPercent((Number(metric.current ?? book?.current_chapter ?? 0) / Number(metric.total ?? book.total_chapters)) * 100);
-    }
     return clampPercent(progressDrafts[key] ?? book?.progress);
-  }
-
-  function progressModeFor(book) {
-    return progressModes[String(book?.id || "")] || book?.progress_mode || "percentage";
-  }
-
-  function progressMetricFor(book, field) {
-    const key = String(book?.id || "");
-    const metric = progressMetrics[key] || {};
-    const fallback = field === "total"
-      ? (progressModeFor(book) === "minutes" ? book?.total_minutes : book?.total_chapters)
-      : (progressModeFor(book) === "minutes" ? book?.minutes_read : book?.current_chapter);
-    return metric[field] ?? fallback ?? 0;
-  }
-
-  function changeProgressMode(book, mode) {
-    const key = String(book?.id || "");
-    setProgressModes((items) => ({ ...items, [key]: mode }));
-    setProgressComposerBookId(key);
-  }
-
-  function changeProgressMetric(book, field, value) {
-    const key = String(book?.id || "");
-    setProgressMetrics((items) => ({
-      ...items,
-      [key]: { ...(items[key] || {}), [field]: Math.max(0, Number(value) || 0) },
-    }));
-    setProgressComposerBookId(key);
   }
 
   function changeBookProgress(book, value) {
@@ -527,8 +489,6 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
       delete next[key];
       return next;
     });
-    setProgressModes((items) => { const next = { ...items }; delete next[key]; return next; });
-    setProgressMetrics((items) => { const next = { ...items }; delete next[key]; return next; });
     setProgressNotes((items) => ({ ...items, [key]: "" }));
     setProgressSpoilers((items) => ({ ...items, [key]: false }));
     setProgressComposerBookId(null);
@@ -540,9 +500,6 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
 
     const cleanProgress = clampPercent(value);
     const previousProgress = clampPercent(book?.progress);
-    const mode = progressModeFor(book);
-    const total = Number(progressMetricFor(book, "total")) || 0;
-    const metricValue = Number(progressMetricFor(book, mode === "minutes" ? "read" : "current")) || 0;
 
     setMessage(null);
     setProgressDrafts((items) => ({ ...items, [key]: cleanProgress }));
@@ -552,11 +509,11 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
       const response = await saveCatalogUserBookProgress({
         book_id: key,
         progress: cleanProgress,
-        progress_mode: mode,
-        total_minutes: mode === "minutes" ? total : book?.total_minutes || 0,
-        minutes_read: mode === "minutes" ? metricValue : book?.minutes_read || 0,
-        total_chapters: mode === "chapters" ? total : book?.total_chapters || 0,
-        current_chapter: mode === "chapters" ? metricValue : book?.current_chapter || 0,
+        progress_mode: "percentage",
+        total_minutes: book?.total_minutes || 0,
+        minutes_read: book?.minutes_read || 0,
+        total_chapters: book?.total_chapters || 0,
+        current_chapter: book?.current_chapter || 0,
       });
       const saved = response.item;
 
@@ -615,8 +572,6 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
         delete next[key];
         return next;
       });
-      setProgressModes((items) => { const next = { ...items }; delete next[key]; return next; });
-      setProgressMetrics((items) => { const next = { ...items }; delete next[key]; return next; });
       setProgressNotes((items) => ({ ...items, [key]: "" }));
       setProgressSpoilers((items) => ({ ...items, [key]: false }));
       setProgressComposerBookId(null);
@@ -799,7 +754,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
                             step="1"
                             value={meta.progress}
                             aria-label={`Progreso de lectura de ${book.title}`}
-                            disabled={isSavingBookProgress || progressModeFor(book) !== "percentage"}
+                            disabled={isSavingBookProgress}
                             onChange={(event) => changeBookProgress(book, event.target.value)}
                             onPointerUp={(event) => requestProgressSave(book, event.currentTarget.value)}
                             onKeyUp={(event) => {
@@ -809,45 +764,6 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
                             }}
                           />
                         </div>
-
-                        <div className="home-progress-mode" role="group" aria-label="Modo de progreso">
-                          {[
-                            ["percentage", "%"],
-                            ["minutes", "Minutos"],
-                            ["chapters", "Capítulos"],
-                          ].map(([mode, label]) => (
-                            <button
-                              key={mode}
-                              type="button"
-                              className={progressModeFor(book) === mode ? "is-active" : ""}
-                              onClick={() => changeProgressMode(book, mode)}
-                            >
-                              {label}
-                            </button>
-                          ))}
-                        </div>
-
-                        {progressModeFor(book) === "minutes" && (
-                          <div className="home-progress-metric-fields">
-                            <label>Minutos leídos
-                              <input type="number" min="0" value={progressMetricFor(book, "read")} onChange={(event) => changeProgressMetric(book, "read", event.target.value)} />
-                            </label>
-                            <label>Minutos totales
-                              <input type="number" min="1" value={progressMetricFor(book, "total")} onChange={(event) => changeProgressMetric(book, "total", event.target.value)} />
-                            </label>
-                          </div>
-                        )}
-
-                        {progressModeFor(book) === "chapters" && (
-                          <div className="home-progress-metric-fields">
-                            <label>Capítulo actual
-                              <input type="number" min="0" value={progressMetricFor(book, "current")} onChange={(event) => changeProgressMetric(book, "current", event.target.value)} />
-                            </label>
-                            <label>Total de capítulos
-                              <input type="number" min="1" value={progressMetricFor(book, "total")} onChange={(event) => changeProgressMetric(book, "total", event.target.value)} />
-                            </label>
-                          </div>
-                        )}
 
                         <div className="home-reading-meta">
                           <span>
