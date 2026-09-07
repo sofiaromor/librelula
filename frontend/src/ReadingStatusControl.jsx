@@ -176,6 +176,20 @@ export default function ReadingStatusControl({
               {currentStatus === option.value && <b aria-hidden="true">✓</b>}
             </button>
           ))}
+          {currentStatus && (
+            <button
+              type="button"
+              role="menuitem"
+              className="catalog-status-remove"
+              onClick={() => {
+                setOpen(false);
+                onSelect("remove");
+              }}
+            >
+              <span aria-hidden="true">×</span>
+              <span><strong>Quitar de mi biblioteca</strong><small>Deshacer este estado</small></span>
+            </button>
+          )}
         </div>,
         document.body,
       )
