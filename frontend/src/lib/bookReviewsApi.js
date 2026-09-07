@@ -5,30 +5,30 @@ const DEFAULT_ATMOSPHERE = Object.fromEntries(ATMOSPHERE_KEYS.map((key) => [key,
 
 const VIBES = {
   addictive: ["Adictivo", "No puedes dejarlo", "rhythm"],
-  agile: ["ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Âgil", "Se lee con facilidad", "rhythm"],
+  agile: ["Ágil", "Se lee con facilidad", "rhythm"],
   slow_burn: ["Pausado", "Se disfruta sin prisas", "rhythm"],
   unpredictable: ["Impredecible", "Sorprende continuamente", "rhythm"],
-  dense: ["Denso", "Pide atenciÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n y tiempo", "rhythm"],
-  cozy: ["Acogedor", "Como una manta cÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡lida", "emotion"],
+  dense: ["Denso", "Pide atención y tiempo", "rhythm"],
+  cozy: ["Acogedor", "Como una manta cálida", "emotion"],
   emotional: ["Emotivo", "Deja huella", "emotion"],
   devastating: ["Devastador", "Rompe por dentro", "emotion"],
-  funny: ["Divertido", "Te hace sonreÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­r", "emotion"],
-  nostalgic: ["NostÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡lgico", "Deja una dulce melancolÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­a", "emotion"],
+  funny: ["Divertido", "Te hace sonreír", "emotion"],
+  nostalgic: ["Nostálgico", "Deja una dulce melancolía", "emotion"],
   hopeful: ["Esperanzador", "Terminas con luz", "emotion"],
   immersive: ["Inmersivo", "Te lleva a otro mundo", "setting"],
-  dark: ["Oscuro", "Tiene un tono sombrÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­o", "setting"],
+  dark: ["Oscuro", "Tiene un tono sombrío", "setting"],
   unsettling: ["Inquietante", "Produce desasosiego", "setting"],
-  dreamlike: ["OnÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­rico", "Parece un sueÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±o", "setting"],
+  dreamlike: ["Onírico", "Parece un sueño", "setting"],
   nocturnal: ["Nocturno", "Ideal para leer de noche", "setting"],
   luminous: ["Luminoso", "Transmite ligereza", "setting"],
-  romantic: ["RomÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ntico", "El amor es importante", "relationships"],
-  tender: ["Tierno", "VÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­nculos dulces y cuidados", "relationships"],
-  romantic_tension: ["TensiÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n romÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ntica", "Miradas, espera y deseo", "relationships"],
-  spicy: ["Picante", "QuÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­mica intensa o explÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â­cita", "relationships"],
+  romantic: ["Romántico", "El amor es importante", "relationships"],
+  tender: ["Tierno", "Vínculos dulces y cuidados", "relationships"],
+  romantic_tension: ["Tensión romántica", "Miradas, espera y deseo", "relationships"],
+  spicy: ["Picante", "Química intensa o explícita", "relationships"],
   heartbreaking: ["Desgarrador", "Relaciones que duelen", "relationships"],
   reflective: ["Reflexivo", "Invita a pensar", "impact"],
   inspiring: ["Inspirador", "Despierta ganas de actuar", "impact"],
-  philosophical: ["FilosÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³fico", "Plantea grandes preguntas", "impact"],
+  philosophical: ["Filosófico", "Plantea grandes preguntas", "impact"],
   disturbing: ["Perturbador", "Sigue rondando la cabeza", "impact"],
   revealing: ["Revelador", "Cambia alguna perspectiva", "impact"],
 };
@@ -129,7 +129,7 @@ async function getCurrentLegacyUserId() {
 
 function requireLegacyUserId(legacyUserId) {
   if (!legacyUserId) {
-    throw apiError("Necesitas iniciar sesiÃƒÂ³n para guardar tu opiniÃƒÂ³n.", 401);
+    throw apiError("Necesitas iniciar sesión para guardar tu opinión.", 401);
   }
 
   return legacyUserId;
@@ -141,7 +141,7 @@ function normalizeScore(value) {
   const score = Number(value);
 
   if (!Number.isInteger(score) || score < 1 || score > 5) {
-    throw apiError("La puntuaciÃƒÂ³n debe estar entre 1 y 5.", 400);
+    throw apiError("La puntuación debe estar entre 1 y 5.", 400);
   }
 
   return score;
@@ -196,7 +196,7 @@ export async function getBookReviews({ bookId }) {
     .eq("book_id", cleanId);
 
   if (userBooksError) {
-    throw apiError("No se pudieron cargar las reseÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±as del libro.");
+    throw apiError("No se pudieron cargar las reseñas del libro.");
   }
 
   const { data: vibes, error: vibesError } = await supabase
@@ -214,7 +214,7 @@ export async function getBookReviews({ bookId }) {
     .eq("book_id", cleanId);
 
   if (atmosphereError) {
-    throw apiError("No se pudo cargar la atmÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³sfera del libro.");
+    throw apiError("No se pudo cargar la atmósfera del libro.");
   }
 
   const rows = userBooks || [];
@@ -236,7 +236,7 @@ export async function getBookReviews({ bookId }) {
       .in("legacy_id", userIds);
 
     if (usersError) {
-      throw apiError("No se pudieron cargar los usuarios de las reseÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±as.");
+      throw apiError("No se pudieron cargar los usuarios de las reseñas.");
     }
 
     usersById = new Map((users || []).map((user) => [String(user.legacy_id), user]));
@@ -350,11 +350,11 @@ export async function getBookReviews({ bookId }) {
       })),
       atmosphere: [
         { key: "pace", label: "Ritmo", left: "Contemplativo", right: "Vertiginoso" },
-        { key: "tension", label: "TensiÃƒÆ’Ã‚Â³n", left: "Sereno", right: "Intenso" },
-        { key: "darkness", label: "Oscuridad", left: "Luminoso", right: "SombrÃƒÆ’Ã‚Â­o" },
-        { key: "warmth", label: "Calidez", left: "FrÃƒÆ’Ã‚Â­o", right: "Acogedor" },
-        { key: "emotion", label: "EmociÃƒÆ’Ã‚Â³n", left: "Contenido", right: "Desbordante" },
-        { key: "immersion", label: "InmersiÃƒÆ’Ã‚Â³n", left: "Distante", right: "Envolvente" },
+        { key: "tension", label: "Tensión", left: "Sereno", right: "Intenso" },
+        { key: "darkness", label: "Oscuridad", left: "Luminoso", right: "Sombrío" },
+        { key: "warmth", label: "Calidez", left: "Frío", right: "Acogedor" },
+        { key: "emotion", label: "Emoción", left: "Contenido", right: "Desbordante" },
+        { key: "immersion", label: "Inmersión", left: "Distante", right: "Envolvente" },
       ],
     },
   };
