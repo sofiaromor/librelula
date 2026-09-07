@@ -10,6 +10,7 @@ import {
   updateFeaturedCollection,
 } from "./lib/profileApi.js";
 import { getProfileConnections } from "./lib/friendsApi.js";
+import ReaderCollections from "./ReaderCollections.jsx";
 import "./PerfilSupabase.css";
 
 const PROFILE_TABS = [
@@ -356,6 +357,12 @@ function SummaryView({ data, onSelectBook, onTabChange, onCollectionChange }) {
     <section className="profile-dashboard" id="profile-panel-summary" role="tabpanel">
       <div className="profile-dashboard-main">
         <FeaturedCollection data={data} onSelectBook={onSelectBook} onCollectionChange={onCollectionChange} />
+        <ReaderCollections
+          isLoggedIn={data.authenticated}
+          creatorId={data.isOwner ? null : data.profile?.id}
+          availableBooks={data.shelfBooks}
+          onSelectBook={onSelectBook}
+        />
         <article className="profile-panel profile-shelf-panel">
           <SectionHeading
             icon="▥"
