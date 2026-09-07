@@ -3,7 +3,9 @@ import { publicUrl } from "./api.js";
 import MisResenas from "./MisResenas.jsx";
 import {
   getProfileOverview,
+  uploadProfileAvatar,
   uploadProfileCover,
+  updateProfileAvatar,
   updateFeaturedCollection,
 } from "./lib/profileApi.js";
 import { getProfileConnections } from "./lib/friendsApi.js";
@@ -31,6 +33,11 @@ const FEATURED_COLLECTIONS = [
   { id: "reading", label: "Lo que estoy leyendo" },
   { id: "planned", label: "Mi lista de pendientes" },
 ];
+
+const PROFILE_AVATARS = [1, 2, 3, 4, 5, 6].map((number) => ({
+  value: `images/avatar/avatar${number}.png`,
+  label: `Icono ${number}`,
+}));
 
 function clampProgress(value) {
   return Math.min(100, Math.max(0, Number(value) || 0));
@@ -586,8 +593,10 @@ export default function PerfilSupabase({
   onSelectProfile,
 }) {
   const fileInputRef = useRef(null);
+  const avatarInputRef = useRef(null);
   const [state, setState] = useState({ loading: true, error: "", data: null });
   const [coverState, setCoverState] = useState({ saving: false, error: "" });
+  const [avatarState, setAvatarState] = useState({ open: false, saving: false, error: "" });
   const [shelfFilter, setShelfFilter] = useState("all");
   const [connections, setConnections] = useState({ open: false, direction: "followers", loading: false, error: "", items: [] });
 
@@ -653,6 +662,38 @@ export default function PerfilSupabase({
         saving: false,
         error: error?.message || "No se pudo cambiar la portada.",
       });
+    }
+  }
+
+  async function handleAvatarSelected(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    setAvatarState({ open: false, saving: true, error: "" });
+    try {
+      const avatar = await uploadProfileAvatar(file);
+      setState((current) => current.data ? {
+        ...current,
+        data: { ...current.data, profile: { ...current.data.profile, avatar } },
+      } : current);
+      setAvatarState({ open: false, saving: false, error: "" });
+    } catch (error) {
+      setAvatarState({ open: true, saving: false, error: error?.message || "No se pudo cambiar el icono." });
+    }
+  }
+
+  async function handleAvatarPreset(value) {
+    setAvatarState({ open: false, saving: true, error: "" });
+    try {
+      const avatar = await updateProfileAvatar(value);
+      setState((current) => current.data ? {
+        ...current,
+        data: { ...current.data, profile: { ...current.data.profile, avatar } },
+      } : current);
+      setAvatarState({ open: false, saving: false, error: "" });
+    } catch (error) {
+      setAvatarState({ open: true, saving: false, error: error?.message || "No se pudo cambiar el icono." });
     }
   }
 
@@ -769,7 +810,15 @@ export default function PerfilSupabase({
             </>
           ) : null}
           <div className="profile-identity">
-            <div className="profile-avatar-frame">
+            <div className="profile-avatar-wrap">
+              <button
+                type="button"
+                className="profile-avatar-frame"
+                aria-label="Cambiar icono del perfil"
+                aria-expanded={avatarState.open}
+                onClick={() => data.isOwner && setAvatarState((current) => ({ ...current, open: !current.open, error: "" }))}
+                disabled={!data.isOwner || avatarState.saving}
+              >
               <img
                 src={avatarUrl}
                 alt={`Avatar de ${displayName}`}
@@ -777,6 +826,25 @@ export default function PerfilSupabase({
                   event.currentTarget.src = publicUrl("images/avatar/avatar1.png");
                 }}
               />
+                {data.isOwner ? <span className="profile-avatar-edit" aria-hidden="true">✦</span> : null}
+              </button>
+              {data.isOwner && avatarState.open ? (
+                <div className="profile-avatar-menu" role="dialog" aria-label="Cambiar icono del perfil">
+                  <strong>Elige tu icono</strong>
+                  <div className="profile-avatar-options">
+                    {PROFILE_AVATARS.map((option) => (
+                      <button type="button" key={option.value} onClick={() => handleAvatarPreset(option.value)} aria-label={option.label}>
+                        <img src={publicUrl(option.value)} alt="" />
+                      </button>
+                    ))}
+                  </div>
+                  <button type="button" className="profile-avatar-upload" onClick={() => avatarInputRef.current?.click()}>
+                    <span aria-hidden="true">↑</span> Subir una imagen
+                  </button>
+                  {avatarState.error ? <small className="profile-avatar-error" role="alert">{avatarState.error}</small> : null}
+                </div>
+              ) : null}
+              <input ref={avatarInputRef} type="file" accept="image/jpeg,image/png,image/webp" hidden onChange={handleAvatarSelected} />
             </div>
             <div className="profile-identity-copy">
               <h1>{displayName}</h1>
