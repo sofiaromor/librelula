@@ -1,5 +1,5 @@
 import * as fullProfile from "./profileApiImpl.js";
-import { getHomeReadingProfileOverview } from "./homeDashboardFastApi.js";
+import { getHomeReadingProfileOverview, invalidateHomeDataCaches } from "./homeDashboardFastApi.js";
 
 const HOME_READING_SNAPSHOT_KEY = "librelula:home-reading:v1";
 const HOME_READING_SNAPSHOT_MAX_AGE = 2 * 60_000;
@@ -43,6 +43,7 @@ function storeSnapshot(data) {
 }
 
 export function invalidateHomeReadingSnapshot() {
+  invalidateHomeDataCaches();
   homeReadingSnapshot = null;
   if (typeof window === "undefined") return;
   try {
