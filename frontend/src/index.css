@@ -3834,6 +3834,39 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Pulido transversal: superficies ligeras, controles coherentes y mejor lectura. */
+.site-header {
+  border-bottom: 1px solid rgba(92, 72, 54, .1);
+  background: rgba(255, 252, 247, .9);
+  box-shadow: 0 8px 24px rgba(61, 43, 31, .04);
+  backdrop-filter: blur(14px);
+}
+
+:where(.catalog-content, .inicio-editorial-shell, .library-v2-page, .friends-page, .json-import-page, .clubs-page, .reader-profile) h1,
+:where(.catalog-content, .inicio-editorial-shell, .library-v2-page, .friends-page, .json-import-page, .clubs-page, .reader-profile) h2 {
+  text-wrap: balance;
+}
+
+:where(.catalog-content, .inicio-editorial-shell, .library-v2-page, .friends-page, .json-import-page, .clubs-page, .reader-profile) p {
+  text-wrap: pretty;
+}
+
+:where(.catalog-content, .inicio-editorial-shell, .library-v2-page, .friends-page, .json-import-page, .clubs-page, .reader-profile) input,
+:where(.catalog-content, .inicio-editorial-shell, .library-v2-page, .friends-page, .json-import-page, .clubs-page, .reader-profile) select,
+:where(.catalog-content, .inicio-editorial-shell, .library-v2-page, .friends-page, .json-import-page, .clubs-page, .reader-profile) textarea {
+  accent-color: #52785a;
+}
+
+:where(.catalog-content, .inicio-editorial-shell, .library-v2-page, .friends-page, .json-import-page, .clubs-page, .reader-profile) button:not(:disabled),
+:where(.catalog-content, .inicio-editorial-shell, .library-v2-page, .friends-page, .json-import-page, .clubs-page, .reader-profile) a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 640px) {
+  .site-header { position: sticky; top: 0; z-index: 100; }
+  :where(.friends-page, .json-import-page, .clubs-page, .reader-profile) { padding-inline: 12px; }
+}
+
 :where(button, a, input, textarea, select):focus-visible {
   outline: 3px solid rgba(73, 117, 82, .7);
   outline-offset: 3px;
