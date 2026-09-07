@@ -7,6 +7,7 @@ import {
   titleSimilarity,
   workIdentityKey,
 } from "./bookIdentity.js";
+import { extractHeroColor, FALLBACK_HERO_COLOR } from "../heroColor.js";
 
 const BOOK_SELECT = `
   id,
@@ -1087,9 +1088,15 @@ export async function importExternalCatalogBook(input: BookInput) {
 
   const sourceTitle = asText(getValue(input, "title"));
   const workTitle = deriveBaseTitle(sourceTitle, asText(getValue(input, "title_base")));
+  const importedHeroColor = textOrNull(getValue(input, "hero_color")) ||
+    textOrNull(getValue(input, "heroColor")) ||
+    (textOrNull(getValue(input, "cover"))
+      ? await extractHeroColor(textOrNull(getValue(input, "cover")))
+      : FALLBACK_HERO_COLOR);
   const workInput: Record<string, unknown> = {
     ...(hasFormData(input) ? {} : input),
     title: workTitle || sourceTitle,
+    hero_color: importedHeroColor || FALLBACK_HERO_COLOR,
   };
 
   const basePayload = buildBookPayload(workInput);
