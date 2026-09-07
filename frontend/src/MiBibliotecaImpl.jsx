@@ -4,6 +4,7 @@ import "./MiBibliotecaSpines.css";
 import "./MiBibliotecaV2.css";
 import SpineCropEditor from "./SpineCropEditor.jsx";
 import LibraryShelfShowcase from "./LibraryShelfShowcase.jsx";
+import ReaderCollections from "./ReaderCollections.jsx";
 import { shelfStarFills, formatShelfScore } from "./lib/libraryShelfSearch.js";
 import {
   getLibraryStatus,
@@ -688,6 +689,14 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
       ) : null}
 
       {message ? <p className={`library-message ${message.type === "error" ? "is-error" : "is-success"}`}>{message.text}</p> : null}
+
+      {!loading ? (
+        <ReaderCollections
+          isLoggedIn
+          availableBooks={library.items.map((item) => item.book).filter(Boolean)}
+          onSelectBook={onSelectBook}
+        />
+      ) : null}
 
       {loading ? (
         <section className="profile-empty library-empty">
