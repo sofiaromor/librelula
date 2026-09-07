@@ -51,6 +51,17 @@ export default function ReadingStatusControl({
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!readingSetupOpen) return undefined;
+
+    function closeSetupOnEscape(event) {
+      if (event.key === "Escape") setReadingSetupOpen(false);
+    }
+
+    document.addEventListener("keydown", closeSetupOnEscape);
+    return () => document.removeEventListener("keydown", closeSetupOnEscape);
+  }, [readingSetupOpen]);
+
   useLayoutEffect(() => {
     if (!open) return undefined;
 
