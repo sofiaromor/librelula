@@ -76,4 +76,6 @@ export async function prewarmHomeReadingProfile() {
 
 export const invalidateProfileOverview = fullProfile.invalidateProfileOverview;
 export const uploadProfileCover = fullProfile.uploadProfileCover;
+export const uploadProfileAvatar = fullProfile.uploadProfileAvatar;
+export const updateProfileAvatar = fullProfile.updateProfileAvatar;
 export const updateFeaturedCollection = fullProfile.updateFeaturedCollection;
