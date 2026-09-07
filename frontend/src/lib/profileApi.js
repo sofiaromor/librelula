@@ -79,3 +79,4 @@ export const uploadProfileCover = fullProfile.uploadProfileCover;
 export const uploadProfileAvatar = fullProfile.uploadProfileAvatar;
 export const updateProfileAvatar = fullProfile.updateProfileAvatar;
 export const updateFeaturedCollection = fullProfile.updateFeaturedCollection;
+export const updateFeaturedBooks = fullProfile.updateFeaturedBooks;
