@@ -799,7 +799,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
                             step="1"
                             value={meta.progress}
                             aria-label={`Progreso de lectura de ${book.title}`}
-                            disabled={isSavingBookProgress}
+                            disabled={isSavingBookProgress || progressModeFor(book) !== "percentage"}
                             onChange={(event) => changeBookProgress(book, event.target.value)}
                             onPointerUp={(event) => requestProgressSave(book, event.currentTarget.value)}
                             onKeyUp={(event) => {
