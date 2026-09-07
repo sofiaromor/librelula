@@ -534,12 +534,13 @@ useEffect(() => {
             type="button"
             aria-expanded={navOpen}
             aria-controls="site-nav-panel"
+            aria-label={navOpen ? "Cerrar menú" : "Abrir menú"}
             onClick={() => setNavOpen((open) => !open)}
           >
             <span />
             <span />
             <span />
-            <span className="sr-only">Abrir menú</span>
+            <span className="sr-only">{navOpen ? "Cerrar menú" : "Abrir menú"}</span>
           </button>
 
           <div
