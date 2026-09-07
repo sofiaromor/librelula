@@ -255,6 +255,16 @@ async function getFavoriteBookRows(legacyUserId) {
   return error ? [] : data || [];
 }
 
+async function getFeaturedBookRows(profileId) {
+  const { data, error } = await supabase
+    .from("profile_featured_books")
+    .select("book_id, sort_order")
+    .eq("profile_id", profileId)
+    .order("sort_order", { ascending: true });
+
+  return error ? [] : data || [];
+}
+
 async function getFavoriteAuthors(legacyUserId) {
   const { data, error } = await supabase
     .from("profile_favorite_authors")
@@ -486,8 +496,15 @@ function pickFavoriteBooks(rows, booksById) {
     .slice(0, 9);
 }
 
-function pickFeaturedBooks(profile, shelfBooks, favoriteBooks) {
+function pickFeaturedBooks(profile, shelfBooks, favoriteBooks, featuredRows = []) {
   const collection = asText(profile?.featured_collection) || "favorites";
+  if (collection === "custom") {
+    const booksById = buildBookMap(shelfBooks);
+    return featuredRows
+      .map((row) => booksById.get(String(row.book_id)))
+      .filter(Boolean)
+      .slice(0, 6);
+  }
   if (collection === "favorites") return favoriteBooks.slice(0, 6);
   if (collection === "reading") {
     return shelfBooks.filter((book) => ["reading", "rereading", "paused"].includes(book.status)).slice(0, 6);
@@ -525,14 +542,16 @@ async function buildProfileOverview(viewer, profile) {
   const legacyUserId = profile.legacy_id;
   const userBooksPromise = getUserBooks(legacyUserId);
   const favoriteRowsPromise = getFavoriteBookRows(legacyUserId);
+  const featuredRowsPromise = getFeaturedBookRows(profile.id);
   const favoriteAuthorsPromise = getFavoriteAuthors(legacyUserId);
 
-  const [social, readerCircle, clubAchievements, userBooks, favoriteRows, favoriteAuthors] = await Promise.all([
+  const [social, readerCircle, clubAchievements, userBooks, favoriteRows, featuredRows, favoriteAuthors] = await Promise.all([
     socialPromise,
     readerCirclePromise,
     clubAchievementsPromise,
     userBooksPromise,
     favoriteRowsPromise,
+    featuredRowsPromise,
     favoriteAuthorsPromise,
   ]);
 
@@ -540,6 +559,7 @@ async function buildProfileOverview(viewer, profile) {
   const books = await getBooksByIds([
     ...userBooks.map((row) => row.book_id),
     ...favoriteRows.map((row) => row.book_id),
+    ...featuredRows.map((row) => row.book_id),
   ]);
   const booksById = buildBookMap(books);
   const shelfBooks = mapShelfBooks(userBooks, booksById);
@@ -555,7 +575,7 @@ async function buildProfileOverview(viewer, profile) {
     latestAdditions: shelfBooks.slice(0, 6),
     favoriteBooks,
     featuredCollection: asText(profile.featured_collection) || "favorites",
-    featuredBooks: pickFeaturedBooks(profile, shelfBooks, favoriteBooks),
+    featuredBooks: pickFeaturedBooks(profile, shelfBooks, favoriteBooks, featuredRows),
     favoriteAuthors,
     currentReadingBooks: buildCurrentReadingBooks(shelfBooks),
     recentActivity: buildRecentActivity(shelfBooks),
@@ -732,7 +752,7 @@ export async function updateProfileAvatar(avatar) {
 }
 
 export async function updateFeaturedCollection(collection) {
-  const allowed = new Set(["favorites", "completed", "reading", "planned"]);
+  const allowed = new Set(["favorites", "completed", "reading", "planned", "custom"]);
   const value = allowed.has(collection) ? collection : "favorites";
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
@@ -746,4 +766,43 @@ export async function updateFeaturedCollection(collection) {
   if (error) throw apiError(error.message || "No se pudo guardar la colección destacada.");
   invalidateProfileOverview(user.id);
   return value;
+}
+
+export async function updateFeaturedBooks(bookIds) {
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) throw apiError("Inicia sesión para personalizar tu expositor.", 401);
+
+  const cleanIds = [...new Set((Array.isArray(bookIds) ? bookIds : []).map((id) => asText(id)).filter(Boolean))].slice(0, 6);
+  if (cleanIds.length) {
+    const { data: ownedRows, error: ownedError } = await supabase
+      .from("user_books")
+      .select("book_id")
+      .eq("legacy_user_id", (await getCurrentProfile())?.legacy_id || "")
+      .in("book_id", cleanIds);
+    if (ownedError) throw apiError("No se pudo comprobar tu biblioteca.");
+    const owned = new Set((ownedRows || []).map((row) => asText(row.book_id)));
+    if (cleanIds.some((id) => !owned.has(id))) throw apiError("Solo puedes destacar libros de tu biblioteca.", 400);
+  }
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ featured_collection: "custom" })
+    .eq("id", user.id);
+  if (profileError) throw apiError(profileError.message || "No se pudo guardar el expositor.");
+
+  const { error: deleteError } = await supabase
+    .from("profile_featured_books")
+    .delete()
+    .eq("profile_id", user.id);
+  if (deleteError) throw apiError(deleteError.message || "No se pudo actualizar el expositor.");
+
+  if (cleanIds.length) {
+    const { error: insertError } = await supabase
+      .from("profile_featured_books")
+      .insert(cleanIds.map((book_id, sort_order) => ({ profile_id: user.id, book_id, sort_order })));
+    if (insertError) throw apiError(insertError.message || "No se pudieron guardar los libros destacados.");
+  }
+
+  invalidateProfileOverview(user.id);
+  return cleanIds;
 }
