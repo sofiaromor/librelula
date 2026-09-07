@@ -18,6 +18,8 @@ export default function ReadingStatusControl({
   className = "",
 }) {
   const [open, setOpen] = useState(false);
+  const [readingSetupOpen, setReadingSetupOpen] = useState(false);
+  const [readingSetup, setReadingSetup] = useState({ mode: "percentage", totalMinutes: "", totalChapters: "" });
   const [menuPosition, setMenuPosition] = useState(null);
   const controlRef = useRef(null);
   const triggerRef = useRef(null);
@@ -102,6 +104,15 @@ export default function ReadingStatusControl({
     event.stopPropagation();
   }
 
+  function selectStatus(value) {
+    if (value === "reading") {
+      setReadingSetup({ mode: "percentage", totalMinutes: "", totalChapters: "" });
+      setReadingSetupOpen(true);
+      return;
+    }
+    onSelect(value);
+  }
+
   if (!isLoggedIn) {
     return (
       <a
@@ -141,10 +152,10 @@ export default function ReadingStatusControl({
               aria-checked={currentStatus === option.value}
               className={currentStatus === option.value ? "is-current" : ""}
               key={option.value}
-              onClick={() => {
-                setOpen(false);
-                onSelect(option.value);
-              }}
+                onClick={() => {
+                  setOpen(false);
+                  selectStatus(option.value);
+                }}
             >
               <span className={`catalog-status-dot status-${option.value}`} aria-hidden="true" />
               <span>
@@ -183,6 +194,43 @@ export default function ReadingStatusControl({
         </button>
       </div>
       {menu}
+      {readingSetupOpen && typeof document !== "undefined" && createPortal(
+        <div className="reading-setup-backdrop" role="presentation" onClick={() => setReadingSetupOpen(false)}>
+          <section className="reading-setup-modal" role="dialog" aria-modal="true" aria-labelledby="reading-setup-title" onClick={stopCardAction}>
+            <button type="button" className="reading-setup-close" aria-label="Cerrar" onClick={() => setReadingSetupOpen(false)}>×</button>
+            <span className="reading-setup-kicker">Tu lectura, a tu manera</span>
+            <h2 id="reading-setup-title">¿Cómo quieres medir este libro?</h2>
+            <p>El avance se verá siempre como porcentaje en Inicio. Solo elegimos qué referencia usar para calcularlo.</p>
+            <div className="reading-setup-options" role="radiogroup" aria-label="Modo de lectura">
+              {[
+                ["percentage", "Porcentaje", "Lo iré actualizando directamente"],
+                ["minutes", "Minutos", "Sé cuánto dura mi lectura"],
+                ["chapters", "Capítulos", "Prefiero avanzar por capítulos"],
+              ].map(([mode, label, description]) => (
+                <button type="button" key={mode} className={readingSetup.mode === mode ? "is-selected" : ""} role="radio" aria-checked={readingSetup.mode === mode} onClick={() => setReadingSetup((current) => ({ ...current, mode }))}>
+                  <span className="reading-setup-radio" aria-hidden="true" />
+                  <span><strong>{label}</strong><small>{description}</small></span>
+                </button>
+              ))}
+            </div>
+            {readingSetup.mode === "minutes" && (
+              <label className="reading-setup-field">¿Cuántos minutos dura en total?
+                <input type="number" min="1" autoFocus value={readingSetup.totalMinutes} onChange={(event) => setReadingSetup((current) => ({ ...current, totalMinutes: event.target.value }))} placeholder="Ej. 720" />
+              </label>
+            )}
+            {readingSetup.mode === "chapters" && (
+              <label className="reading-setup-field">¿Cuántos capítulos tiene?
+                <input type="number" min="1" autoFocus value={readingSetup.totalChapters} onChange={(event) => setReadingSetup((current) => ({ ...current, totalChapters: event.target.value }))} placeholder="Ej. 30" />
+              </label>
+            )}
+            <footer className="reading-setup-actions">
+              <button type="button" className="is-secondary" onClick={() => { setReadingSetupOpen(false); onSelect("reading", { mode: "percentage" }); }}>Ahora no</button>
+              <button type="button" onClick={() => { setReadingSetupOpen(false); onSelect("reading", readingSetup); }}>Empezar a leer</button>
+            </footer>
+          </section>
+        </div>,
+        document.body,
+      )}
     </>
   );
 }
