@@ -334,6 +334,7 @@ def transformar(registro: dict, posicion: int) -> dict:
         "saga_name": saga_name,
         "saga_number": saga_number,
         "cover": cover,
+        "hero_color": texto(registro.get("hero_color")),
         "provider": "casa_del_libro",
         "source_id": texto(registro.get("source_id")) or normalized_isbn or source_url,
         "source_url": source_url,
@@ -401,3 +402,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
