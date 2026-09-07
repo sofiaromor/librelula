@@ -3821,6 +3821,19 @@ button {
 
 .reading-setup-actions button.is-secondary { background: transparent; color: #6b796e; }
 
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed;
+  opacity: .62;
+}
+
+html {
+  overflow-x: hidden;
+  scroll-behavior: smooth;
+}
+
 :where(button, a, input, textarea, select):focus-visible {
   outline: 3px solid rgba(73, 117, 82, .7);
   outline-offset: 3px;
