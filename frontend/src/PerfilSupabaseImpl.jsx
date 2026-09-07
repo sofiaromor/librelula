@@ -4,7 +4,9 @@ import MisResenas from "./MisResenas.jsx";
 import {
   getProfileOverview,
   uploadProfileCover,
+  updateFeaturedCollection,
 } from "./lib/profileApi.js";
+import { getProfileConnections } from "./lib/friendsApi.js";
 import "./PerfilSupabase.css";
 
 const PROFILE_TABS = [
@@ -21,6 +23,13 @@ const SHELF_FILTERS = [
   { id: "reading", label: "Leyendo" },
   { id: "planned", label: "Pendientes" },
   { id: "dropped", label: "Abandonados" },
+];
+
+const FEATURED_COLLECTIONS = [
+  { id: "favorites", label: "Mis favoritos" },
+  { id: "completed", label: "Libros leídos" },
+  { id: "reading", label: "Lo que estoy leyendo" },
+  { id: "planned", label: "Mi lista de pendientes" },
 ];
 
 function clampProgress(value) {
@@ -200,6 +209,43 @@ function ReviewPreview({ review, onSelectBook }) {
   );
 }
 
+function FeaturedCollection({ data, onSelectBook, onCollectionChange }) {
+  const label = FEATURED_COLLECTIONS.find((item) => item.id === data.featuredCollection)?.label
+    || "Mi colección";
+
+  return (
+    <article className="profile-panel profile-featured-panel">
+      <div className="profile-featured-heading">
+        <div>
+          <span className="profile-eyebrow">Una ventana a tus lecturas</span>
+          <h2>{data.isOwner ? "La colección que quiero enseñar" : label}</h2>
+          <p>{data.isOwner ? "Elige qué parte de tu biblioteca verá primero quien visite tu perfil." : "Una selección de esta biblioteca personal."}</p>
+        </div>
+        {data.isOwner ? (
+          <label className="profile-featured-select">
+            <span className="sr-only">Colección que quieres destacar</span>
+            <select value={data.featuredCollection} onChange={(event) => onCollectionChange?.(event.target.value)}>
+              {FEATURED_COLLECTIONS.map((collection) => <option key={collection.id} value={collection.id}>{collection.label}</option>)}
+            </select>
+          </label>
+        ) : null}
+      </div>
+      {data.featuredBooks?.length ? (
+        <div className="profile-featured-books">
+          {data.featuredBooks.map((book) => (
+            <button type="button" key={book.id} className="profile-featured-book" onClick={() => onSelectBook?.(book)} title={book.title}>
+              <CoverImage book={book} />
+              <span>{book.title}</span>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <EmptyBlock>{data.isOwner ? "Añade libros a esta sección para que tu perfil tenga una pequeña carta de presentación." : "Esta persona todavía no ha elegido una colección destacada."}</EmptyBlock>
+      )}
+    </article>
+  );
+}
+
 function CircleReader({ reader, onSelectBook }) {
   const fallback = publicUrl("images/avatar/avatar1.png");
   return (
@@ -239,12 +285,13 @@ function CircleReader({ reader, onSelectBook }) {
   );
 }
 
-function SummaryView({ data, onSelectBook, onTabChange }) {
+function SummaryView({ data, onSelectBook, onTabChange, onCollectionChange }) {
   const recentDays = (data.activityDays || []).slice(-7);
 
   return (
     <section className="profile-dashboard" id="profile-panel-summary" role="tabpanel">
       <div className="profile-dashboard-main">
+        <FeaturedCollection data={data} onSelectBook={onSelectBook} onCollectionChange={onCollectionChange} />
         <article className="profile-panel profile-shelf-panel">
           <SectionHeading
             icon="▥"
@@ -536,11 +583,13 @@ export default function PerfilSupabase({
   profileId = null,
   onOpenOwnProfile,
   onBackToClub,
+  onSelectProfile,
 }) {
   const fileInputRef = useRef(null);
   const [state, setState] = useState({ loading: true, error: "", data: null });
   const [coverState, setCoverState] = useState({ saving: false, error: "" });
   const [shelfFilter, setShelfFilter] = useState("all");
+  const [connections, setConnections] = useState({ open: false, direction: "followers", loading: false, error: "", items: [] });
 
   async function loadProfile() {
     try {
@@ -604,6 +653,36 @@ export default function PerfilSupabase({
         saving: false,
         error: error?.message || "No se pudo cambiar la portada.",
       });
+    }
+  }
+
+  async function openConnections(direction) {
+    setConnections({ open: true, direction, loading: true, error: "", items: [] });
+    try {
+      const items = await getProfileConnections(profile?.id, direction);
+      setConnections({ open: true, direction, loading: false, error: "", items });
+    } catch (error) {
+      setConnections({ open: true, direction, loading: false, error: error?.message || "No se pudieron cargar estas personas.", items: [] });
+    }
+  }
+
+  async function handleCollectionChange(value) {
+    try {
+      await updateFeaturedCollection(value);
+      setState((current) => current.data ? {
+        ...current,
+        data: {
+          ...current.data,
+          featuredCollection: value,
+          featuredBooks: value === "favorites"
+            ? current.data.favoriteBooks.slice(0, 6)
+            : current.data.shelfBooks.filter((book) => value === "reading"
+              ? ["reading", "rereading", "paused"].includes(book.status)
+              : book.status === value).slice(0, 6),
+        },
+      } : current);
+    } catch (error) {
+      setCoverState({ saving: false, error: error?.message || "No se pudo guardar la colección destacada." });
     }
   }
 
@@ -704,8 +783,8 @@ export default function PerfilSupabase({
               <span>@{handle}</span>
               <p>{profile.bio || "Lecturas, favoritos y pequeñas huellas de mi biblioteca personal."}</p>
               <div className="profile-social-counts">
-                <button type="button"><strong>{formatNumber(data.social.followers)}</strong> seguidores</button>
-                <button type="button"><strong>{formatNumber(data.social.following)}</strong> siguiendo</button>
+                <button type="button" onClick={() => openConnections("followers")}><strong>{formatNumber(data.social.followers)}</strong> seguidores</button>
+                <button type="button" onClick={() => openConnections("following")}><strong>{formatNumber(data.social.following)}</strong> siguiendo</button>
               </div>
             </div>
             <div className="profile-owner-actions">
@@ -748,6 +827,7 @@ export default function PerfilSupabase({
             data={data}
             onSelectBook={onSelectBook}
             onTabChange={onTabChange}
+            onCollectionChange={handleCollectionChange}
           />
         ) : null}
         {currentTab === "shelf" ? (
@@ -789,6 +869,31 @@ export default function PerfilSupabase({
           </section>
         ) : null}
       </section>
+      {connections.open ? (
+        <div className="profile-connections-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setConnections((current) => ({ ...current, open: false })); }}>
+          <section className="profile-connections-modal" role="dialog" aria-modal="true" aria-labelledby="profile-connections-title">
+            <header>
+              <div>
+                <span className="profile-eyebrow">Comunidad Librélula</span>
+                <h2 id="profile-connections-title">{connections.direction === "followers" ? "Seguidores" : "Siguiendo"}</h2>
+              </div>
+              <button type="button" onClick={() => setConnections((current) => ({ ...current, open: false }))} aria-label="Cerrar">×</button>
+            </header>
+            {connections.loading ? <p className="profile-empty">Cargando personas…</p> : null}
+            {connections.error ? <p className="profile-inline-error">{connections.error}</p> : null}
+            {!connections.loading && !connections.error && connections.items.length === 0 ? <p className="profile-empty">Todavía no hay personas en esta lista.</p> : null}
+            <div className="profile-connections-list">
+              {connections.items.map((reader) => (
+                <button type="button" className="profile-connection" key={reader.id} onClick={() => { setConnections((current) => ({ ...current, open: false })); onSelectProfile?.(reader.id); }}>
+                  <img src={assetUrl(reader.avatar, "images/avatar/avatar1.png")} alt="" />
+                  <span><strong>{reader.display_name || reader.username || "Lectora"}</strong><small>@{reader.username || "lectora"}</small></span>
+                  <span aria-hidden="true">→</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        </div>
+      ) : null}
     </main>
   );
 }
