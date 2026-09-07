@@ -6,6 +6,7 @@ import { normalizeBookGenres } from "./bookGenres.js";
 import { parseTaxonomyItems } from "./bookTaxonomy.js";
 import ReadingStatusControl from "./ReadingStatusControl.jsx";
 import { getBookProgressThread } from "./lib/homeDashboardApi.js";
+import { saveCatalogUserBookProgress } from "./lib/catalogApi.js";
 import { READING_STATUS_BY_VALUE } from "./readingStatuses.js";
 import {
   FALLBACK_HERO_COLOR,
@@ -972,7 +973,7 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
     };
   }, [ratingPromptOpen, reviewData?.authenticated, reviewData?.my_review?.review]);
 
-  async function saveReadingStatus(status) {
+  async function saveReadingStatus(status, readingSetup = null) {
     if (!currentBook?.id || !isLoggedIn || readingStatusSaving) return;
 
     setReadingStatusSaving(true);
@@ -990,6 +991,16 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
       });
       const data = await readJsonResponse(response);
       setReadingStatusItem(data.item || null);
+
+      if (status === "reading" && readingSetup) {
+        await saveCatalogUserBookProgress({
+          book_id: String(currentBook.id),
+          progress: 0,
+          progress_mode: readingSetup.mode,
+          total_minutes: readingSetup.totalMinutes,
+          total_chapters: readingSetup.totalChapters,
+        });
+      }
 
       const label = READING_STATUS_BY_VALUE[status]?.label || "Guardado";
       setReadingStatusMessage(`Guardado como ${label.toLowerCase()}.`);
@@ -1495,7 +1506,7 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
               loading={readingStatusLoading}
               saving={readingStatusSaving}
               emptyLabel="+ Añadir a mi biblioteca"
-              onSelect={saveReadingStatus}
+              onSelect={(status, readingSetup) => saveReadingStatus(status, readingSetup)}
               className="book-detail-status-control"
             />
 
