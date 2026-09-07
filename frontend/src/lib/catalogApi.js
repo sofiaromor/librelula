@@ -670,6 +670,12 @@ export async function saveCatalogUserBookStatus({ book_id: bookId, status }) {
     throw apiError("Falta el libro.", 400);
   }
 
+  // Compatibilidad con el flujo anterior: "remove" no es un estado que se
+  // guarde en user_books, sino una orden para eliminar la relación del usuario.
+  if (cleanStatus === "remove") {
+    return removeCatalogUserBook({ book_id: cleanBookId });
+  }
+
   if (!VALID_READING_STATUSES.includes(cleanStatus)) {
     throw apiError("El estado seleccionado no es válido.", 400);
   }
