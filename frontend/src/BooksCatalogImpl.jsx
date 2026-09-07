@@ -1031,7 +1031,7 @@ export default function BooksCatalog({
               <div>
                 <span>Filtrar el catálogo</span>
                 <h2 id="catalog-genre-title">Géneros literarios</h2>
-                <p>Elige uno o varios. Las sensaciones, los temas y la estética no se mezclan aquí.</p>
+                <p>Elige uno o varios géneros.</p>
               </div>
               <button type="button" onClick={() => setGenrePickerOpen(false)} aria-label="Cerrar">×</button>
             </header>
@@ -1820,7 +1820,7 @@ export default function BooksCatalog({
               <span>Catálogo completo</span>
               <h2>Todos los libros</h2>
             </div>
-            <p>25 libros por página para que explorar siga siendo ligero incluso cuando Librélula tenga miles.</p>
+              <p>Explora el catálogo por páginas.</p>
           </div>
 
       {!loading && totalBooks > 0 && (
