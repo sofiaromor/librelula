@@ -827,6 +827,7 @@ useEffect(() => {
             profileId={profileUserId}
             onOpenOwnProfile={() => openProfile("summary")}
             onBackToClub={profileReturnClubId ? returnToClubFromProfile : null}
+            onSelectProfile={openUserProfile}
           />
         )}
 
