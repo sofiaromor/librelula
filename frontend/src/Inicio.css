@@ -3676,4 +3676,56 @@
     font-size: 0.9rem;
   }
 }
+.home-progress-mode {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
 
+.home-progress-mode button {
+  border: 1px solid rgba(70, 91, 74, .18);
+  border-radius: 999px;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, .62);
+  color: #536454;
+  font: inherit;
+  font-size: .75rem;
+  cursor: pointer;
+}
+
+.home-progress-mode button.is-active {
+  background: #405847;
+  border-color: #405847;
+  color: #fffdf7;
+}
+
+.home-progress-metric-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.home-progress-metric-fields label {
+  display: grid;
+  gap: 4px;
+  color: #667269;
+  font-size: .72rem;
+}
+
+.home-progress-metric-fields input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(70, 91, 74, .18);
+  border-radius: 10px;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, .72);
+  color: #28382d;
+  font: inherit;
+}
+
+@media (max-width: 640px) {
+  .home-progress-mode { overflow-x: auto; padding-bottom: 2px; }
+  .home-progress-mode button { flex: 0 0 auto; }
+  .home-progress-metric-fields { grid-template-columns: 1fr 1fr; }
+}
