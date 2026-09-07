@@ -4,6 +4,7 @@ import { apiFetch, readJsonResponse } from "./api.js";
 import { BOOK_GENRES, normalizeBookGenre } from "./bookGenres.js";
 import { inferTaxonomyFromSubjects } from "./bookTaxonomy.js";
 import { deriveBaseTitle } from "./lib/bookIdentity.js";
+import { extractHeroColor, FALLBACK_HERO_COLOR } from "./heroColor.js";
 
 const MAX_FILE_SIZE = 3 * 1024 * 1024;
 const IMPORTABLE_STATUSES = ["new_work", "new_edition"];
@@ -91,6 +92,7 @@ function normalizedItem(value, index) {
     sourceId,
     sourceUrl: cleanText(item.source_url || item.url),
     binding: cleanText(item.binding || item.encuadernacion || item.formato),
+    heroColor: cleanText(item.hero_color || item.heroColor),
     publicationDate: cleanText(
       item.publication_date || item.fecha_publicacion,
     ),
@@ -195,6 +197,7 @@ function importPayload(item) {
     source_id: item.sourceId || null,
     source_url: item.sourceUrl || null,
     publication_date: item.publicationDate || null,
+    hero_color: item.heroColor || null,
     matched_book_id: item.matchedBookId || null,
     ...inferredTaxonomy,
   };
@@ -467,10 +470,20 @@ export default function CatalogJsonImport({ onCancel }) {
       });
 
       try {
+        let heroColor = item.heroColor;
+        if (!heroColor && item.cover) {
+          heroColor = await extractHeroColor(item.cover);
+        }
+
         const response = await apiFetch("import_external_book.php", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(importPayload(item)),
+          body: JSON.stringify(
+            importPayload({
+              ...item,
+              heroColor: heroColor || FALLBACK_HERO_COLOR,
+            }),
+          ),
         });
         const data = await readJsonResponse(response);
         const resultType = data.result_type;
@@ -959,3 +972,4 @@ export default function CatalogJsonImport({ onCancel }) {
     </main>
   );
 }
+
