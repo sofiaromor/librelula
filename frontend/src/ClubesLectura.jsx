@@ -973,8 +973,8 @@ function ClubCalendar({ club, meetings, isAdmin, onReload }) {
 
       {formOpen && (
         <div className="clubs-modal-backdrop" onMouseDown={() => setFormOpen(false)}>
-          <form className="club-event-form" onSubmit={saveEvent} onMouseDown={(event) => event.stopPropagation()}>
-            <header><div><span className="clubs-kicker">Calendario</span><h2>{editing ? "Editar evento" : "Nueva cita"}</h2></div><button type="button" onClick={() => setFormOpen(false)}>×</button></header>
+          <form className="club-event-form" role="dialog" aria-modal="true" aria-labelledby="club-event-title" onSubmit={saveEvent} onMouseDown={(event) => event.stopPropagation()}>
+            <header><div><span className="clubs-kicker">Calendario</span><h2 id="club-event-title">{editing ? "Editar evento" : "Nueva cita"}</h2></div><button type="button" aria-label="Cerrar" onClick={() => setFormOpen(false)}>×</button></header>
             <label>Título<input value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required /></label>
             <div className="club-form-columns">
               <label>Empieza<input type="datetime-local" value={form.startsAt} onChange={(event) => setForm((current) => ({ ...current, startsAt: event.target.value }))} required /></label>
@@ -1123,10 +1123,10 @@ function ClubSettingsPanel({ club, chapters, membership, onReload, onClose, onEx
 
   return (
     <div className="clubs-modal-backdrop" onMouseDown={onClose}>
-      <form className="club-settings-panel club-settings-panel-v3" onSubmit={saveSettings} onMouseDown={(event) => event.stopPropagation()}>
+      <form className="club-settings-panel club-settings-panel-v3" role="dialog" aria-modal="true" aria-labelledby="club-settings-title" onSubmit={saveSettings} onMouseDown={(event) => event.stopPropagation()}>
         <header>
-          <div><span className="clubs-kicker">Gestión del club</span><h2>{isAdmin ? "Ajustes" : "Opciones"}</h2></div>
-          <button type="button" onClick={onClose}>×</button>
+          <div><span className="clubs-kicker">Gestión del club</span><h2 id="club-settings-title">{isAdmin ? "Ajustes" : "Opciones"}</h2></div>
+          <button type="button" aria-label="Cerrar" onClick={onClose}>×</button>
         </header>
         {isAdmin ? (
           <>
@@ -1430,11 +1430,11 @@ function FinishClubReadingPanel({ club, onClose, onFinished, mode = "finish" }) 
 
   return (
     <div className="clubs-modal-backdrop" onMouseDown={onClose}>
-      <section className="club-finish-reading-dialog" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <section className="club-finish-reading-dialog" role="dialog" aria-modal="true" aria-labelledby="club-finish-title" onMouseDown={(event) => event.stopPropagation()}>
         <header>
           <div>
             <span className="clubs-kicker">{isStartMode ? "Abrir una historia nueva" : "Cerrar una historia"}</span>
-            <h2>{isStartMode ? "Elegir la próxima lectura" : "Terminar la lectura del club"}</h2>
+            <h2 id="club-finish-title">{isStartMode ? "Elegir la próxima lectura" : "Terminar la lectura del club"}</h2>
           </div>
           <button type="button" className="clubs-icon-button" onClick={onClose} aria-label="Cerrar">×</button>
         </header>
@@ -1534,11 +1534,11 @@ function ClubShelfReadingDetail({ reading, onClose, onSelectBook }) {
 
   return (
     <div className="clubs-modal-backdrop" onMouseDown={onClose}>
-      <section className="club-shelf-reading-dialog" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
+        <section className="club-shelf-reading-dialog" role="dialog" aria-modal="true" aria-labelledby="club-shelf-reading-title" onMouseDown={(event) => event.stopPropagation()}>
         <header>
           <div>
             <span className="clubs-kicker">La memoria de esta lectura</span>
-            <h2>{reading.book.title}</h2>
+            <h2 id="club-shelf-reading-title">{reading.book.title}</h2>
             <p>{reading.book.author}</p>
           </div>
           <button type="button" className="clubs-icon-button" onClick={onClose} aria-label="Cerrar">×</button>
@@ -2444,8 +2444,8 @@ export default function ClubesLectura({
 
       {inviteClub && (
         <div className="clubs-modal-backdrop" onMouseDown={() => setInviteClub(null)}>
-          <section className="clubs-invite-dialog" onMouseDown={(event) => event.stopPropagation()}>
-            <span>▣</span><h2>Este club es privado</h2><p>Introduce el código que te ha enviado una persona del club.</p>
+          <section className="clubs-invite-dialog" role="dialog" aria-modal="true" aria-labelledby="private-club-title" onMouseDown={(event) => event.stopPropagation()}>
+            <span>▣</span><h2 id="private-club-title">Este club es privado</h2><p>Introduce el código que te ha enviado una persona del club.</p>
             <input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase())} placeholder="CÓDIGO DE INVITACIÓN" />
             <div><button type="button" onClick={() => setInviteClub(null)}>Cancelar</button><button type="button" className="clubs-primary-button" onClick={joinPrivate}>Entrar</button></div>
           </section>
@@ -2454,8 +2454,8 @@ export default function ClubesLectura({
 
       {codeDialogOpen && (
         <div className="clubs-modal-backdrop" onMouseDown={() => setCodeDialogOpen(false)}>
-          <section className="clubs-invite-dialog" onMouseDown={(event) => event.stopPropagation()}>
-            <span>✦</span><h2>Entrar con una invitación</h2><p>Pega el código del club privado que te han compartido.</p>
+          <section className="clubs-invite-dialog" role="dialog" aria-modal="true" aria-labelledby="invite-club-title" onMouseDown={(event) => event.stopPropagation()}>
+            <span>✦</span><h2 id="invite-club-title">Entrar con una invitación</h2><p>Pega el código del club privado que te han compartido.</p>
             <input value={inviteCode} onChange={(event) => setInviteCode(event.target.value.toUpperCase())} placeholder="CÓDIGO DE INVITACIÓN" />
             <div><button type="button" onClick={() => setCodeDialogOpen(false)}>Cancelar</button><button type="button" className="clubs-primary-button" onClick={joinByCode}>Entrar</button></div>
           </section>
