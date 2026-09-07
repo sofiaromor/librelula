@@ -3821,6 +3821,20 @@ button {
 
 .reading-setup-actions button.is-secondary { background: transparent; color: #6b796e; }
 
+:where(button, a, input, textarea, select):focus-visible {
+  outline: 3px solid rgba(73, 117, 82, .7);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+
 @media (max-width: 560px) {
   .reading-setup-modal { padding: 24px 18px 18px; border-radius: 22px; }
   .reading-setup-actions { flex-direction: column-reverse; }
