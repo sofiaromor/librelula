@@ -163,6 +163,15 @@
   object-fit: cover;
 }
 
+.external-book-cover.is-missing::after {
+  content: "Portada no disponible";
+  padding: 18px;
+  color: #81766a;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+}
+
 .external-book-info {
   min-width: 0;
   display: flex;
