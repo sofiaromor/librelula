@@ -246,7 +246,7 @@ export async function getHomeReadingProfileOverview() {
   const request = (async () => {
     const { data: rows, error } = await supabase
       .from("user_books")
-      .select("id, book_id, status, progress, started_at, finished_at, read_count, added_at")
+      .select("id, book_id, status, progress, progress_mode, total_minutes, minutes_read, total_chapters, current_chapter, started_at, finished_at, read_count, added_at")
       .eq("legacy_user_id", context.legacyId)
       .in("status", ["reading", "rereading"])
       .order("started_at", { ascending: false, nullsFirst: false })
@@ -265,6 +265,11 @@ export async function getHomeReadingProfileOverview() {
           user_book_id: row.id,
           status: row.status,
           progress: clampProgress(row.progress),
+          progress_mode: row.progress_mode || "percentage",
+          total_minutes: Math.max(0, asNumber(row.total_minutes)),
+          minutes_read: Math.max(0, asNumber(row.minutes_read)),
+          total_chapters: Math.max(0, asNumber(row.total_chapters)),
+          current_chapter: Math.max(0, asNumber(row.current_chapter)),
           started_at: row.started_at || null,
           finished_at: row.finished_at || null,
           read_count: asNumber(row.read_count, 1),
