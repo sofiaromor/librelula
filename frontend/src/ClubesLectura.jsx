@@ -2305,7 +2305,7 @@ export default function ClubesLectura({
   if (insideClub && clubData) {
     return (
       <main className="clubs-page clubs-page-inside">
-        {notice && <div className="clubs-notice">{notice}<button type="button" onClick={() => setNotice("")}>×</button></div>}
+        {notice && <div className="clubs-notice" role="status" aria-live="polite">{notice}<button type="button" aria-label="Cerrar aviso" onClick={() => setNotice("")}>×</button></div>}
         <ClubInside
           key={`${clubData.club?.id || "club"}:${clubData.club?.current_book_id || "book"}`}
           data={clubData}
@@ -2368,12 +2368,12 @@ export default function ClubesLectura({
 
   return (
     <main className="clubs-page">
-      {notice && <div className="clubs-notice">{notice}<button type="button" onClick={() => setNotice("")}>×</button></div>}
+      {notice && <div className="clubs-notice" role="status" aria-live="polite">{notice}<button type="button" aria-label="Cerrar aviso" onClick={() => setNotice("")}>×</button></div>}
       <header className="clubs-page-heading">
         <div>
           <span className="clubs-kicker">La comunidad de Librélula</span>
           <h1>Clubes de lectura</h1>
-          <p>Historias que se disfrutan mejor en compañía.</p>
+          <p>Lee y conversa en compañía.</p>
         </div>
         <div>
           <button type="button" className="clubs-primary-button" onClick={() => setCreateOpen(true)}>♙ Crear un club</button>
