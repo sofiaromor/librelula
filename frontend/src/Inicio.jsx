@@ -703,7 +703,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
               <div>
                 <p>Tu lectura ahora</p>
                 <h2>Continúa leyendo</h2>
-                <span>Tu listado se mantiene en vertical para que puedas ver todas tus lecturas activas.</span>
+                <span>Tus lecturas activas, siempre a mano.</span>
               </div>
               <button type="button" onClick={onLibrary}>Ver biblioteca</button>
             </div>
@@ -775,7 +775,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
                         </div>
 
                         <div className="home-reading-actions">
-                          <small>{progressComposerBookId === bookKey ? "Añade una nota o guarda directamente." : "Arrastra la barra para preparar tu avance."}</small>
+                          <small>{progressComposerBookId === bookKey ? "Añade una nota o guarda." : "Ajusta tu avance."}</small>
                           <button type="button" onClick={() => { if (onReviewBook) onReviewBook(book); else onReviews?.(); }}>Escribir reseña</button>
                         </div>
 
@@ -856,7 +856,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
                 <textarea
                   value={draft}
                   onChange={(event) => setDraft(event.target.value)}
-                  placeholder="¿Qué estás leyendo? Comparte una reflexión, una cita o cómo te está haciendo sentir…"
+                    placeholder="¿Qué estás leyendo?"
                   rows="3"
                   maxLength="1200"
                 />
