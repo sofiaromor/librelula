@@ -18,6 +18,7 @@ import {
   rejectBookProposal,
 } from "./lib/bookModerationApi.js";
 import { READING_STATUS_BY_VALUE } from "./readingStatuses.js";
+import { saveCatalogUserBookProgress } from "./lib/catalogApi.js";
 
 const CATALOG_PAGE_SIZE = 25;
 
@@ -846,7 +847,7 @@ export default function BooksCatalog({
     }
   }
 
-  async function saveExternalStatus(book, status) {
+  async function saveExternalStatus(book, status, readingSetup = null) {
     if (!isLoggedIn || importingKey || savingStatusBookId) return;
 
     const key = resultKey(book);
@@ -869,6 +870,16 @@ export default function BooksCatalog({
         }));
       }
 
+      if (status === "reading" && readingSetup) {
+        await saveCatalogUserBookProgress({
+          book_id: String(importedBook.id),
+          progress: 0,
+          progress_mode: readingSetup.mode,
+          total_minutes: readingSetup.totalMinutes,
+          total_chapters: readingSetup.totalChapters,
+        });
+      }
+
       const label = READING_STATUS_BY_VALUE[status]?.label || "Guardado";
       setStatusFeedback({
         type: "success",
@@ -881,7 +892,7 @@ export default function BooksCatalog({
     }
   }
 
-  async function saveCatalogStatus(book, status) {
+  async function saveCatalogStatus(book, status, readingSetup = null) {
     const bookId = String(book?.id || "");
     if (!bookId || !isLoggedIn || savingStatusBookId) return;
 
@@ -902,6 +913,16 @@ export default function BooksCatalog({
           ...current,
           [bookId]: data.item,
         }));
+      }
+
+      if (status === "reading" && readingSetup) {
+        await saveCatalogUserBookProgress({
+          book_id: bookId,
+          progress: 0,
+          progress_mode: readingSetup.mode,
+          total_minutes: readingSetup.totalMinutes,
+          total_chapters: readingSetup.totalChapters,
+        });
       }
 
       setStatusFeedback({
@@ -1717,11 +1738,11 @@ export default function BooksCatalog({
                         loading={userBooksLoading}
                         saving={Boolean(importing || savingExternalStatus)}
                         emptyLabel="+ Guardar en mi biblioteca"
-                        onSelect={(status) => {
+                        onSelect={(status, readingSetup) => {
                           if (catalogMatch) {
-                            saveCatalogStatus(catalogMatch, status);
+                            saveCatalogStatus(catalogMatch, status, readingSetup);
                           } else {
-                            saveExternalStatus(book, status);
+                            saveExternalStatus(book, status, readingSetup);
                           }
                         }}
                       />
@@ -1897,7 +1918,7 @@ export default function BooksCatalog({
                       isLoggedIn={isLoggedIn}
                       loading={userBooksLoading}
                       saving={savingStatusBookId === String(book.id)}
-                      onSelect={(status) => saveCatalogStatus(book, status)}
+                      onSelect={(status, readingSetup) => saveCatalogStatus(book, status, readingSetup)}
                     />
 
                     <div className="book-resources">
