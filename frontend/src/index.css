@@ -240,6 +240,15 @@ button {
   object-fit: cover;
 }
 
+.book-cover.is-missing::after {
+  content: "Portada no disponible";
+  padding: 18px;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-align: center;
+}
+
 .book-saga {
   position: absolute;
   left: 10px;
