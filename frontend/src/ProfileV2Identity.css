@@ -1,0 +1,210 @@
+/* Perfil V2 · identidad social inspirada en X, con lenguaje visual Librélula */
+
+/* La navegación principal ya da acceso a biblioteca y catálogo: la cabecera queda para la identidad. */
+.profile-redesign .profile-owner-actions {
+  display: none !important;
+}
+
+/* El cambio de portada se convierte en una acción secundaria y discreta. */
+.profile-redesign .profile-change-cover {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  min-height: 38px;
+  justify-content: center;
+  padding: 0;
+  border: 1px solid rgba(94, 63, 43, 0.22);
+  border-radius: 50%;
+  background: rgba(255, 250, 243, 0.9);
+  color: #5d4030;
+  font-size: 0;
+  box-shadow: 0 6px 16px rgba(55, 34, 22, 0.12);
+  backdrop-filter: blur(10px);
+}
+
+.profile-redesign .profile-change-cover > span {
+  display: none;
+}
+
+.profile-redesign .profile-change-cover::before {
+  content: "⚙";
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.08rem;
+  line-height: 1;
+}
+
+.profile-redesign .profile-change-cover:hover:not(:disabled) {
+  background: rgba(255, 250, 243, 0.98);
+  color: #8c4d31;
+}
+
+@media (max-width: 640px) {
+  /* La portada deja de ser una tarjeta gigante: ahora es solo el contexto visual del perfil. */
+  .profile-redesign .profile-hero {
+    min-height: 0;
+    padding-top: 116px;
+    overflow: visible;
+    border: 1px solid rgba(103, 68, 43, 0.12);
+    border-radius: 18px;
+    background: #fffaf3;
+    box-shadow: 0 7px 18px rgba(70, 42, 24, 0.055);
+  }
+
+  .profile-redesign .profile-hero::before {
+    height: 116px;
+    border-radius: 17px 17px 0 0;
+    background-position: center 46%;
+  }
+
+  .profile-redesign .profile-hero-overlay {
+    height: 116px;
+    border-radius: 17px 17px 0 0;
+    background: linear-gradient(180deg, rgba(44, 29, 20, 0.03), rgba(44, 29, 20, 0.12));
+  }
+
+  .profile-redesign .profile-change-cover {
+    z-index: 6;
+    top: .55rem;
+    right: .55rem;
+    width: 34px;
+    min-width: 34px;
+    height: 34px;
+    min-height: 34px;
+    border-color: rgba(255, 250, 243, 0.72);
+    background: rgba(255, 250, 243, 0.84);
+    color: #654533;
+    box-shadow: 0 4px 12px rgba(44, 28, 19, 0.13);
+  }
+
+  .profile-redesign .profile-change-cover::before {
+    font-size: .98rem;
+  }
+
+  /* Estructura tipo ficha social: avatar, luego nombre/handle/bio y relaciones. */
+  .profile-redesign .profile-identity {
+    position: relative;
+    z-index: 4;
+    inset: auto;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0;
+    align-items: start;
+    padding: 0 .9rem 1rem;
+    text-align: left;
+  }
+
+  .profile-redesign .profile-avatar-frame {
+    width: 86px;
+    margin: -43px 0 .6rem;
+    padding: .28rem;
+    border: 4px solid #fffaf3;
+    box-shadow: 0 7px 18px rgba(69, 39, 20, .14);
+  }
+
+  .profile-redesign .profile-identity-copy {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    padding: 0;
+  }
+
+  .profile-redesign .profile-identity-copy h1 {
+    margin: 0;
+    overflow: visible;
+    color: #35231a;
+    font-size: clamp(1.72rem, 8vw, 2.05rem);
+    line-height: 1.02;
+    letter-spacing: -.035em;
+    text-overflow: initial;
+    white-space: normal;
+  }
+
+  .profile-redesign .profile-identity-copy > span {
+    display: block;
+    margin-top: .16rem;
+    overflow: hidden;
+    color: #907565;
+    font-size: .88rem;
+    line-height: 1.25;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .profile-redesign .profile-identity-copy > p {
+    display: block;
+    max-width: 33rem;
+    margin: .72rem 0 0;
+    overflow: visible;
+    color: #4c382c;
+    font-size: .91rem;
+    line-height: 1.43;
+    -webkit-line-clamp: initial;
+  }
+
+  .profile-redesign .profile-social-counts {
+    display: flex;
+    gap: 1.12rem;
+    margin-top: .8rem;
+  }
+
+  .profile-redesign .profile-social-counts button {
+    display: inline-flex;
+    align-items: baseline;
+    gap: .26rem;
+    color: #8a7465;
+    font-size: .82rem;
+    line-height: 1.2;
+  }
+
+  .profile-redesign .profile-social-counts strong {
+    margin: 0;
+    color: #3d2a20;
+    font-size: .96rem;
+    font-weight: 850;
+  }
+
+  /* Las pestañas nacen justo después de la ficha, como en un perfil social. */
+  .profile-redesign .profile-tabs {
+    margin-top: .48rem;
+    border-top: 1px solid rgba(103, 68, 43, .08);
+    background: rgba(250, 246, 239, .95);
+  }
+
+  /* El skeleton imita ya la nueva proporción y evita un salto visual al cargar. */
+  .profile-v2-skeleton-hero {
+    min-height: 235px;
+    background:
+      linear-gradient(110deg, rgba(255,255,255,.08) 20%, rgba(255,255,255,.72) 36%, rgba(255,255,255,.08) 52%) 0 0 / 220% 100%,
+      linear-gradient(180deg, #d9c4af 0 49%, #fffaf3 49%);
+  }
+
+  .profile-v2-skeleton-avatar {
+    left: 18px;
+    bottom: 72px;
+    width: 86px;
+    height: 86px;
+  }
+
+  .profile-v2-skeleton-copy {
+    left: 18px;
+    right: 18px;
+    bottom: 18px;
+    gap: 7px;
+  }
+
+  .profile-v2-skeleton-copy span:first-child {
+    width: 45%;
+    height: 20px;
+    margin-left: 98px;
+  }
+
+  .profile-v2-skeleton-copy span:nth-child(2) {
+    width: 32%;
+    margin-left: 98px;
+  }
+
+  .profile-v2-skeleton-copy span:last-child {
+    width: 78%;
+    margin-top: 3px;
+  }
+}

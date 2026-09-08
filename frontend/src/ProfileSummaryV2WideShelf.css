@@ -1,0 +1,235 @@
+/* Perfil V2 · equilibrio editorial entre identidad lectora y feed social. */
+
+/* Esta capa usa mayor especificidad porque ProfileSummaryV2.css se carga de forma lazy. */
+.profile-summary-page-v2 .profile-summary-anilist {
+  grid-template-columns: minmax(390px, .82fr) minmax(0, 1.08fr);
+  grid-template-areas:
+    "insights stats"
+    "insights activity";
+  gap: 14px 16px;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column,
+.profile-summary-page-v2 .profile-v2-summary-stats,
+.profile-summary-page-v2 .profile-v2-activity-column {
+  min-width: 0;
+}
+
+/* Favoritos: grandes, compactos en alto y sobre una balda horizontal desplazable. */
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-shelf-module {
+  overflow: hidden;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf {
+  margin-top: 15px;
+  padding: 2px 0 12px;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books {
+  display: flex;
+  align-items: flex-end;
+  gap: 14px;
+  width: 100%;
+  min-height: 0;
+  padding: 4px 5px 7px 3px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books::-webkit-scrollbar {
+  display: none;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books.is-dragging {
+  cursor: grabbing;
+  scroll-snap-type: none;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button,
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button:nth-child(n + 6) {
+  display: block;
+  flex: 0 0 116px;
+  width: 116px;
+  min-width: 116px;
+  scroll-snap-align: start;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books img {
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border-radius: 7px 7px 3px 3px;
+  box-shadow: 0 9px 18px rgba(55, 34, 22, .18);
+  pointer-events: none;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-wood {
+  width: 100%;
+  height: 11px;
+  margin: -1px 0 0;
+}
+
+/* Géneros: lectura editorial con acentos cromáticos, no botones. */
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list {
+  gap: 9px;
+  margin-top: 17px;
+  padding-bottom: 15px;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list > div {
+  position: relative;
+  min-width: 0;
+  padding: 12px 10px 10px;
+  border: 1px solid rgba(103, 68, 43, .11);
+  border-radius: 11px;
+  background: rgba(255, 253, 249, .82);
+  box-shadow: inset 0 3px 0 var(--genre-accent), 0 3px 9px rgba(68, 40, 24, .025);
+  text-align: left;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list > div > span {
+  display: block;
+  margin: 0;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list strong {
+  display: block;
+  min-height: 0;
+  padding: 0;
+  border-radius: 0;
+  background: transparent !important;
+  color: #49352a !important;
+  font-family: inherit;
+  font-size: .78rem;
+  font-weight: 800;
+  line-height: 1.2;
+  text-align: left;
+  white-space: normal;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list small {
+  display: block;
+  margin-top: 6px;
+  color: var(--genre-accent) !important;
+  font-size: .67rem;
+  font-weight: 760;
+  line-height: 1.1;
+}
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list > div:nth-child(1) { --genre-accent: #73a95d; }
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list > div:nth-child(2) { --genre-accent: #5f9fb8; }
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list > div:nth-child(3) { --genre-accent: #9275ad; }
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list > div:nth-child(4) { --genre-accent: #c97b91; }
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list > div:nth-child(5) { --genre-accent: #c9855c; }
+
+.profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list::after {
+  right: -21px;
+  left: -21px;
+  height: 5px;
+  border-radius: 0 0 14px 14px;
+  background: linear-gradient(
+    90deg,
+    #73a95d 0 20%,
+    #5f9fb8 20% 40%,
+    #9275ad 40% 60%,
+    #c97b91 60% 80%,
+    #c9855c 80% 100%
+  );
+  opacity: .92;
+}
+
+/* Derecha: métricas compactas, feed con el ancho principal. */
+.profile-summary-page-v2 .profile-v2-summary-stats {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px;
+}
+
+.profile-summary-page-v2 .profile-v2-summary-stats > .profile-v2-module {
+  padding: 13px 14px;
+}
+
+.profile-summary-page-v2 .profile-v2-activity-title {
+  padding: 16px 18px 13px;
+}
+
+.profile-summary-page-v2 .profile-v2-feed-item {
+  padding-inline: 18px;
+}
+
+@media (min-width: 1280px) {
+  .profile-summary-page-v2 .profile-summary-anilist {
+    grid-template-columns: minmax(420px, .88fr) minmax(0, 1.12fr);
+    gap: 15px 18px;
+  }
+
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button,
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button:nth-child(n + 6) {
+    flex-basis: 120px;
+    width: 120px;
+    min-width: 120px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .profile-summary-page-v2 .profile-summary-anilist {
+    grid-template-columns: minmax(360px, .92fr) minmax(0, 1.08fr);
+    gap: 12px;
+  }
+
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button,
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button:nth-child(n + 6) {
+    flex-basis: 108px;
+    width: 108px;
+    min-width: 108px;
+  }
+
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list > div {
+    padding: 11px 8px 9px;
+  }
+}
+
+@media (max-width: 900px) {
+  .profile-summary-page-v2 .profile-summary-anilist {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "insights"
+      "stats"
+      "activity";
+    gap: 8px;
+  }
+}
+
+@media (max-width: 680px) {
+  .profile-summary-page-v2 .profile-v2-summary-stats {
+    grid-template-columns: 1fr !important;
+  }
+
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf {
+    margin-right: -14px;
+    padding-right: 14px;
+  }
+
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books {
+    gap: 11px;
+  }
+
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button,
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-bookshelf-books > button:nth-child(n + 6) {
+    flex-basis: 98px;
+    width: 98px;
+    min-width: 98px;
+  }
+
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list {
+    grid-template-columns: repeat(5, 108px);
+  }
+
+  .profile-summary-page-v2 .profile-v2-insights-column .profile-v2-genre-list > div {
+    padding: 10px 9px 9px;
+  }
+}

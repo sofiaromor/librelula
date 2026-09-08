@@ -1,0 +1,681 @@
+/* Perfil V2 · resumen de identidad lectora con distribución inspirada en AniList */
+
+.profile-summary-page-v2 .profile-hero {
+  margin-bottom: 0;
+}
+
+.profile-summary-anilist {
+  display: grid;
+  grid-template-columns: minmax(280px, .72fr) minmax(0, 1.55fr);
+  gap: 14px;
+  align-items: start;
+}
+
+.profile-v2-insights-column {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.profile-v2-module,
+.profile-v2-activity-column {
+  min-width: 0;
+  border: 1px solid rgba(103, 68, 43, .12);
+  border-radius: 16px;
+  background: rgba(255, 252, 247, .92);
+  box-shadow: 0 6px 18px rgba(70, 42, 24, .04);
+}
+
+.profile-v2-module {
+  padding: 15px;
+}
+
+.profile-v2-section-heading,
+.profile-v2-activity-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.profile-v2-section-heading > div > span,
+.profile-v2-activity-title > div > span {
+  display: block;
+  margin-bottom: 3px;
+  color: #a15535;
+  font-size: .65rem;
+  font-weight: 850;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.profile-v2-section-heading h2,
+.profile-v2-activity-title h2 {
+  margin: 0;
+  color: #38251b;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(1.25rem, 1.8vw, 1.65rem);
+  line-height: 1.05;
+  letter-spacing: -.025em;
+}
+
+.profile-v2-section-heading button,
+.profile-v2-activity-title button {
+  flex: 0 0 auto;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: #7c513b;
+  font: inherit;
+  font-size: .74rem;
+  font-weight: 760;
+  cursor: pointer;
+}
+
+.profile-v2-section-heading button:hover,
+.profile-v2-activity-title button:hover {
+  color: #a34f31;
+}
+
+.profile-v2-soft-empty {
+  margin: 13px 0 0;
+  padding: 11px 12px;
+  border-radius: 10px;
+  background: #fbf4ea;
+  color: #846d5e;
+  font-size: .8rem;
+  line-height: 1.4;
+}
+
+/* Libros favoritos · una estantería visual, no una cuadrícula de catálogo. */
+.profile-v2-bookshelf {
+  position: relative;
+  margin-top: 15px;
+  padding: 0 5px 9px;
+}
+
+.profile-v2-bookshelf-books {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  align-items: end;
+  gap: 7px;
+  min-height: 116px;
+}
+
+.profile-v2-bookshelf-books button {
+  display: block;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  transform: rotate(var(--book-tilt, 0deg));
+  transform-origin: bottom center;
+  transition: transform 160ms ease;
+}
+
+.profile-v2-bookshelf-books button:hover {
+  transform: translateY(-5px) rotate(var(--book-tilt, 0deg));
+}
+
+.profile-v2-bookshelf-books img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 5px 5px 2px 2px;
+  box-shadow: 0 7px 13px rgba(55, 34, 22, .18);
+}
+
+.profile-v2-bookshelf-wood {
+  height: 10px;
+  margin: -1px -4px 0;
+  border-radius: 2px 2px 7px 7px;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.13), transparent 35%),
+    linear-gradient(90deg, #8b4d2b, #ad6840 47%, #814326);
+  box-shadow: 0 5px 8px rgba(68, 38, 21, .16);
+}
+
+/* Desafío anual */
+.profile-v2-challenge-copy {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.profile-v2-challenge-copy strong {
+  color: #9b4c30;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: clamp(2.25rem, 4vw, 3.1rem);
+  line-height: .9;
+}
+
+.profile-v2-challenge-copy span {
+  color: #735c4c;
+  font-size: .82rem;
+}
+
+.profile-v2-challenge-progress {
+  display: block;
+  height: 8px;
+  margin-top: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eadfd3;
+}
+
+.profile-v2-challenge-progress > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #a85132, #cf8150);
+}
+
+.profile-v2-challenge-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  color: #816b5c;
+  font-size: .7rem;
+}
+
+.profile-v2-challenge-unset {
+  margin-top: 13px;
+}
+
+.profile-v2-challenge-progress.is-unset {
+  position: relative;
+  margin: 0;
+  background: repeating-linear-gradient(90deg, #eadfd3 0 20px, #f6eee5 20px 27px);
+}
+
+.profile-v2-challenge-unset small {
+  display: block;
+  margin-top: 7px;
+  color: #8b7668;
+  font-size: .72rem;
+}
+
+/* Mapa de actividad tipo AniList */
+.profile-v2-heatmap {
+  display: grid;
+  grid-template-rows: repeat(7, 9px);
+  grid-auto-flow: column;
+  grid-auto-columns: 9px;
+  gap: 4px;
+  width: max-content;
+  max-width: 100%;
+  margin-top: 15px;
+  overflow: hidden;
+}
+
+.profile-v2-heatmap i,
+.profile-v2-heatmap-legend i {
+  display: block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  background: #eee4d9;
+}
+
+.profile-v2-heatmap i.level-1,
+.profile-v2-heatmap-legend i.level-1 { background: #e8c6ae; }
+.profile-v2-heatmap i.level-2,
+.profile-v2-heatmap-legend i.level-2 { background: #cf8b61; }
+.profile-v2-heatmap i.level-3,
+.profile-v2-heatmap-legend i.level-3 { background: #a95634; }
+
+.profile-v2-heatmap-legend {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  margin-top: 9px;
+  color: #917c6d;
+  font-size: .62rem;
+}
+
+.profile-v2-heatmap-legend i {
+  width: 8px;
+  height: 8px;
+}
+
+/* Géneros favoritos */
+.profile-v2-genre-list {
+  display: grid;
+  gap: 11px;
+  margin-top: 15px;
+}
+
+.profile-v2-genre-list > div > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.profile-v2-genre-list strong {
+  overflow: hidden;
+  color: #49352a;
+  font-size: .8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-v2-genre-list small {
+  flex: 0 0 auto;
+  color: #927d6e;
+  font-size: .65rem;
+}
+
+.profile-v2-genre-list > div > i {
+  display: block;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #ece1d6;
+}
+
+.profile-v2-genre-list b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #bb6240, #d69668);
+}
+
+/* Autores favoritos */
+.profile-v2-author-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 12px;
+  margin-top: 12px;
+}
+
+.profile-v2-author-list > span {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 7px;
+  align-items: baseline;
+  padding: 7px 0;
+  border-bottom: 1px solid rgba(103, 68, 43, .08);
+}
+
+.profile-v2-author-list i {
+  color: #b57857;
+  font-size: .63rem;
+  font-style: normal;
+}
+
+.profile-v2-author-list strong {
+  overflow: hidden;
+  color: #563e30;
+  font-size: .76rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Marcapáginas */
+.profile-v2-bookmark-grid {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+
+.profile-v2-bookmark-grid > div,
+.profile-v2-bookmark-empty {
+  display: grid;
+  grid-template-columns: 31px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  padding: 7px 8px;
+  border-radius: 10px;
+  background: #fbf4e9;
+}
+
+.profile-v2-bookmark-grid i,
+.profile-v2-bookmark-empty > i {
+  display: grid;
+  place-items: center;
+  width: 29px;
+  height: 35px;
+  border-radius: 5px 5px 10px 10px;
+  background: linear-gradient(150deg, #8d4b30, #c87849);
+  color: #fff9ef;
+  font-size: .86rem;
+  font-style: normal;
+}
+
+.profile-v2-bookmark-grid strong,
+.profile-v2-bookmark-grid small,
+.profile-v2-bookmark-empty strong,
+.profile-v2-bookmark-empty small {
+  display: block;
+}
+
+.profile-v2-bookmark-grid strong,
+.profile-v2-bookmark-empty strong {
+  overflow: hidden;
+  color: #4a3327;
+  font-size: .74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-v2-bookmark-grid small,
+.profile-v2-bookmark-empty small {
+  margin-top: 2px;
+  overflow: hidden;
+  color: #8a7567;
+  font-size: .65rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-v2-bookmark-empty {
+  margin-top: 12px;
+}
+
+/* Columna dominante: actividad social continua, tipo timeline. */
+.profile-v2-activity-column {
+  overflow: hidden;
+}
+
+.profile-v2-activity-title {
+  align-items: center;
+  padding: 15px 17px 12px;
+  border-bottom: 1px solid rgba(103, 68, 43, .10);
+  background: rgba(255, 252, 247, .96);
+}
+
+.profile-v2-feed {
+  display: grid;
+}
+
+.profile-v2-feed-item {
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr);
+  gap: 11px;
+  padding: 14px 17px;
+  border-bottom: 1px solid rgba(103, 68, 43, .09);
+  background: rgba(255, 252, 247, .76);
+  transition: background 150ms ease;
+}
+
+.profile-v2-feed-item:last-child {
+  border-bottom: 0;
+}
+
+.profile-v2-feed-item:hover {
+  background: #fffaf3;
+}
+
+.profile-v2-feed-avatar {
+  width: 44px;
+  height: 44px;
+  object-fit: cover;
+  border: 2px solid #f0dcc7;
+  border-radius: 50%;
+}
+
+.profile-v2-feed-content {
+  min-width: 0;
+}
+
+.profile-v2-feed-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+}
+
+.profile-v2-feed-meta strong {
+  color: #3c291f;
+  font-size: .86rem;
+}
+
+.profile-v2-feed-meta span,
+.profile-v2-feed-meta time {
+  color: #917c6e;
+  font-size: .72rem;
+}
+
+.profile-v2-feed-content > p {
+  margin: 5px 0 9px;
+  color: #4f392d;
+  font-size: .84rem;
+  line-height: 1.4;
+}
+
+.profile-v2-feed-content > p > span {
+  color: #695243;
+}
+
+.profile-v2-feed-content > p > strong {
+  color: #3e2a20;
+  font-weight: 800;
+}
+
+.profile-v2-feed-book {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr);
+  gap: 10px;
+  width: min(560px, 100%);
+  padding: 8px;
+  border: 1px solid rgba(103, 68, 43, .10);
+  border-radius: 11px;
+  background: #fbf5eb;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease;
+}
+
+.profile-v2-feed-book:hover {
+  border-color: rgba(163, 79, 49, .23);
+  background: #fff7ec;
+}
+
+.profile-v2-feed-book > img {
+  display: block;
+  width: 50px;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 5px;
+}
+
+.profile-v2-feed-book > span {
+  display: grid;
+  align-content: center;
+  gap: 3px;
+  min-width: 0;
+}
+
+.profile-v2-feed-book > span > strong {
+  overflow: hidden;
+  color: #3f2c22;
+  font-size: .84rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-v2-feed-book > span > small {
+  overflow: hidden;
+  color: #897365;
+  font-size: .7rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.profile-v2-feed-progress {
+  display: grid;
+  grid-template-columns: minmax(0, 150px) auto;
+  align-items: center;
+  gap: 7px;
+  margin-top: 5px;
+}
+
+.profile-v2-feed-progress > i {
+  display: block;
+  height: 5px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e7dacb;
+}
+
+.profile-v2-feed-progress b {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #b65a36;
+}
+
+.profile-v2-feed-progress em {
+  color: #86523a;
+  font-size: .67rem;
+  font-style: normal;
+  font-weight: 760;
+}
+
+.profile-v2-feed-score {
+  color: #bd6b28;
+  font-size: .72rem;
+  letter-spacing: .03em;
+}
+
+@media (min-width: 1280px) {
+  .profile-summary-anilist {
+    grid-template-columns: minmax(300px, .68fr) minmax(0, 1.62fr);
+  }
+
+  .profile-v2-feed-item {
+    padding-right: 24px;
+  }
+}
+
+@media (max-width: 980px) {
+  .profile-summary-anilist {
+    grid-template-columns: minmax(250px, .78fr) minmax(0, 1.22fr);
+    gap: 10px;
+  }
+
+  .profile-v2-bookshelf-books {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 8px;
+  }
+
+  .profile-v2-bookshelf-wood {
+    margin-top: 0;
+  }
+
+  .profile-v2-author-list {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .profile-summary-anilist {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .profile-v2-insights-column {
+    gap: 8px;
+  }
+
+  .profile-v2-module,
+  .profile-v2-activity-column {
+    border-radius: 13px;
+    box-shadow: 0 4px 13px rgba(70, 42, 24, .035);
+  }
+
+  .profile-v2-module {
+    padding: 13px;
+  }
+
+  .profile-v2-bookshelf {
+    margin-right: -13px;
+    padding-right: 13px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .profile-v2-bookshelf::-webkit-scrollbar { display: none; }
+
+  .profile-v2-bookshelf-books {
+    grid-auto-columns: 82px;
+    grid-auto-flow: column;
+    grid-template-columns: none;
+    width: max-content;
+    min-width: 100%;
+  }
+
+  .profile-v2-bookshelf-wood {
+    width: max(100%, 540px);
+  }
+
+  .profile-v2-author-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .profile-v2-heatmap {
+    max-width: 100%;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .profile-v2-heatmap::-webkit-scrollbar { display: none; }
+
+  .profile-v2-activity-title {
+    padding: 13px 14px 10px;
+  }
+
+  .profile-v2-feed-item {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 9px;
+    padding: 12px 14px;
+  }
+
+  .profile-v2-feed-avatar {
+    width: 40px;
+    height: 40px;
+  }
+}
+
+@media (max-width: 480px) {
+  .profile-v2-section-heading h2,
+  .profile-v2-activity-title h2 {
+    font-size: 1.2rem;
+  }
+
+  .profile-v2-section-heading button,
+  .profile-v2-activity-title button {
+    font-size: .68rem;
+  }
+
+  .profile-v2-author-list {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-v2-feed-item {
+    grid-template-columns: 36px minmax(0, 1fr);
+    padding: 11px 12px;
+  }
+
+  .profile-v2-feed-avatar {
+    width: 36px;
+    height: 36px;
+  }
+
+  .profile-v2-feed-book {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+
+  .profile-v2-feed-book > img {
+    width: 46px;
+  }
+}
