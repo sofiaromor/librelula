@@ -3185,6 +3185,10 @@
 .catalog-filter-disclosure > summary { display: none; }
 .catalog-filter-disclosure-body { display: block; }
 
+@media (min-width: 661px) {
+  .catalog-filter-disclosure:not([open]) > .catalog-filter-disclosure-body { display: block !important; }
+}
+
 @media (max-width: 660px) {
   .catalog-filter-disclosure {
     overflow: hidden;
