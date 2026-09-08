@@ -8,6 +8,7 @@ import ReadingStatusControl from "./ReadingStatusControl.jsx";
 import { getBookProgressThread } from "./lib/homeDashboardApi.js";
 import { removeCatalogUserBook, saveCatalogUserBookProgress } from "./lib/catalogApi.js";
 import { READING_STATUS_BY_VALUE } from "./readingStatuses.js";
+import AuthorLink from "./AuthorLink.jsx";
 import {
   FALLBACK_HERO_COLOR,
   lighten,
@@ -558,7 +559,7 @@ function RatingStars({ score, label = true }) {
 }
 
 
-export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyReviews, isAdmin, isLoggedIn, threadTarget = null, openReviewOnLoad = false }) {
+export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectAuthor, onOpenMyReviews, isAdmin, isLoggedIn, threadTarget = null, openReviewOnLoad = false }) {
   const currentBook = book;
   const [coverFailed, setCoverFailed] = useState(false);
   const [editions, setEditions] = useState([]);
@@ -1337,7 +1338,6 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
   const aesthetics = parseTaxonomyItems(currentBook.aesthetics, 8);
   const paragraphs = synopsisParagraphs(currentBook.synopsis);
   const compactMetadata = [
-    `por ${currentBook.author || "Autor desconocido"}`,
     currentBook.year || null,
     currentBook.pages ? `${currentBook.pages} páginas` : null,
   ].filter(Boolean);
@@ -1438,15 +1438,15 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
               style={{ color: sagaColor }}
               onClick={() => {
                 if (
-                    typeof onOpenSaga === "function"
-                    && (currentBook.saga_key || currentBook.saga_name)
-                  ) {
+                  typeof onOpenSaga === "function"
+                  && (currentBook.saga_key || currentBook.saga_name)
+                ) {
                   onOpenSaga(currentBook.saga_key, currentBook.saga_name);
                 }
               }}
               disabled={!currentBook.saga_key && !currentBook.saga_name}
               title={
-                currentBook.saga_key
+                currentBook.saga_key || currentBook.saga_name
                   ? `Ver todos los libros de ${currentBook.saga_name}`
                   : undefined
               }
@@ -1460,7 +1460,10 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
           )}
 
           <h1>{bookTitleWithoutSaga(currentBook)}</h1>
-          <p className="book-detail-meta">{compactMetadata.join(" · ")}</p>
+          <p className="book-detail-meta">
+            por <AuthorLink author={currentBook.author} onSelectAuthor={onSelectAuthor} />
+            {compactMetadata.length ? ` · ${compactMetadata.join(" · ")}` : ""}
+          </p>
 
           {genres.length > 0 && (
             <div className="book-detail-hero-genres" aria-label="Géneros">
