@@ -443,6 +443,7 @@
   color: #fffaf1;
   font-weight: 700;
 }
+.profile-featured-select select option { background: #fffaf1; color: #2e2925; }
 
 .profile-featured-edit {
   display: inline-flex;
@@ -1093,6 +1094,7 @@
   object-fit: cover;
   border-radius: 50%;
 }
+.profile-circle-avatar-button{border:0;background:transparent;padding:0;border-radius:50%;cursor:pointer}.profile-circle-avatar-button:focus-visible{outline:3px solid #d79a52;outline-offset:3px}
 
 .profile-circle-reader p {
   margin: 0.1rem 0 0.35rem;
@@ -1644,6 +1646,80 @@
   line-height: 1;
 }
 
+/* Cabecera tipo tarjeta: la portada respira y el icono conserva su marco. */
+.profile-redesign .profile-hero {
+  min-height: 0;
+  overflow: visible;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+.profile-hero-banner {
+  position: relative;
+  height: clamp(180px, 23vw, 300px);
+  overflow: hidden;
+  border: 1px solid rgba(103, 68, 43, .16);
+  border-radius: 28px 28px 18px 18px;
+  background-image: linear-gradient(135deg, rgba(25, 57, 48, .1), rgba(170, 79, 48, .08)), var(--profile-cover);
+  background-position: center;
+  background-size: cover;
+  box-shadow: 0 18px 42px rgba(70, 42, 24, .12);
+}
+.profile-hero-banner::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(24, 43, 36, .04), rgba(24, 43, 36, .2));
+  content: "";
+}
+.profile-hero > .profile-change-cover { top: 1rem; right: 1rem; }
+.profile-hero > .profile-identity {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: 2;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  width: min(92%, 980px);
+  margin: -72px auto 0;
+  padding: 1rem clamp(1rem, 3vw, 2rem) 1.15rem;
+  border: 1px solid rgba(103, 68, 43, .14);
+  border-radius: 22px;
+  background: rgba(255, 252, 247, .97);
+  box-shadow: 0 18px 38px rgba(67, 43, 27, .14);
+  backdrop-filter: none;
+}
+.profile-hero .profile-avatar-frame { width: clamp(116px, 12vw, 154px); flex: 0 0 auto; }
+.profile-hero .profile-identity-copy { padding: .35rem 0 0; }
+.profile-hero .profile-identity-copy h1 { font-size: clamp(2rem, 4.1vw, 3.55rem); }
+.profile-hero .profile-identity-copy > p { margin-top: .55rem; max-width: 42rem; }
+.profile-return-action {
+  grid-column: 1 / -1; justify-self: end; margin-top: .3rem; padding: .45rem .8rem;
+  border: 1px solid rgba(103, 68, 43, .2); border-radius: 999px; background: #fffaf3; color: #5b3c2b; cursor: pointer;
+}
+.profile-featured-note { margin: .25rem 0 0 !important; color: #6d503e; font-size: .9rem; }
+.profile-featured-title-edit { border: 0; background: transparent; color: #8e4b32; cursor: pointer; font-size: .86rem; text-decoration: underline; text-underline-offset: .16em; }
+.profile-featured-title-editor { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.profile-featured-title-editor input { min-width: min(100%, 260px); padding: .55rem .7rem; border: 1px solid rgba(103, 68, 43, .25); border-radius: 10px; color: #3a271c; background: #fffdf9; }
+.profile-featured-title-editor button, .profile-bio-editor button { min-height: 38px; padding: .5rem .8rem; border: 0; border-radius: 999px; background: #31584c; color: #fff; cursor: pointer; }
+.profile-bio-editor { margin-top: .65rem; }
+.profile-bio-editor label { display: block; margin-bottom: .3rem; font-size: .85rem; font-weight: 700; }
+.profile-bio-editor textarea { display: block; width: min(100%, 540px); min-height: 76px; resize: vertical; padding: .65rem .75rem; border: 1px solid rgba(103, 68, 43, .25); border-radius: 12px; color: #3a271c; background: #fffdf9; font: inherit; }
+.profile-bio-editor > div { display: flex; gap: .5rem; margin-top: .5rem; }
+.profile-bio-editor > div button:last-child { background: transparent; color: #5b3c2b; border: 1px solid rgba(103, 68, 43, .2); }
+.profile-edit-bio { margin-top: .35rem; padding: 0; border: 0; background: transparent; color: #8e4b32; cursor: pointer; font-size: .86rem; text-decoration: underline; text-underline-offset: .16em; }
+
+@media (max-width: 640px) {
+  .profile-hero-banner { height: 180px; border-radius: 18px 18px 14px 14px; }
+  .profile-hero > .profile-identity { grid-template-columns: 1fr; width: 100%; margin-top: -48px; padding: .75rem 1rem 1rem; text-align: center; }
+  .profile-hero .profile-avatar-frame { width: 104px; margin: -50px auto 0; }
+  .profile-hero .profile-identity-copy h1 { font-size: 2.25rem; }
+  .profile-hero .profile-identity-copy > p { font-size: 1rem; }
+  .profile-hero .profile-social-counts { justify-content: center; }
+  .profile-return-action { justify-self: center; }
+  .profile-featured-title-editor { justify-content: center; }
+}
+
 /* Perfil V9 · la portada del círculo abre la ficha del libro */
 .profile-circle-book-link {
   display: block;
@@ -1666,4 +1742,327 @@
 .profile-circle-book-link:focus-visible {
   outline: 3px solid rgba(84, 116, 88, .32);
   outline-offset: 3px;
+}
+.profile-favorites-editor,.profile-authors-editor{margin-top:16px;padding:16px;border:1px solid rgba(105,78,58,.16);border-radius:16px;background:rgba(255,250,244,.72)}
+.profile-favorites-picker{display:grid;grid-template-columns:repeat(auto-fill,minmax(86px,1fr));gap:10px;max-height:310px;overflow:auto}.profile-favorites-picker button{position:relative;border:1px solid transparent;background:transparent;border-radius:10px;padding:5px;text-align:left;color:inherit}.profile-favorites-picker button.is-selected{border-color:#9a5a45;background:#f3e4d7}.profile-favorites-picker img{width:100%;aspect-ratio:2/3;object-fit:cover;border-radius:7px}.profile-favorites-picker span{display:block;font-size:12px;line-height:1.2;margin-top:4px}.profile-favorites-editor footer,.profile-authors-editor footer{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}.profile-favorites-editor footer button,.profile-authors-editor footer button{border:0;border-radius:999px;padding:8px 14px;background:#ead8c8;color:#3c2e27}.profile-favorites-editor footer button:last-child,.profile-authors-editor footer button:last-child{background:#315949;color:#fff}.profile-authors-editor textarea{width:100%;min-height:100px;border:1px solid rgba(105,78,58,.2);border-radius:10px;padding:10px;font:inherit}.profile-author-add{display:grid;gap:6px;margin-top:12px}.profile-author-add input{padding:8px;border:1px solid rgba(105,78,58,.2);border-radius:10px}
+
+/* Perfil V10 · carnet de biblioteca */
+.profile-redesign .profile-hero {
+  position: relative;
+  min-height: 0;
+  overflow: visible;
+  padding: clamp(.65rem, 1.8vw, 1.15rem);
+  border: 1px solid rgba(117, 78, 49, .2);
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at 8% 18%, rgba(194, 128, 73, .12), transparent 12rem),
+    radial-gradient(circle at 94% 82%, rgba(47, 85, 72, .1), transparent 15rem),
+    #f8f0e6;
+  box-shadow: 0 22px 58px rgba(67, 43, 27, .1);
+}
+
+.profile-redesign .profile-hero-banner {
+  position: relative;
+  height: clamp(175px, 22vw, 285px);
+  overflow: hidden;
+  border: 1px solid rgba(93, 62, 42, .2);
+  border-radius: 18px 18px 11px 11px;
+  background-position: center;
+  background-size: cover;
+  box-shadow: inset 0 -55px 80px rgba(38, 31, 23, .2);
+}
+
+.profile-redesign .profile-hero-banner::before {
+  position: absolute;
+  z-index: 1;
+  top: 1rem;
+  left: 1.1rem;
+  padding: .32rem .58rem;
+  border: 1px solid rgba(255, 251, 243, .58);
+  border-radius: 4px;
+  background: rgba(42, 31, 23, .42);
+  color: #fffaf1;
+  content: "CARNET DE BIBLIOTECA";
+  font-size: .67rem;
+  font-weight: 900;
+  letter-spacing: .16em;
+  line-height: 1;
+  text-transform: uppercase;
+  backdrop-filter: blur(6px);
+}
+
+.profile-redesign .profile-hero-banner::after {
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(180deg, rgba(30, 29, 24, .12), transparent 38%),
+    linear-gradient(0deg, rgba(30, 29, 24, .28), transparent 48%);
+  content: "";
+  pointer-events: none;
+}
+
+.profile-redesign .profile-hero > .profile-change-cover {
+  top: 1rem;
+  right: 1rem;
+  z-index: 3;
+  min-height: 38px;
+  padding: .55rem .8rem;
+  border: 1px solid rgba(255, 251, 243, .7);
+  border-radius: 999px;
+  background: rgba(42, 31, 23, .58);
+  box-shadow: 0 8px 18px rgba(29, 24, 20, .14);
+  font-size: .84rem;
+  backdrop-filter: blur(8px);
+}
+
+.profile-redesign .profile-hero > .profile-identity {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  width: min(94%, 1040px);
+  min-height: 160px;
+  margin: -64px auto 0;
+  padding: 1rem clamp(1rem, 3vw, 2rem) 1.05rem 1.15rem;
+  overflow: visible;
+  border: 1px solid rgba(112, 75, 48, .19);
+  border-radius: 12px;
+  background:
+    linear-gradient(90deg, rgba(255, 250, 242, .98), rgba(255, 252, 247, .98)),
+    #fffaf2;
+  box-shadow: 0 16px 34px rgba(67, 43, 27, .15);
+  backdrop-filter: none;
+}
+
+.profile-redesign .profile-hero > .profile-identity::before {
+  position: absolute;
+  top: 11px;
+  right: 1.2rem;
+  left: 1.2rem;
+  border-top: 1px dashed rgba(122, 83, 55, .2);
+  content: "";
+  pointer-events: none;
+}
+
+.profile-redesign .profile-hero .profile-avatar-wrap {
+  z-index: 8;
+  align-self: start;
+}
+
+.profile-redesign .profile-hero .profile-avatar-frame {
+  width: clamp(112px, 12vw, 148px);
+  padding: .4rem;
+  border: 4px solid #fffaf3;
+  border-radius: 50%;
+  background: #d79a52;
+  box-shadow:
+    0 0 0 3px #bd7048,
+    0 0 0 7px rgba(255, 250, 243, .9),
+    0 13px 27px rgba(67, 43, 27, .22);
+}
+
+.profile-redesign .profile-hero .profile-avatar-frame img {
+  object-fit: contain;
+  background: #f3e8d9;
+}
+
+.profile-redesign .profile-hero .profile-avatar-frame:hover:not(:disabled),
+.profile-redesign .profile-hero .profile-avatar-frame:focus-visible {
+  box-shadow:
+    0 0 0 3px #bd7048,
+    0 0 0 7px rgba(255, 250, 243, .98),
+    0 18px 34px rgba(67, 43, 27, .28);
+}
+
+.profile-redesign .profile-hero .profile-identity-copy {
+  max-width: 700px;
+  padding: .45rem 0 0;
+}
+
+.profile-redesign .profile-hero .profile-identity-copy::before {
+  display: block;
+  margin-bottom: .22rem;
+  color: #a45131;
+  content: "PERFIL DE LECTORA";
+  font-size: .68rem;
+  font-weight: 900;
+  letter-spacing: .17em;
+  line-height: 1;
+}
+
+.profile-redesign .profile-hero .profile-identity-copy h1 {
+  margin: 0;
+  color: #36251c;
+  font-size: clamp(2.1rem, 4.1vw, 3.65rem);
+  line-height: .98;
+}
+
+.profile-redesign .profile-hero .profile-identity-copy > span {
+  margin-top: .32rem;
+  color: #8a6852;
+  font-size: .88rem;
+  font-weight: 700;
+  letter-spacing: .03em;
+}
+
+.profile-redesign .profile-hero .profile-identity-copy > p {
+  max-width: 44rem;
+  margin: .6rem 0 0;
+  color: #604a3a;
+  font-size: 1.04rem;
+  line-height: 1.38;
+}
+
+.profile-redesign .profile-hero .profile-edit-bio {
+  margin-top: .38rem;
+  color: #a45131;
+}
+
+.profile-redesign .profile-hero .profile-social-counts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(86px, max-content));
+  gap: .8rem 1.3rem;
+  margin-top: .85rem;
+  padding-top: .7rem;
+  border-top: 1px dashed rgba(122, 83, 55, .24);
+}
+
+.profile-redesign .profile-hero .profile-social-counts button {
+  display: grid;
+  gap: .1rem;
+  min-width: 86px;
+  color: #755643;
+  font-size: .72rem;
+  letter-spacing: .09em;
+  line-height: 1.1;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.profile-redesign .profile-hero .profile-social-counts strong {
+  margin: 0;
+  color: #36251c;
+  font-family: "Playfair Display", Georgia, serif;
+  font-size: 1.45rem;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.profile-redesign .profile-hero .profile-social-counts button:hover,
+.profile-redesign .profile-hero .profile-social-counts button:focus-visible {
+  color: #a45131;
+  text-decoration: none;
+}
+
+.profile-redesign .profile-hero .profile-return-action {
+  align-self: end;
+  margin: 0 0 .2rem .5rem;
+  border-color: rgba(112, 75, 48, .2);
+  background: #f5e8d9;
+  color: #75452f;
+}
+
+.profile-redesign .profile-hero .profile-avatar-menu {
+  z-index: 20;
+  border-radius: 12px;
+}
+
+@media (max-width: 700px) {
+  .profile-redesign .profile-hero {
+    padding: .6rem;
+    border-radius: 20px;
+  }
+
+  .profile-redesign .profile-hero-banner {
+    height: 148px;
+    border-radius: 13px 13px 9px 9px;
+  }
+
+  .profile-redesign .profile-hero-banner::before {
+    top: .7rem;
+    left: .7rem;
+    padding: .28rem .42rem;
+    font-size: .55rem;
+  }
+
+  .profile-redesign .profile-hero > .profile-change-cover {
+    top: .65rem;
+    right: .65rem;
+    min-height: 34px;
+    padding: .46rem .62rem;
+    font-size: .76rem;
+  }
+
+  .profile-redesign .profile-hero > .profile-identity {
+    grid-template-columns: 1fr;
+    width: 100%;
+    min-height: 0;
+    margin: -45px 0 0;
+    padding: .72rem .82rem .85rem;
+    border-radius: 11px;
+    text-align: center;
+  }
+
+  .profile-redesign .profile-hero > .profile-identity::before {
+    right: .8rem;
+    left: .8rem;
+  }
+
+  .profile-redesign .profile-hero .profile-avatar-frame {
+    width: 96px;
+    margin: -47px auto 0;
+  }
+
+  .profile-redesign .profile-hero .profile-identity-copy {
+    max-width: none;
+    padding-top: .15rem;
+  }
+
+  .profile-redesign .profile-hero .profile-identity-copy h1 {
+    font-size: clamp(2rem, 10vw, 2.7rem);
+  }
+
+  .profile-redesign .profile-hero .profile-identity-copy > p {
+    margin-top: .48rem;
+    font-size: .98rem;
+  }
+
+  .profile-redesign .profile-hero .profile-social-counts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0;
+    margin-top: .8rem;
+    padding-top: .72rem;
+  }
+
+  .profile-redesign .profile-hero .profile-social-counts button {
+    min-width: 0;
+    padding: 0 .65rem;
+    text-align: center;
+  }
+
+  .profile-redesign .profile-hero .profile-social-counts button + button {
+    border-left: 1px dashed rgba(122, 83, 55, .24);
+  }
+
+  .profile-redesign .profile-hero .profile-return-action {
+    justify-self: center;
+    margin: .1rem 0 0;
+  }
+
+  .profile-redesign .profile-hero .profile-avatar-menu {
+    left: 50%;
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .profile-redesign .profile-hero .profile-avatar-frame,
+  .profile-redesign .profile-hero .profile-avatar-frame:hover:not(:disabled) {
+    transition: none;
+    transform: none;
+  }
 }
