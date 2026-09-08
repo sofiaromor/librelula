@@ -11,6 +11,7 @@ import {
   searchReaderPostBooks,
   toggleActivityLike,
 } from "./lib/homeDashboardApi.js";
+import AuthorLink from "./AuthorLink.jsx";
 
 const landing = {
   brand: "Librélula",
@@ -179,6 +180,8 @@ export default function Inicio({
   onReviewBook,
   onClubs,
   onSelectBook,
+  onSelectAuthor,
+  onSelectProfile,
   onOpenBookThread,
 }) {
   if (isLoggedIn) {
@@ -191,6 +194,8 @@ export default function Inicio({
         onReviewBook={onReviewBook}
         onClubs={onClubs}
         onSelectBook={onSelectBook}
+        onSelectAuthor={onSelectAuthor}
+        onSelectProfile={onSelectProfile}
         onOpenBookThread={onOpenBookThread}
       />
     );
@@ -302,7 +307,7 @@ function FeedIcon({ name }) {
   );
 }
 
-function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook, onClubs, onSelectBook, onOpenBookThread }) {
+function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook, onClubs, onSelectBook, onSelectAuthor, onSelectProfile, onOpenBookThread }) {
   const [homeData, setHomeData] = useState(null);
   const [socialData, setSocialData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -517,7 +522,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
       });
       const saved = response.item;
 
-      await recordReadingProgress({
+      const progressLog = await recordReadingProgress({
         bookId: key,
         previousProgress,
         newProgress: cleanProgress,
@@ -525,6 +530,45 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
         note: progressNotes[key] || "",
         spoiler: Boolean(progressSpoilers[key]),
       });
+
+      // El estado de la biblioteca y el feed social se guardan en tablas
+      // distintas. Reflejamos el avance recién creado inmediatamente para
+      // que aparezca tanto en «Tu círculo» como en «Mi actividad».
+      if (progressLog?.id) {
+        setSocialData((current) => {
+          const activityKey = `progress:${progressLog.id}`;
+          if (!current?.feed || current.feed.some((item) => item.key === activityKey)) {
+            return current;
+          }
+
+          const activity = {
+            key: activityKey,
+            type: "progress",
+            profile: {
+              id: current.context?.authId,
+              username: current.context?.username || "Tú",
+              avatar: current.context?.avatar || "/images/avatar/avatar1.png",
+            },
+            book,
+            created_at: new Date().toISOString(),
+            spoiler: Boolean(progressSpoilers[key]),
+            previous_progress: previousProgress,
+            progress: cleanProgress,
+            pages_delta: book.pages > 0
+              ? Math.max(0, Math.round((book.pages * (cleanProgress - previousProgress)) / 100))
+              : 0,
+            body: String(progressNotes[key] || "").trim(),
+            is_mine: true,
+            is_friend: false,
+            likes: 0,
+            liked: false,
+            comments: [],
+            comments_count: 0,
+          };
+
+          return { ...current, feed: [activity, ...current.feed] };
+        });
+      }
 
       if (cleanProgress >= 100 && previousProgress < 100) {
         setCompletedBook({
@@ -738,7 +782,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
                         <div className="home-reading-title-row">
                           <div>
                             <h3>{book.title}</h3>
-                            <p>{book.author || "Autor desconocido"}</p>
+                            <AuthorLink author={book.author} onSelectAuthor={onSelectAuthor} />
                           </div>
                           <div className="home-reading-percent">
                             <strong>{meta.progress}%</strong>
@@ -1200,7 +1244,9 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
                   <div>
                     <strong>{featuredClub.name}</strong>
                     <span>{featuredClub.book?.title || "Lectura por elegir"}</span>
-                    {featuredClub.book?.author && <small>{featuredClub.book.author}</small>}
+                    {featuredClub.book?.author && (
+                      <AuthorLink author={featuredClub.book.author} onSelectAuthor={onSelectAuthor} />
+                    )}
                   </div>
                 </header>
 
@@ -1260,7 +1306,7 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
               <div className="home-friends-list">
                 {friendsReading.map((item) => (
                   <article key={`${item.profile.id}-${item.book.id}`}>
-                    <img className="home-friend-avatar" src={item.profile.avatar} alt="" />
+                    <button type="button" className="home-friend-avatar-button" onClick={() => onSelectProfile?.(item.profile.id)} aria-label={`Abrir el perfil de ${item.profile.username}`}><img className="home-friend-avatar" src={item.profile.avatar} alt="" /></button>
                     <button
                       type="button"
                       className="home-friend-cover home-book-cover-link"
