@@ -1437,11 +1437,14 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onOpenMyR
               className="book-detail-saga"
               style={{ color: sagaColor }}
               onClick={() => {
-                if (typeof onOpenSaga === "function" && currentBook.saga_key) {
+                if (
+                    typeof onOpenSaga === "function"
+                    && (currentBook.saga_key || currentBook.saga_name)
+                  ) {
                   onOpenSaga(currentBook.saga_key, currentBook.saga_name);
                 }
               }}
-              disabled={!currentBook.saga_key}
+              disabled={!currentBook.saga_key && !currentBook.saga_name}
               title={
                 currentBook.saga_key
                   ? `Ver todos los libros de ${currentBook.saga_name}`
