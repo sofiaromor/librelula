@@ -20,6 +20,7 @@ import {
 import { READING_STATUS_BY_VALUE } from "./readingStatuses.js";
 import { removeCatalogUserBook, saveCatalogUserBookProgress } from "./lib/catalogApi.js";
 import ReaderCollections from "./ReaderCollections.jsx";
+import AuthorLink from "./AuthorLink.jsx";
 
 const CATALOG_PAGE_SIZE = 25;
 
@@ -275,6 +276,7 @@ export default function BooksCatalog({
   onAddBook,
   onImportCatalog,
   onSelectBook,
+  onSelectAuthor,
   onSelectCollection,
 }) {
   const [books, setBooks] = useState([]);
@@ -1309,7 +1311,7 @@ export default function BooksCatalog({
                       </span>
                     )}
                     <h3>{primaryExpectedBook.title}</h3>
-                    <p>{primaryExpectedBook.author}</p>
+                    <p><AuthorLink author={primaryExpectedBook.author} onSelectAuthor={onSelectAuthor} /></p>
                     <small>{releaseDateLabel(primaryExpectedBook.publication_date)}</small>
                     <button type="button" className="catalog-expected-alert-button is-active" onClick={() => toggleReleaseAlert(primaryExpectedBook)}>
                       <BellIcon active />
@@ -1422,7 +1424,11 @@ export default function BooksCatalog({
               <div className="catalog-showcase-detail">
                 <span className="catalog-showcase-label">Selección semanal</span>
                 <h3>{showcaseBook.title}</h3>
-                <p className="catalog-showcase-author">{showcaseBook.author}</p>
+                <AuthorLink
+                  author={showcaseBook.author}
+                  onSelectAuthor={onSelectAuthor}
+                  className="catalog-showcase-author"
+                />
                 <p>{compactSynopsis(showcaseBook.synopsis)}</p>
                 <div>
                   {showcaseBook.genre && <span>{normalizeBookGenres(showcaseBook.genre)[0]}</span>}
@@ -1973,7 +1979,11 @@ export default function BooksCatalog({
                     </div>
                   )}
                   <h2>{book.title}</h2>
-                  <p className="book-author">{book.author || "Autor desconocido"}</p>
+                  <AuthorLink
+                    author={book.author}
+                    onSelectAuthor={onSelectAuthor}
+                    className="book-author"
+                  />
 
                   <div className="book-meta">
                     {book.year && <span>{book.year}</span>}
@@ -2050,7 +2060,7 @@ export default function BooksCatalog({
                   <div>
                     <span className="catalog-countdown">{releaseCountdown(book.publication_date)}</span>
                     <h3>{book.title}</h3>
-                    <p>{book.author}</p>
+                    <p><AuthorLink author={book.author} onSelectAuthor={onSelectAuthor} /></p>
                     <small>{releaseDateLabel(book.publication_date)}</small>
                   </div>
                   <button
