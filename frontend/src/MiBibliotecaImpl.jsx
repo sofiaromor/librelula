@@ -4,6 +4,7 @@ import "./MiBibliotecaSpines.css";
 import "./MiBibliotecaV2.css";
 import SpineCropEditor from "./SpineCropEditor.jsx";
 import LibraryShelfShowcase from "./LibraryShelfShowcase.jsx";
+import AuthorLink from "./AuthorLink.jsx";
 import { shelfStarFills, formatShelfScore } from "./lib/libraryShelfSearch.js";
 import {
   getLibraryStatus,
@@ -164,7 +165,7 @@ function useShelfPageSize(viewMode) {
   return 6;
 }
 
-export function CoverBook({ item, onSelectBook, onScoreChange, savingBookId }) {
+export function CoverBook({ item, onSelectBook, onSelectAuthor, onScoreChange, savingBookId }) {
   const book = item.book || {};
   const cover = coverUrl(book.cover);
   const [statusLabel, statusClass] = getLibraryStatus(item.status);
@@ -211,7 +212,7 @@ export function CoverBook({ item, onSelectBook, onScoreChange, savingBookId }) {
 
       <div className="library-v2-cover-copy">
         <strong>{book.title || "Libro sin título"}</strong>
-        <small>{book.author || "Autor desconocido"}</small>
+        <AuthorLink author={book.author} onSelectAuthor={onSelectAuthor} />
         {["reading", "rereading", "paused"].includes(item.status) ? (
           <div className="library-v2-progress" aria-label={`${Number(item.progress || 0)}% leído`}>
             <span style={{ width: `${Math.max(0, Math.min(100, Number(item.progress || 0)))}%` }} />
@@ -327,6 +328,7 @@ function ShelfSection({
   onPage,
   onShowAll,
   onSelectBook,
+  onSelectAuthor,
   onScoreChange,
   onRemoveBook,
   savingBookId,
@@ -364,6 +366,7 @@ function ShelfSection({
                 key={`${shelf.id}-${item.book_id}`}
                 item={item}
                 onSelectBook={onSelectBook}
+                onSelectAuthor={onSelectAuthor}
                 onScoreChange={onScoreChange}
                 savingBookId={savingBookId}
               />
@@ -387,7 +390,7 @@ function ShelfSection({
   );
 }
 
-export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
+export default function MiBiblioteca({ onOpenCatalog, onSelectBook, onSelectAuthor }) {
   const [library, setLibrary] = useState({
     profile: null,
     items: [],
@@ -750,6 +753,7 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
               onPage={(page) => setPages((current) => ({ ...current, [shelf.id]: page }))}
               onShowAll={!isSearchMode ? () => setShowcaseShelfId(shelf.id) : null}
               onSelectBook={onSelectBook}
+              onSelectAuthor={onSelectAuthor}
               onScoreChange={handleScoreChange}
               onRemoveBook={handleRemoveBook}
               savingBookId={savingBookId}
