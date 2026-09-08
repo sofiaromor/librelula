@@ -16,6 +16,7 @@ import {
 } from "./lib/profileApi.js";
 import { getProfileConnections } from "./lib/friendsApi.js";
 import ReaderCollections from "./ReaderCollections.jsx";
+import AuthorLink from "./AuthorLink.jsx";
 import "./PerfilSupabase.css";
 
 const PROFILE_TABS = [
@@ -717,7 +718,7 @@ function ActivityView({ data, onSelectBook }) {
   );
 }
 
-function FavoritesView({ data, onSelectBook, onFavoritesChange }) {
+function FavoritesView({ data, onSelectBook, onSelectAuthor, onFavoritesChange }) {
   const [editingBooks, setEditingBooks] = useState(false);
   const [editingAuthors, setEditingAuthors] = useState(false);
   const [bookIds, setBookIds] = useState(() => data.favoriteBooks.map((book) => String(book.id)));
@@ -754,7 +755,9 @@ function FavoritesView({ data, onSelectBook, onFavoritesChange }) {
           <SectionHeading title="Autores favoritos" action={data.isOwner ? "Editar" : null} onAction={() => setEditingAuthors(true)} />
           {data.favoriteAuthors.length ? (
             <div className="profile-tag-cloud">
-              {data.favoriteAuthors.map((author) => <span key={author}>{author}</span>)}
+              {data.favoriteAuthors.map((author) => (
+                <AuthorLink key={author} author={author} onSelectAuthor={onSelectAuthor} />
+              ))}
             </div>
           ) : (
             <EmptyBlock>Aún no has elegido autores favoritos.</EmptyBlock>
@@ -787,6 +790,7 @@ export default function PerfilSupabase({
   onOpenLibrary,
   onOpenCatalog,
   onSelectBook,
+  onSelectAuthor,
   onSelectReviewBook,
   profileId = null,
   onOpenOwnProfile,
@@ -1217,7 +1221,7 @@ export default function PerfilSupabase({
           <ActivityView data={data} onSelectBook={onSelectBook} />
         ) : null}
         {currentTab === "favorites" ? (
-          <FavoritesView data={data} onSelectBook={onSelectBook} onFavoritesChange={loadProfile} />
+          <FavoritesView data={data} onSelectBook={onSelectBook} onSelectAuthor={onSelectAuthor} onFavoritesChange={loadProfile} />
         ) : null}
         {currentTab === "reviews" ? (
           <section
