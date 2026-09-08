@@ -143,6 +143,18 @@ useEffect(() => {
       unsubscribe?.();
     };
   }, []);
+
+  useEffect(() => {
+    function handleProfileUpdated(event) {
+      const details = event.detail || {};
+      setSession((current) => current.authenticated
+        ? { ...current, user: { ...current.user, ...details } }
+        : current);
+    }
+    window.addEventListener("librelula:profile-updated", handleProfileUpdated);
+    return () => window.removeEventListener("librelula:profile-updated", handleProfileUpdated);
+  }, []);
+
   function closeNavigation() {
     setNavOpen(false);
     setUserMenuOpen(false);
@@ -687,6 +699,11 @@ useEffect(() => {
                       src={avatarUrl}
                       alt={`Avatar de ${username}`}
                       className="user-avatar"
+                      title="Abrir mi perfil"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        openProfile();
+                      }}
                       onError={(event) => {
                         event.currentTarget.onerror = null;
                         event.currentTarget.src = defaultAvatar;
@@ -776,6 +793,7 @@ useEffect(() => {
             onReviewBook={(book) => openBookReview(book, "home")}
             onClubs={openClubs}
             onSelectBook={(book) => openBookDetail(book, "home")}
+            onSelectProfile={(userId) => openUserProfile(userId)}
             onOpenBookThread={(book, profile) => openBookThread(book, profile, "home")}
           />
         )}
