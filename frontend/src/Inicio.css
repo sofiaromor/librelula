@@ -1999,6 +1999,14 @@
   font-size: 0.87rem;
 }
 
+.home-reading-title-row .author-link {
+  display: block;
+  margin: 5px 0 0;
+  color: #77685f;
+  font-size: 0.87rem;
+  text-align: left;
+}
+
 .home-reading-percent {
   flex: 0 0 auto;
   text-align: right;
@@ -2360,6 +2368,14 @@
   margin-top: 2px;
   color: #918077;
   font-size: 0.64rem;
+}
+
+.home-club-card header .author-link {
+  display: block;
+  margin-top: 2px;
+  color: #918077;
+  font-size: 0.64rem;
+  text-align: left;
 }
 
 .home-club-meeting {
@@ -3453,6 +3469,11 @@
   line-height: 1.42;
 }
 
+.home-reading-title-row .author-link {
+  font-size: 0.96rem;
+  line-height: 1.42;
+}
+
 .home-reading-percent span {
   font-size: 0.78rem;
 }
@@ -3499,6 +3520,12 @@
 }
 
 .home-club-card header small {
+  font-size: 0.82rem;
+  line-height: 1.4;
+  white-space: normal;
+}
+
+.home-club-card header .author-link {
   font-size: 0.82rem;
   line-height: 1.4;
   white-space: normal;
@@ -3676,3 +3703,4 @@
     font-size: 0.9rem;
   }
 }
+.home-friend-avatar-button{border:0;background:transparent;padding:0;display:block;cursor:pointer;border-radius:50%}.home-friend-avatar-button:focus-visible{outline:3px solid #d79a52;outline-offset:3px}
