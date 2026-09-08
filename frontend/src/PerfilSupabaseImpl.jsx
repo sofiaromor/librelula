@@ -7,6 +7,8 @@ import {
   uploadProfileCover,
   updateProfileAvatar,
   updateProfileBio,
+  normalizeProfileVisualSettings,
+  updateProfileVisualSettings,
   updateFeaturedBooks,
   updateFeaturedCollection,
   updateFavoriteBooks,
@@ -79,6 +81,23 @@ function assetUrl(path, fallback = "images/librelula.png") {
   }
 
   return publicUrl(clean);
+}
+
+function avatarTransform(settings) {
+  const scale = Number(settings?.avatarScale || 100) / 100;
+  const x = Number(settings?.avatarX || 0);
+  const y = Number(settings?.avatarY || 0);
+  return `translate(${x}%, ${y}%) scale(${scale})`;
+}
+
+function coverStyle(url, settings) {
+  const visualSettings = normalizeProfileVisualSettings(settings);
+  return {
+    "--profile-cover": `url("${url}")`,
+    "--profile-cover-x": `${visualSettings.coverX}%`,
+    "--profile-cover-y": `${visualSettings.coverY}%`,
+    "--profile-cover-scale": visualSettings.coverScale / 100,
+  };
 }
 
 function titleForStatus(status) {
@@ -327,6 +346,93 @@ function FeaturedCollection({ data, onSelectBook, onCollectionChange }) {
         </div>
       ) : null}
     </article>
+  );
+}
+
+function VisualRange({ id, label, value, min, max, onChange, formatValue = (current) => current }) {
+  return (
+    <label className="profile-visual-range" htmlFor={id}>
+      <span>
+        <span>{label}</span>
+        <output htmlFor={id}>{formatValue(value)}</output>
+      </span>
+      <input
+        id={id}
+        type="range"
+        min={min}
+        max={max}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+      />
+    </label>
+  );
+}
+
+function ProfileVisualSettings({
+  avatarUrl,
+  coverUrl,
+  displayName,
+  handle,
+  settings,
+  onChange,
+  onReset,
+  onClose,
+  onSave,
+  saving,
+  error,
+}) {
+  return (
+    <div className="profile-visual-settings-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
+      <section className="profile-visual-settings" role="dialog" aria-modal="true" aria-labelledby="profile-visual-settings-title">
+        <header>
+          <div>
+            <span className="profile-eyebrow">Personaliza tu carnet</span>
+            <h2 id="profile-visual-settings-title">Ajustes visuales</h2>
+          </div>
+          <button type="button" className="profile-visual-settings-close" onClick={onClose} aria-label="Cerrar ajustes">×</button>
+        </header>
+
+        <div className="profile-visual-preview" aria-label="Vista previa de tu portada e icono">
+          <div className="profile-visual-preview-banner" style={coverStyle(coverUrl, settings)}>
+            <div className="profile-hero-banner-image" aria-hidden="true" />
+            <span>Portada</span>
+          </div>
+          <div className="profile-visual-preview-card">
+            <span className="profile-visual-preview-avatar">
+              <img src={avatarUrl} alt={`Vista previa del avatar de ${displayName}`} style={{ "--profile-avatar-transform": avatarTransform(settings) }} />
+            </span>
+            <div>
+              <strong>{displayName}</strong>
+              <small>@{handle}</small>
+            </div>
+          </div>
+        </div>
+
+        <div className="profile-visual-controls">
+          <fieldset>
+            <legend>Icono</legend>
+            <VisualRange id="profile-avatar-scale" label="Zoom" value={settings.avatarScale} min={100} max={160} onChange={(value) => onChange("avatarScale", value)} formatValue={(value) => `${value}%`} />
+            <VisualRange id="profile-avatar-x" label="Horizontal" value={settings.avatarX} min={-20} max={20} onChange={(value) => onChange("avatarX", value)} formatValue={(value) => `${value > 0 ? "+" : ""}${value}`} />
+            <VisualRange id="profile-avatar-y" label="Vertical" value={settings.avatarY} min={-20} max={20} onChange={(value) => onChange("avatarY", value)} formatValue={(value) => `${value > 0 ? "+" : ""}${value}`} />
+          </fieldset>
+          <fieldset>
+            <legend>Fondo</legend>
+            <VisualRange id="profile-cover-scale" label="Zoom" value={settings.coverScale} min={100} max={140} onChange={(value) => onChange("coverScale", value)} formatValue={(value) => `${value}%`} />
+            <VisualRange id="profile-cover-x" label="Horizontal" value={settings.coverX} min={0} max={100} onChange={(value) => onChange("coverX", value)} formatValue={(value) => `${value}%`} />
+            <VisualRange id="profile-cover-y" label="Vertical" value={settings.coverY} min={0} max={100} onChange={(value) => onChange("coverY", value)} formatValue={(value) => `${value}%`} />
+          </fieldset>
+        </div>
+
+        {error ? <p className="profile-visual-settings-error" role="alert">{error}</p> : null}
+        <footer>
+          <button type="button" className="profile-visual-reset" onClick={onReset}>Restablecer</button>
+          <div>
+            <button type="button" className="profile-visual-cancel" onClick={onClose}>Cancelar</button>
+            <button type="button" className="profile-visual-save" onClick={onSave} disabled={saving}>{saving ? "Guardando…" : "Guardar ajustes"}</button>
+          </div>
+        </footer>
+      </section>
+    </div>
   );
 }
 
@@ -698,6 +804,7 @@ export default function PerfilSupabase({
   const [bioEditing, setBioEditing] = useState(false);
   const [bioDraft, setBioDraft] = useState("");
   const [bioSaving, setBioSaving] = useState(false);
+  const [visualEditor, setVisualEditor] = useState({ open: false, draft: null, saving: false, error: "" });
 
   async function loadProfile() {
     try {
@@ -731,6 +838,19 @@ export default function PerfilSupabase({
       cancelled = true;
     };
   }, [profileId]);
+
+  useEffect(() => {
+    if (!visualEditor.open) return undefined;
+
+    function handleVisualEditorKeyDown(event) {
+      if (event.key === "Escape" && !visualEditor.saving) {
+        setVisualEditor({ open: false, draft: null, saving: false, error: "" });
+      }
+    }
+
+    window.addEventListener("keydown", handleVisualEditorKeyDown);
+    return () => window.removeEventListener("keydown", handleVisualEditorKeyDown);
+  }, [visualEditor.open, visualEditor.saving]);
 
   const data = state.data;
   const profile = data?.profile;
@@ -894,6 +1014,49 @@ export default function PerfilSupabase({
   const coverUrl = assetUrl(profile.cover_image, "images/fondo.png");
   const displayName = profile.display_name || profile.username || "Mi rincón";
   const handle = String(profile.username || "lectora").replace(/^@/, "");
+  const currentVisualSettings = normalizeProfileVisualSettings(profile.profile_visual_settings);
+  const editorVisualSettings = visualEditor.draft || currentVisualSettings;
+
+  function openVisualSettings() {
+    setVisualEditor({ open: true, draft: currentVisualSettings, saving: false, error: "" });
+  }
+
+  function changeVisualSetting(key, value) {
+    setVisualEditor((current) => ({
+      ...current,
+      draft: { ...(current.draft || currentVisualSettings), [key]: value },
+      error: "",
+    }));
+  }
+
+  function resetVisualSettings() {
+    setVisualEditor((current) => ({
+      ...current,
+      draft: normalizeProfileVisualSettings({}),
+      error: "",
+    }));
+  }
+
+  function closeVisualSettings() {
+    if (!visualEditor.saving) setVisualEditor({ open: false, draft: null, saving: false, error: "" });
+  }
+
+  async function saveVisualSettings() {
+    setVisualEditor((current) => ({ ...current, saving: true, error: "" }));
+    try {
+      const saved = await updateProfileVisualSettings(editorVisualSettings);
+      setState((current) => current.data ? {
+        ...current,
+        data: {
+          ...current.data,
+          profile: { ...current.data.profile, profile_visual_settings: saved },
+        },
+      } : current);
+      setVisualEditor({ open: false, draft: null, saving: false, error: "" });
+    } catch (error) {
+      setVisualEditor((current) => ({ ...current, saving: false, error: error?.message || "No se pudieron guardar los ajustes." }));
+    }
+  }
 
   return (
     <main className="reader-profile profile-redesign">
@@ -906,18 +1069,25 @@ export default function PerfilSupabase({
         <header
           className="profile-hero"
         >
-          <div className="profile-hero-banner" style={{ "--profile-cover": `url("${coverUrl}")` }} aria-label="Portada del perfil" />
+          <div className="profile-hero-banner" style={coverStyle(coverUrl, currentVisualSettings)} role="img" aria-label="Portada del perfil">
+            <div className="profile-hero-banner-image" aria-hidden="true" />
+          </div>
           {data.isOwner ? (
             <>
-              <button
-                type="button"
-                className="profile-change-cover"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={coverState.saving}
-              >
-                <span aria-hidden="true">▣</span>
-                {coverState.saving ? "Guardando…" : "Cambiar portada"}
-              </button>
+              <div className="profile-hero-tools">
+                <button type="button" className="profile-visual-settings-trigger" onClick={openVisualSettings} aria-label="Ajustar icono y portada" title="Ajustar icono y portada">
+                  <span aria-hidden="true">⚙</span>
+                </button>
+                <button
+                  type="button"
+                  className="profile-change-cover"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={coverState.saving}
+                >
+                  <span aria-hidden="true">▣</span>
+                  {coverState.saving ? "Guardando…" : "Cambiar portada"}
+                </button>
+              </div>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -937,13 +1107,16 @@ export default function PerfilSupabase({
                 onClick={() => data.isOwner && setAvatarState((current) => ({ ...current, open: !current.open, error: "" }))}
                 disabled={!data.isOwner || avatarState.saving}
               >
-              <img
-                src={avatarUrl}
-                alt={`Avatar de ${displayName}`}
-                onError={(event) => {
-                  event.currentTarget.src = publicUrl("images/avatar/avatar1.png");
-                }}
-              />
+                <span className="profile-avatar-image-window">
+                  <img
+                    src={avatarUrl}
+                    alt={`Avatar de ${displayName}`}
+                    style={{ "--profile-avatar-transform": avatarTransform(currentVisualSettings) }}
+                    onError={(event) => {
+                      event.currentTarget.src = publicUrl("images/avatar/avatar1.png");
+                    }}
+                  />
+                </span>
                 {data.isOwner ? <span className="profile-avatar-edit" aria-hidden="true">✦</span> : null}
               </button>
               {data.isOwner && avatarState.open ? (
@@ -985,6 +1158,22 @@ export default function PerfilSupabase({
             {!data.isOwner && onOpenOwnProfile ? <button type="button" className="profile-return-action" onClick={onOpenOwnProfile}>Mi perfil</button> : null}
           </div>
         </header>
+
+        {visualEditor.open ? (
+          <ProfileVisualSettings
+            avatarUrl={avatarUrl}
+            coverUrl={coverUrl}
+            displayName={displayName}
+            handle={handle}
+            settings={editorVisualSettings}
+            onChange={changeVisualSetting}
+            onReset={resetVisualSettings}
+            onClose={closeVisualSettings}
+            onSave={saveVisualSettings}
+            saving={visualEditor.saving}
+            error={visualEditor.error}
+          />
+        ) : null}
 
         {coverState.error ? <p className="profile-inline-error">{coverState.error}</p> : null}
 
