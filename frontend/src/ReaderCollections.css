@@ -17,3 +17,17 @@
 .reader-collection-card-body { padding: .85rem; }
 .reader-collection-card h3 { font-size: 1.08rem; }
 .reader-collection-card p { font-size: .92rem; }
+.reader-collection-open { display: block; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; text-align: left; cursor: pointer; }
+.reader-collection-open-label { display: inline-block; margin-top: .65rem; color: #31584c; font-size: .82rem; font-weight: 800; }
+.reader-collection-open:hover h3, .reader-collection-open:focus-visible h3 { color: #a75131; }
+.reader-collection-modal-backdrop { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; padding: 1rem; background: rgba(39, 28, 20, .48); }
+.reader-collection-modal { width: min(760px, 100%); max-height: min(86vh, 760px); overflow: auto; padding: 1.2rem; border: 1px solid rgba(103, 68, 43, .2); border-radius: 22px; background: #fffaf3; box-shadow: 0 24px 70px rgba(30, 18, 10, .28); }
+.reader-collection-modal > header { display: flex; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; }
+.reader-collection-modal > header h2 { margin: .25rem 0 0; color: #3a271c; font: 700 1.8rem/1.08 Georgia, serif; }
+.reader-collection-modal > header p { margin: .35rem 0 0; color: #765f4e; }
+.reader-collection-modal > header > button { width: 2.3rem; height: 2.3rem; border: 1px solid rgba(103, 68, 43, .2); border-radius: 50%; background: transparent; color: #5b3c2b; font-size: 1.4rem; cursor: pointer; }
+.reader-collection-modal-books { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .7rem; }
+.reader-collection-modal-books > button { display: flex; gap: .65rem; min-width: 0; padding: .5rem; border: 1px solid rgba(103, 68, 43, .14); border-radius: 10px; background: #fbf5ea; color: #3a271c; text-align: left; cursor: pointer; }
+.reader-collection-modal-books img { width: 48px; height: 72px; flex: 0 0 auto; border-radius: 4px; object-fit: cover; }
+.reader-collection-modal-books span { min-width: 0; align-self: center; }.reader-collection-modal-books strong, .reader-collection-modal-books small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.reader-collection-modal-books small { margin-top: .25rem; color: #765f4e; }
+@media (max-width: 600px) { .reader-collection-modal-books { grid-template-columns: 1fr 1fr; } }

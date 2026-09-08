@@ -164,7 +164,7 @@ function useShelfPageSize(viewMode) {
   return 6;
 }
 
-export function CoverBook({ item, onSelectBook, onScoreChange, onRemoveBook, savingBookId }) {
+export function CoverBook({ item, onSelectBook, onScoreChange, savingBookId }) {
   const book = item.book || {};
   const cover = coverUrl(book.cover);
   const [statusLabel, statusClass] = getLibraryStatus(item.status);
@@ -212,14 +212,6 @@ export function CoverBook({ item, onSelectBook, onScoreChange, onRemoveBook, sav
       <div className="library-v2-cover-copy">
         <strong>{book.title || "Libro sin título"}</strong>
         <small>{book.author || "Autor desconocido"}</small>
-        <button
-          type="button"
-          className="library-v2-remove-book"
-          onClick={() => onRemoveBook?.(item)}
-          disabled={savingBookId === item.book_id}
-        >
-          Quitar de la biblioteca
-        </button>
         {["reading", "rereading", "paused"].includes(item.status) ? (
           <div className="library-v2-progress" aria-label={`${Number(item.progress || 0)}% leído`}>
             <span style={{ width: `${Math.max(0, Math.min(100, Number(item.progress || 0)))}%` }} />
@@ -236,7 +228,6 @@ function SpineBook({
   onChooseFile,
   onEditCrop,
   onRemove,
-  onRemoveBook,
   busy,
 }) {
   const fileInputRef = useRef(null);
@@ -311,15 +302,6 @@ function SpineBook({
           <button type="button" className="library-spine-remove-action" onClick={() => onRemove(item)} aria-label={`Quitar lomo personal de ${book.title || "libro"}`}>×</button>
         </>
       ) : null}
-      <button
-        type="button"
-        className="library-spine-library-remove"
-        onClick={() => onRemoveBook?.(item)}
-        disabled={busy}
-        aria-label={`Quitar ${book.title || "libro"} de la biblioteca`}
-      >
-        ×
-      </button>
     </article>
   );
 }
@@ -383,7 +365,6 @@ function ShelfSection({
                 item={item}
                 onSelectBook={onSelectBook}
                 onScoreChange={onScoreChange}
-                onRemoveBook={onRemoveBook}
                 savingBookId={savingBookId}
               />
             ))
@@ -395,7 +376,6 @@ function ShelfSection({
                 onChooseFile={onChooseFile}
                 onEditCrop={onEditCrop}
                 onRemove={onRemoveSpine}
-                onRemoveBook={onRemoveBook}
                 busy={savingSpineBookId === item.book_id}
               />
             ))}
