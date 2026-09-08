@@ -10,6 +10,7 @@ import AddFriends from "./AddFriends.jsx";
 import EditBook from "./EditBook.jsx";
 import GoodreadsImport from "./GoodreadsImport.jsx";
 import SagaBooks from "./SagaBooks.jsx";
+import ReaderCollectionPage from "./ReaderCollectionPage.jsx";
 import { appUrl, publicUrl } from "./api.js";
 import { searchReaderPostBooks } from "./lib/homeDashboardApi.js";
 import {
@@ -29,6 +30,7 @@ export default function App() {
   const [selectedBook, setSelectedBook] = useState(null);
   const [bookThreadTarget, setBookThreadTarget] = useState(null);
   const [selectedSaga, setSelectedSaga] = useState(null);
+  const [selectedCollection, setSelectedCollection] = useState(null);
   const [detailBackPage, setDetailBackPage] = useState("catalog");
   const [profileTab, setProfileTab] = useState("summary");
   const [profileUserId, setProfileUserId] = useState(null);
@@ -197,9 +199,21 @@ useEffect(() => {
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
+    setSelectedCollection(null);
     setNewBookTitle("");
     setDetailBackPage("catalog");
     setPage("catalog");
+  }
+
+  function openCollection(collection) {
+    if (!collection) return;
+    closeNavigation();
+    updateBookQuery();
+    setSelectedBook(null);
+    setSelectedSaga(null);
+    setSelectedCollection(collection);
+    setDetailBackPage("catalog");
+    setPage("collection");
   }
 
   function openClubs(clubId = null) {
@@ -806,6 +820,15 @@ useEffect(() => {
             onAddBook={openAddBook}
             onImportCatalog={openCatalogImport}
             onSelectBook={(book) => openBookDetail(book, "catalog")}
+            onSelectCollection={openCollection}
+          />
+        )}
+
+        {!sessionLoading && page === "collection" && selectedCollection && (
+          <ReaderCollectionPage
+            collection={selectedCollection}
+            onBack={openCatalog}
+            onSelectBook={(book) => openBookDetail(book, "collection")}
           />
         )}
 

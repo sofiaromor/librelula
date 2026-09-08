@@ -6,8 +6,11 @@ import {
   uploadProfileAvatar,
   uploadProfileCover,
   updateProfileAvatar,
+  updateProfileBio,
   updateFeaturedBooks,
   updateFeaturedCollection,
+  updateFavoriteBooks,
+  updateFavoriteAuthors,
 } from "./lib/profileApi.js";
 import { getProfileConnections } from "./lib/friendsApi.js";
 import ReaderCollections from "./ReaderCollections.jsx";
@@ -221,9 +224,11 @@ function ReviewPreview({ review, onSelectBook }) {
 
 function FeaturedCollection({ data, onSelectBook, onCollectionChange }) {
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [titleEditing, setTitleEditing] = useState(false);
+  const [titleDraft, setTitleDraft] = useState(data.featuredCollectionTitle || "");
   const [selectedIds, setSelectedIds] = useState(() => (data.featuredBooks || []).map((book) => String(book.id)));
   const [saving, setSaving] = useState(false);
-  const label = FEATURED_COLLECTIONS.find((item) => item.id === data.featuredCollection)?.label
+  const label = data.featuredCollectionTitle || FEATURED_COLLECTIONS.find((item) => item.id === data.featuredCollection)?.label
     || "Mi colección";
 
   function toggleBook(bookId) {
@@ -237,27 +242,41 @@ function FeaturedCollection({ data, onSelectBook, onCollectionChange }) {
     setSaving(true);
     try {
       await updateFeaturedBooks(selectedIds);
-      onCollectionChange?.("custom", selectedIds);
+      onCollectionChange?.("custom", data.featuredCollectionTitle, selectedIds);
       setPickerOpen(false);
     } finally {
       setSaving(false);
     }
   }
 
+  async function saveTitle(event) {
+    event.preventDefault();
+    const title = titleDraft.trim().slice(0, 80);
+    await onCollectionChange?.(data.featuredCollection, title);
+    setTitleEditing(false);
+  }
+
   return (
     <article className="profile-panel profile-featured-panel">
       <div className="profile-featured-heading">
         <div>
-          <span className="profile-eyebrow">Una ventana a tus lecturas</span>
-          <h2>{data.isOwner ? "La colección que quiero enseñar" : label}</h2>
-          <p>{data.isOwner ? "Elige qué parte de tu biblioteca verá primero quien visite tu perfil." : "Una selección de esta biblioteca personal."}</p>
+          <span className="profile-eyebrow">Expositor</span>
+          {titleEditing ? (
+            <form className="profile-featured-title-editor" onSubmit={saveTitle}>
+              <label className="sr-only" htmlFor="featured-collection-title">Título de la colección destacada</label>
+              <input id="featured-collection-title" value={titleDraft} maxLength={80} onChange={(event) => setTitleDraft(event.target.value)} placeholder="Mi colección" autoFocus />
+              <button type="submit">Guardar</button>
+            </form>
+          ) : <h2>{label}</h2>}
+          {data.isOwner ? <button type="button" className="profile-featured-title-edit" onClick={() => { setTitleDraft(data.featuredCollectionTitle || label); setTitleEditing(true); }}>Editar título</button> : null}
+          {data.isOwner ? <p className="profile-featured-note">Fijada en tu perfil</p> : null}
         </div>
         {data.isOwner ? (
           <label className="profile-featured-select">
             <span className="sr-only">Colección que quieres destacar</span>
             <select value={data.featuredCollection} onChange={(event) => {
               const value = event.target.value;
-              onCollectionChange?.(value);
+              onCollectionChange?.(value, data.featuredCollectionTitle);
               if (value === "custom") setPickerOpen(true);
             }}>
               {FEATURED_COLLECTIONS.map((collection) => <option key={collection.id} value={collection.id}>{collection.label}</option>)}
@@ -311,18 +330,11 @@ function FeaturedCollection({ data, onSelectBook, onCollectionChange }) {
   );
 }
 
-function CircleReader({ reader, onSelectBook }) {
+function CircleReader({ reader, onSelectBook, onSelectProfile }) {
   const fallback = publicUrl("images/avatar/avatar1.png");
   return (
     <article className="profile-circle-reader">
-      <img
-        className="profile-circle-avatar"
-        src={assetUrl(reader.avatar, "images/avatar/avatar1.png")}
-        alt={`Avatar de ${reader.username || "lector"}`}
-        onError={(event) => {
-          event.currentTarget.src = fallback;
-        }}
-      />
+      <button type="button" className="profile-circle-avatar-button" onClick={() => onSelectProfile?.(reader.id)} aria-label={`Abrir el perfil de ${reader.username || "lector"}`}><img className="profile-circle-avatar" src={assetUrl(reader.avatar, "images/avatar/avatar1.png")} alt="" onError={(event) => { event.currentTarget.src = fallback; }} /></button>
       <div>
         <strong>{reader.display_name || reader.username || "Lectora"}</strong>
         <p>
@@ -350,7 +362,7 @@ function CircleReader({ reader, onSelectBook }) {
   );
 }
 
-function SummaryView({ data, onSelectBook, onTabChange, onCollectionChange }) {
+function SummaryView({ data, onSelectBook, onTabChange, onCollectionChange, onSelectProfile, onSelectCollection }) {
   const recentDays = (data.activityDays || []).slice(-7);
 
   return (
@@ -362,6 +374,7 @@ function SummaryView({ data, onSelectBook, onTabChange, onCollectionChange }) {
           creatorId={data.isOwner ? null : data.profile?.id}
           availableBooks={data.shelfBooks}
           onSelectBook={onSelectBook}
+          onSelectCollection={onSelectCollection}
         />
         <article className="profile-panel profile-shelf-panel">
           <SectionHeading
@@ -482,7 +495,7 @@ function SummaryView({ data, onSelectBook, onTabChange, onCollectionChange }) {
           {data.readerCircle.length ? (
             <div className="profile-circle-list">
               {data.readerCircle.slice(0, 3).map((reader) => (
-                <CircleReader key={reader.id} reader={reader} onSelectBook={onSelectBook} />
+                <CircleReader key={reader.id} reader={reader} onSelectBook={onSelectBook} onSelectProfile={onSelectProfile} />
               ))}
             </div>
           ) : (
@@ -502,6 +515,12 @@ function ShelfView({ data, shelfFilter, onShelfFilter, onSelectBook }) {
     }
     return data.shelfBooks.filter((book) => book.status === shelfFilter);
   }, [data.shelfBooks, shelfFilter]);
+
+  const orderedBooks = useMemo(() => [...visibleBooks].sort((left, right) => {
+    const scoreDifference = Number(right.score || 0) - Number(left.score || 0);
+    if (scoreDifference) return scoreDifference;
+    return String(left.title || "").localeCompare(String(right.title || ""), "es");
+  }), [visibleBooks]);
 
   return (
     <section className="profile-tab-view" id="profile-panel-shelf" role="tabpanel">
@@ -527,7 +546,7 @@ function ShelfView({ data, shelfFilter, onShelfFilter, onSelectBook }) {
       </div>
       {visibleBooks.length ? (
         <div className="profile-library-grid">
-          {visibleBooks.map((book) => (
+          {orderedBooks.map((book) => (
             <button
               type="button"
               className="profile-library-book"
@@ -539,6 +558,7 @@ function ShelfView({ data, shelfFilter, onShelfFilter, onSelectBook }) {
                 <strong>{book.title || "Libro sin título"}</strong>
                 <small>{book.author || "Autor desconocido"}</small>
                 <em>{titleForStatus(book.status)}</em>
+                <StarRating score={book.score} />
                 {book.progress > 0 ? (
                   <span className="profile-progress-track">
                     <span style={{ width: `${clampProgress(book.progress)}%` }} />
@@ -591,7 +611,16 @@ function ActivityView({ data, onSelectBook }) {
   );
 }
 
-function FavoritesView({ data, onSelectBook }) {
+function FavoritesView({ data, onSelectBook, onFavoritesChange }) {
+  const [editingBooks, setEditingBooks] = useState(false);
+  const [editingAuthors, setEditingAuthors] = useState(false);
+  const [bookIds, setBookIds] = useState(() => data.favoriteBooks.map((book) => String(book.id)));
+  const [authors, setAuthors] = useState(() => data.favoriteAuthors);
+  const [authorInput, setAuthorInput] = useState("");
+  const [saving, setSaving] = useState(false);
+  const toggleBook = (id) => setBookIds((current) => current.includes(String(id)) ? current.filter((value) => value !== String(id)) : [...current, String(id)].slice(0, 9));
+  async function saveBooks() { setSaving(true); try { await updateFavoriteBooks(bookIds); onFavoritesChange?.(); setEditingBooks(false); } finally { setSaving(false); } }
+  async function saveAuthors() { setSaving(true); try { await updateFavoriteAuthors(authors); onFavoritesChange?.(); setEditingAuthors(false); } finally { setSaving(false); } }
   return (
     <section className="profile-tab-view" id="profile-panel-favorites" role="tabpanel">
       <div className="profile-tab-intro">
@@ -603,7 +632,7 @@ function FavoritesView({ data, onSelectBook }) {
       </div>
       <div className="profile-favorites-layout">
         <article className="profile-panel">
-          <SectionHeading title="Libros favoritos" />
+          <SectionHeading title="Libros favoritos" action={data.isOwner ? "Editar" : null} onAction={() => setEditingBooks(true)} />
           {data.favoriteBooks.length ? (
             <div className="profile-favorite-books-grid">
               {data.favoriteBooks.map((book) => (
@@ -613,9 +642,10 @@ function FavoritesView({ data, onSelectBook }) {
           ) : (
             <EmptyBlock>Aún no has elegido libros favoritos.</EmptyBlock>
           )}
+          {editingBooks && data.isOwner ? <div className="profile-favorites-editor"><p>Elige hasta nueve libros.</p><div className="profile-favorites-picker">{(data.shelfBooks || []).map((book) => <button type="button" key={book.id} className={bookIds.includes(String(book.id)) ? "is-selected" : ""} onClick={() => toggleBook(book.id)} aria-pressed={bookIds.includes(String(book.id))}><CoverImage book={book} /><span>{book.title}</span></button>)}</div><footer><button type="button" onClick={() => setEditingBooks(false)}>Cancelar</button><button type="button" onClick={saveBooks} disabled={saving}>{saving ? "Guardando…" : "Guardar"}</button></footer></div> : null}
         </article>
         <article className="profile-panel">
-          <SectionHeading title="Autores favoritos" />
+          <SectionHeading title="Autores favoritos" action={data.isOwner ? "Editar" : null} onAction={() => setEditingAuthors(true)} />
           {data.favoriteAuthors.length ? (
             <div className="profile-tag-cloud">
               {data.favoriteAuthors.map((author) => <span key={author}>{author}</span>)}
@@ -623,6 +653,7 @@ function FavoritesView({ data, onSelectBook }) {
           ) : (
             <EmptyBlock>Aún no has elegido autores favoritos.</EmptyBlock>
           )}
+          {editingAuthors && data.isOwner ? <div className="profile-authors-editor"><p>Añade autores separados por líneas.</p><textarea value={authors.join("\n")} onChange={(event) => setAuthors(event.target.value.split("\n").map((value) => value.trim()).filter(Boolean).slice(0, 10))} placeholder="Nombre del autor" /><footer><button type="button" onClick={() => setEditingAuthors(false)}>Cancelar</button><button type="button" onClick={saveAuthors} disabled={saving}>{saving ? "Guardando…" : "Guardar"}</button></footer><label className="profile-author-add">Añadir autor<input value={authorInput} onChange={(event) => setAuthorInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && authorInput.trim()) { event.preventDefault(); setAuthors((current) => [...new Set([...current, authorInput.trim()])].slice(0, 10)); setAuthorInput(""); } }} /></label></div> : null}
         </article>
         <article className="profile-panel">
           <SectionHeading title="Géneros más leídos" />
@@ -655,6 +686,7 @@ export default function PerfilSupabase({
   onOpenOwnProfile,
   onBackToClub,
   onSelectProfile,
+  onSelectCollection,
 }) {
   const fileInputRef = useRef(null);
   const avatarInputRef = useRef(null);
@@ -663,6 +695,9 @@ export default function PerfilSupabase({
   const [avatarState, setAvatarState] = useState({ open: false, saving: false, error: "" });
   const [shelfFilter, setShelfFilter] = useState("all");
   const [connections, setConnections] = useState({ open: false, direction: "followers", loading: false, error: "", items: [] });
+  const [bioEditing, setBioEditing] = useState(false);
+  const [bioDraft, setBioDraft] = useState("");
+  const [bioSaving, setBioSaving] = useState(false);
 
   async function loadProfile() {
     try {
@@ -742,6 +777,7 @@ export default function PerfilSupabase({
         data: { ...current.data, profile: { ...current.data.profile, avatar } },
       } : current);
       setAvatarState({ open: false, saving: false, error: "" });
+      window.dispatchEvent(new CustomEvent("librelula:profile-updated", { detail: { avatar } }));
     } catch (error) {
       setAvatarState({ open: true, saving: false, error: error?.message || "No se pudo cambiar el icono." });
     }
@@ -756,6 +792,7 @@ export default function PerfilSupabase({
         data: { ...current.data, profile: { ...current.data.profile, avatar } },
       } : current);
       setAvatarState({ open: false, saving: false, error: "" });
+      window.dispatchEvent(new CustomEvent("librelula:profile-updated", { detail: { avatar } }));
     } catch (error) {
       setAvatarState({ open: true, saving: false, error: error?.message || "No se pudo cambiar el icono." });
     }
@@ -771,14 +808,30 @@ export default function PerfilSupabase({
     }
   }
 
-  async function handleCollectionChange(value, customIds = null) {
+  async function handleBioSave(event) {
+    event?.preventDefault();
+    setBioSaving(true);
     try {
-      await updateFeaturedCollection(value);
+      const bio = await updateProfileBio(bioDraft);
+      setState((current) => current.data ? { ...current, data: { ...current.data, profile: { ...current.data.profile, bio } } } : current);
+      setBioEditing(false);
+      window.dispatchEvent(new CustomEvent("librelula:profile-updated", { detail: { bio } }));
+    } catch (error) {
+      setCoverState({ saving: false, error: error?.message || "No se pudo guardar la descripción." });
+    } finally {
+      setBioSaving(false);
+    }
+  }
+
+  async function handleCollectionChange(value, title = "", customIds = null) {
+    try {
+      await updateFeaturedCollection(value, title);
       setState((current) => current.data ? {
         ...current,
         data: {
           ...current.data,
           featuredCollection: value,
+          featuredCollectionTitle: title,
           featuredBooks: value === "custom" && customIds
             ? customIds.map((id) => current.data.shelfBooks.find((book) => String(book.id) === String(id))).filter(Boolean)
             : value === "favorites"
@@ -852,9 +905,8 @@ export default function PerfilSupabase({
         ) : null}
         <header
           className="profile-hero"
-          style={{ "--profile-cover": `url("${coverUrl}")` }}
         >
-          <div className="profile-hero-overlay" />
+          <div className="profile-hero-banner" style={{ "--profile-cover": `url("${coverUrl}")` }} aria-label="Portada del perfil" />
           {data.isOwner ? (
             <>
               <button
@@ -915,25 +967,22 @@ export default function PerfilSupabase({
             <div className="profile-identity-copy">
               <h1>{displayName}</h1>
               <span>@{handle}</span>
-              <p>{profile.bio || "Lecturas, favoritos y pequeñas huellas de mi biblioteca personal."}</p>
+              {bioEditing ? (
+                <form className="profile-bio-editor" onSubmit={handleBioSave}>
+                  <label htmlFor="profile-bio">Descripción</label>
+                  <textarea id="profile-bio" value={bioDraft} maxLength={240} onChange={(event) => setBioDraft(event.target.value)} autoFocus />
+                  <div><button type="submit" disabled={bioSaving}>{bioSaving ? "Guardando…" : "Guardar"}</button><button type="button" onClick={() => setBioEditing(false)}>Cancelar</button></div>
+                </form>
+              ) : (
+                <p>{profile.bio || "Añade una breve descripción."}</p>
+              )}
+              {data.isOwner && !bioEditing ? <button type="button" className="profile-edit-bio" onClick={() => { setBioDraft(profile.bio || ""); setBioEditing(true); }}>Editar descripción</button> : null}
               <div className="profile-social-counts">
                 <button type="button" onClick={() => openConnections("followers")}><strong>{formatNumber(data.social.followers)}</strong> seguidores</button>
                 <button type="button" onClick={() => openConnections("following")}><strong>{formatNumber(data.social.following)}</strong> siguiendo</button>
               </div>
             </div>
-            <div className="profile-owner-actions">
-              {data.isOwner ? (
-                <>
-                  <button type="button" onClick={onOpenLibrary}>Ver biblioteca</button>
-                  <button type="button" className="is-secondary" onClick={onOpenCatalog}>Explorar catálogo</button>
-                </>
-              ) : (
-                <>
-                  <button type="button" onClick={onOpenOwnProfile}>Volver a mi perfil</button>
-                  <button type="button" className="is-secondary" onClick={onOpenCatalog}>Explorar catálogo</button>
-                </>
-              )}
-            </div>
+            {!data.isOwner && onOpenOwnProfile ? <button type="button" className="profile-return-action" onClick={onOpenOwnProfile}>Mi perfil</button> : null}
           </div>
         </header>
 
@@ -963,6 +1012,8 @@ export default function PerfilSupabase({
             onSelectBook={onSelectBook}
             onTabChange={onTabChange}
             onCollectionChange={handleCollectionChange}
+            onSelectProfile={onSelectProfile}
+            onSelectCollection={onSelectCollection}
           />
         ) : null}
         {currentTab === "shelf" ? (
@@ -977,7 +1028,7 @@ export default function PerfilSupabase({
           <ActivityView data={data} onSelectBook={onSelectBook} />
         ) : null}
         {currentTab === "favorites" ? (
-          <FavoritesView data={data} onSelectBook={onSelectBook} />
+          <FavoritesView data={data} onSelectBook={onSelectBook} onFavoritesChange={loadProfile} />
         ) : null}
         {currentTab === "reviews" ? (
           <section
