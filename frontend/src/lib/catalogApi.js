@@ -114,6 +114,54 @@ export async function getCatalogFilterOptions() {
 }
 
 
+
+export async function getCatalogSagaBooks({ sagaKey = "", sagaName = "" } = {}) {
+  const cleanKey = String(sagaKey || "").trim();
+  const cleanName = String(sagaName || "").trim();
+  if (!cleanKey && !cleanName) return [];
+
+  const fields = "id, title, author, cover, pages, genre, year, saga_name, saga_number, saga_key";
+  const queryBooks = (filter) => {
+    let query = supabase
+      .from("books")
+      .select(fields)
+      .eq("review_status", "approved")
+      .order("saga_number", { ascending: true, nullsFirst: false })
+      .order("title", { ascending: true })
+      .limit(200);
+
+    return filter(query);
+  };
+
+  const escapeIlike = (value) => String(value || "").replace(/[\\%_]/g, "\\$&");
+  const requests = [];
+
+  if (cleanKey) {
+    requests.push(queryBooks((query) => query.eq("saga_key", cleanKey)));
+  }
+
+  if (cleanName) {
+    requests.push(queryBooks((query) => query.ilike("saga_name", escapeIlike(cleanName))));
+  }
+
+  const results = await Promise.all(requests);
+  const failed = results.find(({ error }) => error);
+
+  if (failed && results.every(({ error }) => error)) {
+    throw apiError("No se pudieron cargar los libros de esta saga.");
+  }
+
+  const booksById = new Map();
+  for (const result of results) {
+    for (const book of result.data || []) {
+      const key = String(book.id || "");
+      if (key) booksById.set(key, book);
+    }
+  }
+
+  return [...booksById.values()];
+}
+
 const DISCOVERY_BOOK_FIELDS = `
   id,
   title,
