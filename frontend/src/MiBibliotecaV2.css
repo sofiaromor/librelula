@@ -229,7 +229,7 @@
   z-index: 1;
   width: min(152px, calc((100% - 70px) / 6));
   min-width: 0;
-  flex: 1 1 0;
+  flex: 0 0 min(152px, calc((100% - 70px) / 6));
 }
 
 .library-v2-cover-visual {
@@ -307,6 +307,36 @@
   font-size: .75rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.library-v2-cover-copy > .author-link {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: .75rem;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.library-v2-remove-book {
+  margin-top: .45rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #8d5b4c;
+  font: inherit;
+  font-size: .74rem;
+  text-align: left;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.library-v2-remove-book:disabled {
+  opacity: .55;
+  cursor: wait;
 }
 
 .library-v2-progress {
