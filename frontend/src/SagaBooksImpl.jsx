@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 
-import { apiFetch, publicUrl } from "./api.js";
+import { publicUrl } from "./api.js";
+import { getCatalogSagaBooks } from "./lib/catalogApi.js";
 import "./SagaBooks.css";
 
 function sagaOrder(book) {
@@ -35,26 +36,7 @@ export default function SagaBooks({
         setLoading(true);
         setError("");
 
-        const response = await apiFetch("get_books.php");
-        const text = await response.text();
-
-        let data;
-
-        try {
-          data = text ? JSON.parse(text) : {};
-        } catch {
-          throw new Error(
-            "La API no devolvió un JSON válido."
-          );
-        }
-
-        if (!response.ok || data.error) {
-          throw new Error(
-            data.error || "No se pudieron cargar los libros."
-          );
-        }
-
-        setBooks(Array.isArray(data.books) ? data.books : []);
+        setBooks(await getCatalogSagaBooks({ sagaKey, sagaName }));
       } catch (requestError) {
         setError(requestError.message);
       } finally {
@@ -63,14 +45,10 @@ export default function SagaBooks({
     }
 
     loadBooks();
-  }, []);
+  }, [sagaKey, sagaName]);
 
   const sagaBooks = useMemo(() => {
     return books
-      .filter(
-        (book) =>
-          String(book.saga_key || "") === String(sagaKey || "")
-      )
       .sort((firstBook, secondBook) => {
         const numberDifference =
           sagaOrder(firstBook) - sagaOrder(secondBook);
