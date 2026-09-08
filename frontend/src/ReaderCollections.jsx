@@ -15,6 +15,7 @@ export default function ReaderCollections({ isLoggedIn = false, creatorId = null
   const [composerOpen, setComposerOpen] = useState(false);
   const [form, setForm] = useState({ title: "", description: "", bookIds: [] });
   const [saving, setSaving] = useState(false);
+  const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,13 +83,14 @@ export default function ReaderCollections({ isLoggedIn = false, creatorId = null
       {loading ? <p className="reader-collections-empty">Cargando colecciones…</p> : null}
       {!loading && !collections.length ? <p className="reader-collections-empty">Todavía no hay colecciones públicas.</p> : null}
       <div className="reader-collections-grid">
-        {collections.map((collection) => (
+        {(showAll ? collections : collections.slice(0, 4)).map((collection) => (
           <article className="reader-collection-card" key={collection.id}>
             <div className="reader-collection-covers">{collection.books.slice(0, 5).map((book) => <button type="button" key={book.id} onClick={() => onSelectBook?.(book)} title={book.title}><img src={coverUrl(book.cover)} alt={`Portada de ${book.title}`} /></button>)}</div>
             <div className="reader-collection-card-body"><div><span className="reader-collection-kind">{collection.is_curated ? "Selección Librélula" : "Colección de la comunidad"}</span><h3>{collection.title}</h3><p>{collection.description}</p></div><footer><button type="button" className={`reader-collection-like${collection.liked ? " is-liked" : ""}`} onClick={() => like(collection)} disabled={!isLoggedIn} aria-label={isLoggedIn ? `${collection.liked ? "Quitar me gusta de" : "Dar me gusta a"} ${collection.title}` : "Inicia sesión para dar me gusta"}>♥ <span>{collection.likes}</span></button><span>{collection.books.length} libros</span></footer></div>
           </article>
         ))}
       </div>
+      {collections.length > 4 ? <button type="button" className="reader-collections-more" onClick={() => setShowAll((value) => !value)}>{showAll ? "Ver menos" : `Ver las ${collections.length} colecciones`}</button> : null}
     </section>
   );
 }

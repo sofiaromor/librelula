@@ -4,7 +4,6 @@ import "./MiBibliotecaSpines.css";
 import "./MiBibliotecaV2.css";
 import SpineCropEditor from "./SpineCropEditor.jsx";
 import LibraryShelfShowcase from "./LibraryShelfShowcase.jsx";
-import ReaderCollections from "./ReaderCollections.jsx";
 import { shelfStarFills, formatShelfScore } from "./lib/libraryShelfSearch.js";
 import {
   getLibraryStatus,
@@ -15,6 +14,7 @@ import {
   updatePersonalSpineCrop,
   uploadPersonalSpine,
 } from "./lib/library.js";
+import { removeCatalogUserBook } from "./lib/catalogApi.js";
 import {
   LIBRARY_SPINE_VIEW_STORAGE_KEY,
   normalizeLibraryViewMode,
@@ -164,7 +164,7 @@ function useShelfPageSize(viewMode) {
   return 6;
 }
 
-export function CoverBook({ item, onSelectBook, onScoreChange, savingBookId }) {
+export function CoverBook({ item, onSelectBook, onScoreChange, onRemoveBook, savingBookId }) {
   const book = item.book || {};
   const cover = coverUrl(book.cover);
   const [statusLabel, statusClass] = getLibraryStatus(item.status);
@@ -212,6 +212,14 @@ export function CoverBook({ item, onSelectBook, onScoreChange, savingBookId }) {
       <div className="library-v2-cover-copy">
         <strong>{book.title || "Libro sin título"}</strong>
         <small>{book.author || "Autor desconocido"}</small>
+        <button
+          type="button"
+          className="library-v2-remove-book"
+          onClick={() => onRemoveBook?.(item)}
+          disabled={savingBookId === item.book_id}
+        >
+          Quitar de la biblioteca
+        </button>
         {["reading", "rereading", "paused"].includes(item.status) ? (
           <div className="library-v2-progress" aria-label={`${Number(item.progress || 0)}% leído`}>
             <span style={{ width: `${Math.max(0, Math.min(100, Number(item.progress || 0)))}%` }} />
@@ -228,6 +236,7 @@ function SpineBook({
   onChooseFile,
   onEditCrop,
   onRemove,
+  onRemoveBook,
   busy,
 }) {
   const fileInputRef = useRef(null);
@@ -302,6 +311,15 @@ function SpineBook({
           <button type="button" className="library-spine-remove-action" onClick={() => onRemove(item)} aria-label={`Quitar lomo personal de ${book.title || "libro"}`}>×</button>
         </>
       ) : null}
+      <button
+        type="button"
+        className="library-spine-library-remove"
+        onClick={() => onRemoveBook?.(item)}
+        disabled={busy}
+        aria-label={`Quitar ${book.title || "libro"} de la biblioteca`}
+      >
+        ×
+      </button>
     </article>
   );
 }
@@ -328,6 +346,7 @@ function ShelfSection({
   onShowAll,
   onSelectBook,
   onScoreChange,
+  onRemoveBook,
   savingBookId,
   onChooseFile,
   onEditCrop,
@@ -364,6 +383,7 @@ function ShelfSection({
                 item={item}
                 onSelectBook={onSelectBook}
                 onScoreChange={onScoreChange}
+                onRemoveBook={onRemoveBook}
                 savingBookId={savingBookId}
               />
             ))
@@ -375,6 +395,7 @@ function ShelfSection({
                 onChooseFile={onChooseFile}
                 onEditCrop={onEditCrop}
                 onRemove={onRemoveSpine}
+                onRemoveBook={onRemoveBook}
                 busy={savingSpineBookId === item.book_id}
               />
             ))}
@@ -551,6 +572,26 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
     }
   }
 
+  async function handleRemoveBook(item) {
+    const bookId = String(item?.book_id || "").trim();
+    if (!bookId || savingBookId === bookId) return;
+    setSavingBookId(bookId);
+    setMessage(null);
+
+    try {
+      await removeCatalogUserBook({ book_id: bookId });
+      setLibrary((current) => {
+        const items = current.items.filter((currentItem) => String(currentItem.book_id) !== bookId);
+        return { ...current, items, counts: buildLibraryCounts(items) };
+      });
+      setMessage({ type: "success", text: "Libro quitado de tu biblioteca." });
+    } catch (error) {
+      setMessage({ type: "error", text: error.message || "No se pudo quitar el libro." });
+    } finally {
+      setSavingBookId("");
+    }
+  }
+
   function handleSpineFileSelected(item, event) {
     const file = event.target.files?.[0] || null;
     event.target.value = "";
@@ -690,14 +731,6 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
 
       {message ? <p className={`library-message ${message.type === "error" ? "is-error" : "is-success"}`}>{message.text}</p> : null}
 
-      {!loading ? (
-        <ReaderCollections
-          isLoggedIn
-          availableBooks={library.items.map((item) => item.book).filter(Boolean)}
-          onSelectBook={onSelectBook}
-        />
-      ) : null}
-
       {loading ? (
         <section className="profile-empty library-empty">
           <span>📚</span>
@@ -738,6 +771,7 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook }) {
               onShowAll={!isSearchMode ? () => setShowcaseShelfId(shelf.id) : null}
               onSelectBook={onSelectBook}
               onScoreChange={handleScoreChange}
+              onRemoveBook={handleRemoveBook}
               savingBookId={savingBookId}
               onChooseFile={handleSpineFileSelected}
               onEditCrop={handleEditCrop}

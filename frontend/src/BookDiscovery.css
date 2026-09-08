@@ -3165,3 +3165,8 @@
     animation: none;
   }
 }
+.catalog-alphabet { display: flex; flex-wrap: wrap; justify-content: center; gap: .3rem; margin: 1rem auto; padding: .65rem; border: 1px solid rgba(103, 68, 43, .14); border-radius: 16px; background: rgba(255, 252, 247, .78); }
+.catalog-alphabet button { min-width: 2rem; min-height: 2rem; padding: .25rem .42rem; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #6d503e; font: 700 .9rem/1 inherit; cursor: pointer; }
+.catalog-alphabet button:hover, .catalog-alphabet button:focus-visible { border-color: rgba(49, 88, 76, .3); background: #edf2e9; color: #31584c; }
+.catalog-alphabet button.is-active { background: #31584c; color: #fffaf3; }
+@media (max-width: 600px) { .catalog-alphabet { justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; border-radius: 12px; scrollbar-width: thin; } .catalog-alphabet button { flex: 0 0 auto; } }

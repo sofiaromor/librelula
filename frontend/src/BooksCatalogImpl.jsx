@@ -22,6 +22,7 @@ import { removeCatalogUserBook, saveCatalogUserBookProgress } from "./lib/catalo
 import ReaderCollections from "./ReaderCollections.jsx";
 
 const CATALOG_PAGE_SIZE = 25;
+const CATALOG_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
 
 
 function releaseDateLabel(value) {
@@ -298,6 +299,7 @@ export default function BooksCatalog({
   const [genrePickerOpen, setGenrePickerOpen] = useState(false);
   const [genrePickerSearch, setGenrePickerSearch] = useState("");
   const [yearFilter, setYearFilter] = useState(initialYearFilter);
+  const [letterFilter, setLetterFilter] = useState("");
   const [publicationYears, setPublicationYears] = useState([]);
   const [genreCounts, setGenreCounts] = useState(() => (
     Object.fromEntries(BOOK_GENRES.map((genre) => [genre, 0]))
@@ -440,14 +442,16 @@ export default function BooksCatalog({
         const data = await readJsonResponse(response);
         if (cancelled) return;
 
-        const nextTotalPages = Math.max(0, Number(data.total_pages || 0));
+        const receivedBooks = Array.isArray(data.books) ? data.books : [];
+        const receivedTotal = Math.max(0, Number(data.total || receivedBooks.length));
+        const nextTotalPages = Math.max(0, Number(data.total_pages || Math.ceil(receivedTotal / CATALOG_PAGE_SIZE)));
         if (nextTotalPages > 0 && page > nextTotalPages) {
           setPage(nextTotalPages);
           return;
         }
 
-        setBooks(Array.isArray(data.books) ? data.books : []);
-        setTotalBooks(Math.max(0, Number(data.total || 0)));
+        setBooks(receivedBooks);
+        setTotalBooks(receivedTotal);
         setTotalPages(nextTotalPages);
       } catch (requestError) {
         if (!cancelled) setError(requestError.message);
@@ -644,9 +648,16 @@ export default function BooksCatalog({
       : BOOK_GENRE_GROUPS;
   }, [availableGenres]);
 
-  const filteredBooks = books;
-  const visibleStart = totalBooks > 0 ? ((page - 1) * CATALOG_PAGE_SIZE) + 1 : 0;
-  const visibleEnd = totalBooks > 0 ? Math.min(page * CATALOG_PAGE_SIZE, totalBooks) : 0;
+  const filteredBooks = useMemo(() => {
+    const normalizedLetter = letterFilter.toLocaleLowerCase("es");
+    const all = books
+      .filter((book) => !normalizedLetter || String(book.title || "").trim().toLocaleLowerCase("es").startsWith(normalizedLetter))
+      .sort((left, right) => String(left.title || "").localeCompare(String(right.title || ""), "es", { sensitivity: "base" }));
+    return all.slice((page - 1) * CATALOG_PAGE_SIZE, page * CATALOG_PAGE_SIZE);
+  }, [books, letterFilter, page]);
+  const filteredTotalBooks = letterFilter ? books.filter((book) => String(book.title || "").trim().toLocaleLowerCase("es").startsWith(letterFilter.toLocaleLowerCase("es"))).length : totalBooks;
+  const visibleStart = filteredTotalBooks > 0 ? ((page - 1) * CATALOG_PAGE_SIZE) + 1 : 0;
+  const visibleEnd = filteredTotalBooks > 0 ? Math.min(page * CATALOG_PAGE_SIZE, filteredTotalBooks) : 0;
   const showcaseBook = discovery.weekly.find((book) => String(book.id) === String(selectedShowcaseId))
     || discovery.weekly[0]
     || null;
@@ -696,6 +707,7 @@ export default function BooksCatalog({
     setGenreFilters([]);
     setGenreMode("any");
     setYearFilter("");
+    setLetterFilter("");
   }
 
   function openBook(book) {
@@ -1012,7 +1024,8 @@ export default function BooksCatalog({
   }
 
   function goToPage(nextPage) {
-    const safePage = Math.min(Math.max(1, nextPage), Math.max(1, totalPages));
+    const availablePages = letterFilter ? Math.ceil(filteredTotalBooks / CATALOG_PAGE_SIZE) : totalPages;
+    const safePage = Math.min(Math.max(1, nextPage), Math.max(1, availablePages));
     if (safePage === page) return;
     setPage(safePage);
     catalogBrowserRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -1027,7 +1040,7 @@ export default function BooksCatalog({
   }
 
   const hasSearch = search.trim().length > 0;
-  const hasCatalogFilters = Boolean(hasSearch || genreFilters.length || yearFilter);
+  const hasCatalogFilters = Boolean(hasSearch || genreFilters.length || yearFilter || letterFilter);
   const extraGenreFilterCount = genreFilters.filter((genre) => !QUICK_BOOK_GENRES.includes(genre)).length;
   const activeGenreSummary = genreFilters.length
     ? `Géneros activos: ${genreFilters.join(", ")}`
@@ -1468,6 +1481,13 @@ export default function BooksCatalog({
           )}
         </div>
       </header>
+
+      <nav className="catalog-alphabet" aria-label="Índice alfabético del catálogo">
+        <button type="button" className={!letterFilter ? "is-active" : ""} onClick={() => { setLetterFilter(""); setPage(1); }}>Todos</button>
+        {CATALOG_ALPHABET.map((letter) => (
+          <button type="button" key={letter} className={letterFilter === letter ? "is-active" : ""} aria-label={`Libros que empiezan por ${letter}`} onClick={() => { setLetterFilter(letter); setPage(1); catalogBrowserRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }}>{letter}</button>
+        ))}
+      </nav>
 
       {hasSearch && search.trim().length >= 2 && !externalSearchedQuery && (
         <section className="external-search-callout is-compact" aria-labelledby="outside-search-title">
