@@ -167,25 +167,30 @@ export default function AutoresPage({ author = "", onBack, onSelectBook }) {
 
     getAuthorProfile(authorName)
       .then((data) => {
-        if (!cancelled) {
-          setProfile(data);
-          setProfileState({ loading: false, error: "", author: authorName });
-        }
+        if (cancelled) return;
+
+        setProfile(data);
+        setProfileState({ loading: false, error: "", author: authorName });
+
+        return getAuthorBiography(authorName, data)
+          .then((biographyData) => {
+            if (!cancelled) {
+              setBiography({
+                loading: false,
+                text: biographyData.biography || "",
+                photoUrl: biographyData.photo_url || "",
+                author: authorName,
+              });
+            }
+          })
+          .catch(() => {
+            if (!cancelled) setBiography({ loading: false, text: "", photoUrl: "", author: authorName });
+          });
       })
       .catch((error) => {
         if (!cancelled) {
           setProfileState({ loading: false, error: error.message || "No se pudo cargar este autor.", author: authorName });
         }
-      });
-
-    getAuthorBiography(authorName)
-      .then((data) => {
-        if (!cancelled) {
-          setBiography({ loading: false, text: data.biography || "", photoUrl: data.photo_url || "", author: authorName });
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setBiography({ loading: false, text: "", photoUrl: "", author: authorName });
       });
 
     return () => {
@@ -197,7 +202,7 @@ export default function AutoresPage({ author = "", onBack, onSelectBook }) {
   const profileMatchesAuthor = profileState.author === authorName && profile?.author;
   const biographyMatchesAuthor = biography.author === authorName;
   const fallbackBiography = profile
-    ? `${profile.author} aparece en ${profile.books.length} ${profile.books.length === 1 ? "libro" : "libros"} del catálogo de Librélula.`
+    ? `La obra de ${profile.author} reúne ${profile.books.length} ${profile.books.length === 1 ? "título" : "títulos"} en el catálogo de Librélula. Consulta sus libros agrupados por saga y descubre sus obras disponibles.`
     : "";
   const displayedBiography = (biographyMatchesAuthor ? biography.text : "")
     || fallbackBiography
