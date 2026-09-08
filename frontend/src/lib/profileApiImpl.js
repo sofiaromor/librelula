@@ -17,6 +17,7 @@ const EMPTY_PROFILE_DATA = {
   readerCircle: [],
   social: { followers: 0, following: 0 },
   featuredCollection: "favorites",
+  featuredCollectionTitle: "",
   featuredBooks: [],
   streak: 0,
   clubAchievements: [],
@@ -110,7 +111,7 @@ async function getCurrentProfile() {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, featured_collection, is_admin, created_at")
+    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, featured_collection, featured_collection_title, is_admin, created_at")
     .eq("id", user.id)
     .single();
 
@@ -127,6 +128,7 @@ async function getCurrentProfile() {
     bio: profile?.bio || "",
     cover_image: profile?.cover_image || "",
     featured_collection: profile?.featured_collection || "favorites",
+    featured_collection_title: profile?.featured_collection_title || "",
     initial: profileInitial(profile?.display_name || profile?.username || user.email || "L"),
   };
 }
@@ -142,7 +144,7 @@ async function getProfileById(profileId) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, featured_collection, is_admin, created_at")
+    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, featured_collection, featured_collection_title, is_admin, created_at")
     .eq("id", cleanId)
     .single();
 
@@ -161,6 +163,7 @@ async function getProfileById(profileId) {
       bio: data?.bio || "",
       cover_image: data?.cover_image || "",
       featured_collection: data?.featured_collection || "favorites",
+      featured_collection_title: data?.featured_collection_title || "",
       initial: profileInitial(data?.display_name || data?.username || "L"),
     },
   };
@@ -575,6 +578,7 @@ async function buildProfileOverview(viewer, profile) {
     latestAdditions: shelfBooks.slice(0, 6),
     favoriteBooks,
     featuredCollection: asText(profile.featured_collection) || "favorites",
+    featuredCollectionTitle: asText(profile.featured_collection_title),
     featuredBooks: pickFeaturedBooks(profile, shelfBooks, favoriteBooks, featuredRows),
     favoriteAuthors,
     currentReadingBooks: buildCurrentReadingBooks(shelfBooks),
@@ -751,21 +755,58 @@ export async function updateProfileAvatar(avatar) {
   return value;
 }
 
-export async function updateFeaturedCollection(collection) {
+export async function updateProfileBio(bio) {
+  const value = asText(bio).slice(0, 240);
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) throw apiError("Inicia sesión para editar tu descripción.", 401);
+  const { error } = await supabase.from("profiles").update({ bio: value }).eq("id", user.id);
+  if (error) throw apiError(error.message || "No se pudo guardar la descripción.");
+  invalidateProfileOverview(user.id);
+  return value;
+}
+
+export async function updateFeaturedCollection(collection, title = "") {
   const allowed = new Set(["favorites", "completed", "reading", "planned", "custom"]);
   const value = allowed.has(collection) ? collection : "favorites";
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   if (userError || !user) throw apiError("Inicia sesión para elegir tu colección.", 401);
 
+  const cleanTitle = asText(title).slice(0, 80);
   const { error } = await supabase
     .from("profiles")
-    .update({ featured_collection: value })
+    .update({ featured_collection: value, featured_collection_title: cleanTitle })
     .eq("id", user.id);
 
   if (error) throw apiError(error.message || "No se pudo guardar la colección destacada.");
   invalidateProfileOverview(user.id);
   return value;
+}
+
+export async function updateFavoriteBooks(bookIds) {
+  const profile = await getCurrentProfile();
+  if (!profile?.legacy_id) throw apiError("No se pudo abrir tu biblioteca.", 400);
+  const ids = [...new Set((Array.isArray(bookIds) ? bookIds : []).map(asText).filter(Boolean))].slice(0, 9);
+  const { error: deleteError } = await supabase.from("profile_favorite_books").delete().eq("legacy_user_id", profile.legacy_id);
+  if (deleteError) throw apiError(deleteError.message || "No se pudieron guardar tus favoritos.");
+  if (ids.length) {
+    const { error } = await supabase.from("profile_favorite_books").insert(ids.map((book_id, sort_order) => ({ legacy_user_id: profile.legacy_id, book_id, sort_order })));
+    if (error) throw apiError(error.message || "No se pudieron guardar tus favoritos.");
+  }
+  invalidateProfileOverview(profile.id);
+}
+
+export async function updateFavoriteAuthors(authorNames) {
+  const profile = await getCurrentProfile();
+  if (!profile?.legacy_id) throw apiError("No se pudo abrir tu perfil.", 400);
+  const names = [...new Set((Array.isArray(authorNames) ? authorNames : []).map(asText).filter(Boolean))].slice(0, 10);
+  const { error: deleteError } = await supabase.from("profile_favorite_authors").delete().eq("legacy_user_id", profile.legacy_id);
+  if (deleteError) throw apiError(deleteError.message || "No se pudieron guardar tus autores favoritos.");
+  if (names.length) {
+    const { error } = await supabase.from("profile_favorite_authors").insert(names.map((author_name, sort_order) => ({ legacy_user_id: profile.legacy_id, author_name, sort_order })));
+    if (error) throw apiError(error.message || "No se pudieron guardar tus autores favoritos.");
+  }
+  invalidateProfileOverview(profile.id);
 }
 
 export async function updateFeaturedBooks(bookIds) {
