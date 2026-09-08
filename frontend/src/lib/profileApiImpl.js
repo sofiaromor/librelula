@@ -24,6 +24,15 @@ const EMPTY_PROFILE_DATA = {
   isOwner: true,
 };
 
+const DEFAULT_PROFILE_VISUAL_SETTINGS = Object.freeze({
+  avatarScale: 100,
+  avatarX: 0,
+  avatarY: 0,
+  coverScale: 100,
+  coverX: 50,
+  coverY: 50,
+});
+
 const PROFILE_CACHE_TTL = 45_000;
 const profileOverviewCache = new Map();
 const profileOverviewInflight = new Map();
@@ -38,6 +47,24 @@ function apiError(message, status = 500) {
 function asNumber(value, fallback = 0) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
+}
+
+function boundedSetting(value, fallback, min, max) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return fallback;
+  return Math.min(max, Math.max(min, Math.round(number)));
+}
+
+export function normalizeProfileVisualSettings(value) {
+  const settings = value && typeof value === "object" && !Array.isArray(value) ? value : {};
+  return {
+    avatarScale: boundedSetting(settings.avatarScale, DEFAULT_PROFILE_VISUAL_SETTINGS.avatarScale, 100, 160),
+    avatarX: boundedSetting(settings.avatarX, DEFAULT_PROFILE_VISUAL_SETTINGS.avatarX, -20, 20),
+    avatarY: boundedSetting(settings.avatarY, DEFAULT_PROFILE_VISUAL_SETTINGS.avatarY, -20, 20),
+    coverScale: boundedSetting(settings.coverScale, DEFAULT_PROFILE_VISUAL_SETTINGS.coverScale, 100, 140),
+    coverX: boundedSetting(settings.coverX, DEFAULT_PROFILE_VISUAL_SETTINGS.coverX, 0, 100),
+    coverY: boundedSetting(settings.coverY, DEFAULT_PROFILE_VISUAL_SETTINGS.coverY, 0, 100),
+  };
 }
 
 function asText(value) {
@@ -111,7 +138,7 @@ async function getCurrentProfile() {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, featured_collection, featured_collection_title, is_admin, created_at")
+    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, profile_visual_settings, featured_collection, featured_collection_title, is_admin, created_at")
     .eq("id", user.id)
     .single();
 
@@ -127,6 +154,7 @@ async function getCurrentProfile() {
     avatar: profile?.avatar || "images/avatar/avatar1.png",
     bio: profile?.bio || "",
     cover_image: profile?.cover_image || "",
+    profile_visual_settings: normalizeProfileVisualSettings(profile?.profile_visual_settings),
     featured_collection: profile?.featured_collection || "favorites",
     featured_collection_title: profile?.featured_collection_title || "",
     initial: profileInitial(profile?.display_name || profile?.username || user.email || "L"),
@@ -144,7 +172,7 @@ async function getProfileById(profileId) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, featured_collection, featured_collection_title, is_admin, created_at")
+    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, profile_visual_settings, featured_collection, featured_collection_title, is_admin, created_at")
     .eq("id", cleanId)
     .single();
 
@@ -162,6 +190,7 @@ async function getProfileById(profileId) {
       avatar: data?.avatar || "images/avatar/avatar1.png",
       bio: data?.bio || "",
       cover_image: data?.cover_image || "",
+      profile_visual_settings: normalizeProfileVisualSettings(data?.profile_visual_settings),
       featured_collection: data?.featured_collection || "favorites",
       featured_collection_title: data?.featured_collection_title || "",
       initial: profileInitial(data?.display_name || data?.username || "L"),
@@ -761,6 +790,21 @@ export async function updateProfileBio(bio) {
   if (userError || !user) throw apiError("Inicia sesión para editar tu descripción.", 401);
   const { error } = await supabase.from("profiles").update({ bio: value }).eq("id", user.id);
   if (error) throw apiError(error.message || "No se pudo guardar la descripción.");
+  invalidateProfileOverview(user.id);
+  return value;
+}
+
+export async function updateProfileVisualSettings(settings) {
+  const value = normalizeProfileVisualSettings(settings);
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  if (userError || !user) throw apiError("Inicia sesión para guardar estos ajustes.", 401);
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({ profile_visual_settings: value })
+    .eq("id", user.id);
+
+  if (error) throw apiError(error.message || "No se pudieron guardar los ajustes visuales.");
   invalidateProfileOverview(user.id);
   return value;
 }
