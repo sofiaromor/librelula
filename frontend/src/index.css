@@ -292,6 +292,29 @@ button {
   color: var(--muted);
 }
 
+.author-link {
+  appearance: none;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.author-link:hover,
+.author-link:focus-visible {
+  color: var(--accent-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.book-author.author-link {
+  width: fit-content;
+  max-width: 100%;
+}
+
 .book-meta {
   margin-top: 13px;
   display: flex;
