@@ -1763,13 +1763,13 @@
 
 .profile-redesign .profile-hero-banner {
   position: relative;
-  height: clamp(175px, 22vw, 285px);
+  height: clamp(190px, 24vw, 310px);
   overflow: hidden;
   border: 1px solid rgba(93, 62, 42, .2);
   border-radius: 18px 18px 11px 11px;
   background-position: center;
   background-size: cover;
-  box-shadow: inset 0 -55px 80px rgba(38, 31, 23, .2);
+  box-shadow: inset 0 -45px 70px rgba(38, 31, 23, .14);
 }
 
 .profile-redesign .profile-hero-banner::before {
@@ -1795,8 +1795,8 @@
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(30, 29, 24, .12), transparent 38%),
-    linear-gradient(0deg, rgba(30, 29, 24, .28), transparent 48%);
+    linear-gradient(180deg, rgba(30, 29, 24, .06), transparent 40%),
+    linear-gradient(0deg, rgba(30, 29, 24, .16), transparent 52%);
   content: "";
   pointer-events: none;
 }
@@ -1826,7 +1826,7 @@
   align-items: center;
   width: min(94%, 1040px);
   min-height: 160px;
-  margin: -64px auto 0;
+  margin: -48px auto 0;
   padding: 1rem clamp(1rem, 3vw, 2rem) 1.05rem 1.15rem;
   overflow: visible;
   border: 1px solid rgba(112, 75, 48, .19);
@@ -1978,7 +1978,7 @@
   }
 
   .profile-redesign .profile-hero-banner {
-    height: 148px;
+    height: 166px;
     border-radius: 13px 13px 9px 9px;
   }
 
@@ -2001,7 +2001,7 @@
     grid-template-columns: 1fr;
     width: 100%;
     min-height: 0;
-    margin: -45px 0 0;
+    margin: -34px 0 0;
     padding: .72rem .82rem .85rem;
     border-radius: 11px;
     text-align: center;
@@ -2014,7 +2014,7 @@
 
   .profile-redesign .profile-hero .profile-avatar-frame {
     width: 96px;
-    margin: -47px auto 0;
+    margin: -40px auto 0;
   }
 
   .profile-redesign .profile-hero .profile-identity-copy {
