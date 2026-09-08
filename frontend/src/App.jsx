@@ -483,10 +483,12 @@ useEffect(() => {
   }
 
   function openSaga(sagaKey, sagaName) {
-    if (!sagaKey) return;
+    const cleanKey = String(sagaKey || "").trim();
+    const cleanName = String(sagaName || "").trim();
+    if (!cleanKey && !cleanName) return;
     closeNavigation();
     updateBookQuery();
-    setSelectedSaga({ key: sagaKey, name: sagaName });
+    setSelectedSaga({ key: cleanKey, name: cleanName });
     setPage("saga");
   }
 
