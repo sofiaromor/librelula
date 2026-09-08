@@ -4,6 +4,25 @@
   color: var(--ink);
 }
 
+/* Más aire y jerarquía para que los clubes parezcan un espacio de encuentro. */
+.clubs-page { max-width: 1280px; }
+.clubs-page-heading { padding: 34px 4px 24px; }
+.clubs-page-heading h1 { letter-spacing: -.04em; }
+.clubs-my-section, .clubs-discover, .clubs-featured, .club-inside { border-radius: 26px; border-color: rgba(174, 135, 98, .28); box-shadow: 0 20px 55px rgba(63, 38, 21, .09); }
+.clubs-my-section { padding: 20px; }
+.clubs-my-card { min-height: 196px; border-radius: 20px; padding: 19px; transition: transform .2s ease, box-shadow .2s ease; }
+.clubs-my-card:hover, .clubs-my-card:focus-visible { transform: translateY(-3px); box-shadow: 0 16px 30px rgba(36, 19, 9, .24); }
+.clubs-primary-button, .clubs-secondary-button, .clubs-light-button, .clubs-back-button { min-height: 44px; border-radius: 999px; }
+.clubs-discover-main > header, .clubs-my-section > header { padding-bottom: 8px; }
+@media (max-width: 760px) {
+  .clubs-page { width: min(100% - 20px, 600px); margin-bottom: 92px; }
+  .clubs-page-heading { display: block; padding: 22px 2px 16px; }
+  .clubs-page-heading h1 { font-size: 2.55rem; }
+  .clubs-page-heading > div:last-child { flex-wrap: wrap; padding-top: 14px; }
+  .clubs-my-grid { grid-template-columns: 1fr; }
+  .clubs-my-card { min-height: 172px; }
+}
+
 .clubs-page button,
 .clubs-page input,
 .clubs-page textarea,

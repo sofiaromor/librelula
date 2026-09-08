@@ -172,6 +172,27 @@ async function requireWritableReviewContext(bookId) {
     legacyUserId,
   };
 }
+
+async function requireCompletedReading(bookId, legacyUserId) {
+  const { data, error } = await supabase
+    .from("user_books")
+    .select("status, progress, finished_at")
+    .eq("legacy_user_id", legacyUserId)
+    .eq("book_id", bookId)
+    .maybeSingle();
+
+  if (error) {
+    throw apiError("No se pudo comprobar si has terminado el libro.");
+  }
+
+  const finished = data?.status === "completed"
+    || Number(data?.progress) >= 100
+    || Boolean(data?.finished_at);
+
+  if (!finished) {
+    throw apiError("Podrás escribir una reseña cuando termines el libro.", 403);
+  }
+}
 export async function getBookReviews({ bookId }) {
   const cleanId = cleanBookId(bookId);
   const legacyUserId = await getCurrentLegacyUserId();
@@ -366,6 +387,10 @@ export async function saveBookReview(body = {}) {
 
   const score = normalizeScore(body.score);
   const ratingOnly = Boolean(body.rating_only);
+
+  if (!ratingOnly) {
+    await requireCompletedReading(bookId, legacyUserId);
+  }
 
   const { error: userBookError } = await supabase
     .from("user_books")

@@ -80,6 +80,12 @@ function normalizedItem(value, index) {
     synopsis: cleanText(item.synopsis || item.sinopsis),
     genre,
     sourceGenre,
+    sourceGenres: Array.isArray(item.source_genres)
+      ? item.source_genres.map(cleanText).filter(Boolean).slice(0, 8)
+      : [],
+    themes: Array.isArray(item.themes) ? item.themes.map(cleanText).filter(Boolean).slice(0, 12) : [],
+    audiences: Array.isArray(item.audiences) ? item.audiences.map(cleanText).filter(Boolean).slice(0, 4) : [],
+    aesthetics: Array.isArray(item.aesthetics) ? item.aesthetics.map(cleanText).filter(Boolean).slice(0, 8) : [],
     year: cleanInteger(item.year || item.anio),
     pages: cleanInteger(item.pages || item.numero_paginas),
     publisher: cleanText(item.publisher || item.editorial),
@@ -173,8 +179,9 @@ function statusLabel(item, errors) {
 
 function importPayload(item) {
   const inferredTaxonomy = inferTaxonomyFromSubjects(
-    [item.genre, item.sourceGenre].filter(Boolean),
+    [item.genre, item.sourceGenre, ...(item.sourceGenres || [])].filter(Boolean),
   );
+  const genres = [...new Set([item.genre, ...(item.sourceGenres || [])].filter(Boolean))].slice(0, 8);
 
   return {
     row_id: item.rowId,
@@ -184,7 +191,7 @@ function importPayload(item) {
     binding: item.binding || null,
     author: item.author,
     synopsis: item.synopsis || null,
-    genres: item.genre ? [item.genre] : [],
+    genres,
     year: item.year || null,
     pages: item.pages || null,
     publisher: item.publisher || null,
@@ -199,7 +206,9 @@ function importPayload(item) {
     publication_date: item.publicationDate || null,
     hero_color: item.heroColor || null,
     matched_book_id: item.matchedBookId || null,
-    ...inferredTaxonomy,
+    themes: [...new Set([...(item.themes || []), ...inferredTaxonomy.themes])].slice(0, 12),
+    audiences: [...new Set([...(item.audiences || []), ...inferredTaxonomy.audiences])].slice(0, 4),
+    aesthetics: [...new Set([...(item.aesthetics || []), ...inferredTaxonomy.aesthetics])].slice(0, 8),
   };
 }
 

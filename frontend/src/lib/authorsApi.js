@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { canonicalSagaIdentity } from "./sagaIdentity.js";
 
 const AUTHOR_BOOK_FIELDS = `
   id,
@@ -98,7 +99,7 @@ function buildSpanishCatalogBiography(authorName, profile) {
   const genres = uniqueValues(books.flatMap((book) => splitBookValues(book.genre))).slice(0, 3);
   const sagas = uniqueValues(
     books
-      .map((book) => book.saga_name)
+      .map((book) => canonicalSagaIdentity(book?.saga_key, book?.saga_name).name)
       .filter(Boolean),
   ).slice(0, 3);
   const sampleTitles = uniqueValues(books.map((book) => book.title)).slice(0, 2);

@@ -14,6 +14,7 @@ import {
   lighten,
   normalizeHeroColor,
 } from "./heroColor.js";
+import { canonicalSagaIdentity } from "./lib/sagaIdentity.js";
 
 function isMissing(value) {
   return (
@@ -84,7 +85,25 @@ function bookTitleWithoutSaga(book) {
     return title.slice(0, simpleIndex).trim();
   }
 
+  const genericSeriesMarker = title.match(
+    /\s+\((?:[^()]*#\s*\d[^()]*)\)$/iu,
+  );
+  if (genericSeriesMarker?.index > 0) {
+    return title.slice(0, genericSeriesMarker.index).trim();
+  }
+
   return title;
+}
+
+function readingStatusIsFinished(item, book = null) {
+  return Boolean(
+    item?.status === "completed"
+      || Number(item?.progress) >= 100
+      || item?.finished_at
+      || book?.status === "completed"
+      || Number(book?.progress) >= 100
+      || book?.finished_at,
+  );
 }
 
 function safeExternalUrl(value) {
@@ -330,7 +349,8 @@ function synopsisParagraphs(value) {
 }
 
 function sagaLabel(book) {
-  const name = String(book?.saga_name || "").trim();
+  const saga = canonicalSagaIdentity(book?.saga_key, book?.saga_name);
+  const name = saga.name;
   const number = book?.saga_number;
 
   if (!name) return "";
@@ -612,6 +632,7 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
   const [revealedProgressNotes, setRevealedProgressNotes] = useState({});
   const postitComposerRef = useRef(null);
   const ratingPromptAnchorRef = useRef(null);
+  const canWriteReview = readingStatusIsFinished(readingStatusItem, currentBook);
 
   useEffect(() => {
     let cancelled = false;
@@ -714,6 +735,7 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
       || autoReviewHandledRef.current
       || reviewsLoading
       || !reviewData?.authenticated
+      || !canWriteReview
     ) {
       return;
     }
@@ -728,7 +750,7 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
     setActiveVibeCategory("rhythm");
     setRatingPromptOpen(false);
     setReviewEditorOpen(true);
-  }, [openReviewOnLoad, reviewData, reviewsLoading]);
+  }, [canWriteReview, openReviewOnLoad, reviewData, reviewsLoading]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1103,6 +1125,11 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
   }
 
   function openReviewEditor() {
+    if (!canWriteReview) {
+      setReviewSaveError("Podrás escribir la reseña cuando termines el libro.");
+      return;
+    }
+
     setReviewScore(reviewData?.my_review?.score ?? null);
     setReviewText(reviewData?.my_review?.review ?? "");
     setReviewVibes(reviewVibeDraft(reviewData));
@@ -1234,6 +1261,11 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
     event.preventDefault();
 
     if (!currentBook?.id || reviewSaving) return;
+
+    if (!canWriteReview) {
+      setReviewSaveError("Podrás escribir la reseña cuando termines el libro.");
+      return;
+    }
 
     const cleanReview = reviewText.trim();
 
@@ -1387,20 +1419,30 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
                 </div>
               </>
             ) : (
-              <>
-                <strong>Tu puntuación se ha guardado</strong>
-                <p>
-                  {reviewData?.my_review?.review
-                    ? "¿Quieres editar también tu reseña?"
-                    : "¿Quieres escribir una reseña?"}
-                </p>
-                <div>
-                  <button type="button" onClick={() => setRatingPromptOpen(false)}>Ahora no</button>
-                  <button type="button" className="is-primary" onClick={openReviewEditor}>
-                    {reviewData?.my_review?.review ? "Editar reseña" : "Escribir reseña"}
-                  </button>
-                </div>
-              </>
+              canWriteReview ? (
+                <>
+                  <strong>Tu puntuación se ha guardado</strong>
+                  <p>
+                    {reviewData?.my_review?.review
+                      ? "¿Quieres editar también tu reseña?"
+                      : "¿Quieres escribir una reseña?"}
+                  </p>
+                  <div>
+                    <button type="button" onClick={() => setRatingPromptOpen(false)}>Ahora no</button>
+                    <button type="button" className="is-primary" onClick={openReviewEditor}>
+                      {reviewData?.my_review?.review ? "Editar reseña" : "Escribir reseña"}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <strong>Tu puntuación se ha guardado</strong>
+                  <p>Podrás escribir tu reseña cuando termines el libro.</p>
+                  <div>
+                    <button type="button" onClick={() => setRatingPromptOpen(false)}>Cerrar</button>
+                  </div>
+                </>
+              )
             )}
           </div>
         </>,
@@ -1660,7 +1702,7 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
                       : "Sugerencia basada en la sinopsis"}
                   </small>
                 </div>
-                {reviewData.authenticated && (
+                {reviewData.authenticated && canWriteReview && (
                   <button type="button" onClick={openReviewEditor}>Añadir las tuyas</button>
                 )}
               </div>
@@ -1686,7 +1728,7 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
                       : "Estimación automática desde la sinopsis"}
                   </small>
                 </div>
-                {reviewData.authenticated && (
+                {reviewData.authenticated && canWriteReview && (
                   <button type="button" onClick={openReviewEditor}>Ajustar en mi reseña</button>
                 )}
               </div>
@@ -2036,11 +2078,13 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
                             reviewData.my_review.started_at,
                         )}
                       </time>
-                      <button type="button" onClick={openReviewEditor}>
-                        {reviewData.my_review.review
-                          ? "Editar reseña"
-                          : "Añadir reseña"}
-                      </button>
+                      {canWriteReview && (
+                        <button type="button" onClick={openReviewEditor}>
+                          {reviewData.my_review.review
+                            ? "Editar reseña"
+                            : "Añadir reseña"}
+                        </button>
+                      )}
                       <button
                         type="button"
                         className="is-danger"
@@ -2060,7 +2104,7 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
                 </article>
               )}
 
-              {reviewData.authenticated && !reviewEditorOpen && !reviewData.my_review && (
+              {reviewData.authenticated && canWriteReview && !reviewEditorOpen && !reviewData.my_review && (
                 <div className="book-review-empty-callout">
                   <div>
                     <strong>¿Qué te ha parecido?</strong>
@@ -2336,7 +2380,7 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
         </div>
       )}
 
-      {reviewData?.authenticated && reviewEditorOpen && (
+      {reviewData?.authenticated && canWriteReview && reviewEditorOpen && (
         <div
           className="book-review-modal"
           role="presentation"

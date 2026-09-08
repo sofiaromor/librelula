@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { publicUrl } from "./api.js";
 import { getCatalogSagaBooks } from "./lib/catalogApi.js";
+import { canonicalSagaIdentity } from "./lib/sagaIdentity.js";
 import "./SagaBooks.css";
 
 function sagaOrder(book) {
@@ -29,6 +30,10 @@ export default function SagaBooks({
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const saga = useMemo(
+    () => canonicalSagaIdentity(sagaKey, sagaName),
+    [sagaKey, sagaName],
+  );
 
   useEffect(() => {
     async function loadBooks() {
@@ -48,7 +53,7 @@ export default function SagaBooks({
   }, [sagaKey, sagaName]);
 
   const sagaBooks = useMemo(() => {
-    return books
+    return [...books]
       .sort((firstBook, secondBook) => {
         const numberDifference =
           sagaOrder(firstBook) - sagaOrder(secondBook);
@@ -62,7 +67,7 @@ export default function SagaBooks({
           "es"
         );
       });
-  }, [books, sagaKey]);
+  }, [books]);
 
   function openBook(book) {
     if (typeof onSelectBook === "function") {
@@ -112,7 +117,7 @@ export default function SagaBooks({
 
       <header style={{ marginBottom: 26 }}>
         <h1 style={{ marginBottom: 6 }}>
-          Saga: {sagaName || "Sin nombre"}
+          Saga: {saga.name || sagaName || "Sin nombre"}
         </h1>
 
         <p style={{ margin: 0 }}>

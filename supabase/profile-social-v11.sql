@@ -43,10 +43,11 @@ as $$
       when p_direction = 'followers' then f.follower_id
       else f.following_id
     end
-  where case
-    when p_direction = 'followers' then f.following_id
-    else f.follower_id
-  end = p_profile_id
+  where auth.uid() is not null
+    and case
+      when p_direction = 'followers' then f.following_id
+      else f.follower_id
+    end = p_profile_id
   order by f.created_at desc
   limit 100;
 $$;

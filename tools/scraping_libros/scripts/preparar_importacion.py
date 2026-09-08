@@ -171,7 +171,48 @@ def url_https(value: object) -> str:
 
 
 def genero_libr_lula(value: object) -> str:
-    return MAPA_GENEROS.get(normalizado(value), "")
+    clean = normalizado(value)
+    if clean in MAPA_GENEROS:
+        return MAPA_GENEROS[clean]
+    if re.search(r"\b(fantasia|fantastica|fantastico|fantasy|magia|epica|epico|paranormal)\b", clean):
+        return "Fantasía"
+    if re.search(r"\b(ciencia ficcion|science fiction|distopia|distopia)\b", clean):
+        return "Ciencia ficción"
+    return ""
+
+
+def inferir_taxonomia(*values: object) -> dict[str, list[str]]:
+    """Extrae etiquetas prudentes del título, sinopsis y clasificación fuente."""
+    text = normalizado(" ".join(texto(value) for value in values if texto(value)))
+    themes: list[str] = []
+    audiences: list[str] = []
+    aesthetics: list[str] = []
+
+    def add(target: list[str], value: str, maximum: int) -> None:
+        if value not in target and len(target) < maximum:
+            target.append(value)
+
+    rules = (
+        (themes, "Amor", r"\b(amor|romance|romantica|romantico|pareja)\b"),
+        (themes, "Amistad", r"\b(amistad|amigos|friendship)\b"),
+        (themes, "Familia", r"\b(familia|hermana|hermano|madre|padre)\b"),
+        (themes, "Mitología", r"\b(mitologia|dioses|diosa|olimp|nordic|mito)\b"),
+        (themes, "Brujería", r"\b(bruj|hechiz|witch|magia|magico)\b"),
+        (themes, "LGBTQ+", r"\b(lgbt|lgbtq|queer|gay|lesbiana|trans)\b"),
+        (themes, "Guerra", r"\b(guerra|batalla|ejercito|soldado)\b"),
+        (themes, "Supervivencia", r"\b(superviv|sobreviv|apocalipsis|distopia)\b"),
+        (audiences, "Juvenil", r"\b(juvenil|young adult|teen)\b"),
+        (audiences, "Infantil", r"\b(infantil|children|middle grade)\b"),
+        (audiences, "New Adult", r"\b(new adult)\b"),
+        (aesthetics, "Dark academia", r"\b(dark academia|academia oscura)\b"),
+        (aesthetics, "Gótico", r"\b(gotico|gotica|gothic)\b"),
+        (aesthetics, "Cozy", r"\b(cozy|cosy)\b"),
+    )
+    for target, value, pattern in rules:
+        if re.search(pattern, text):
+            add(target, value, 12 if target is themes else 4 if target is audiences else 8)
+
+    return {"themes": themes, "audiences": audiences, "aesthetics": aesthetics}
 
 
 def separar_edicion(title: str) -> tuple[str, str]:
@@ -309,8 +350,15 @@ def transformar(registro: dict, posicion: int) -> dict:
     if not source_url:
         warnings.append("Falta la URL de procedencia")
 
-    raw_genre = texto(registro.get("genero_literario"))
+    raw_genres = [
+        texto(item)
+        for item in registro.get("generos_fuente", [])
+        if texto(item)
+    ]
+    raw_genre = texto(registro.get("genero_literario")) or (raw_genres[-1] if raw_genres else "")
+    raw_genres = list(dict.fromkeys([*raw_genres, raw_genre]))
     genre = genero_libr_lula(raw_genre)
+    inferred_taxonomy = inferir_taxonomia(title, synopsis, *raw_genres)
 
     if raw_genre and not genre:
         warnings.append(f'Revisar el género de origen: "{raw_genre}"')
@@ -326,6 +374,10 @@ def transformar(registro: dict, posicion: int) -> dict:
         "synopsis": synopsis,
         "genre": genre,
         "source_genre": raw_genre,
+        "source_genres": raw_genres,
+        "themes": inferred_taxonomy["themes"],
+        "audiences": inferred_taxonomy["audiences"],
+        "aesthetics": inferred_taxonomy["aesthetics"],
         "year": year,
         "pages": pages,
         "publisher": publisher,

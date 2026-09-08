@@ -7,6 +7,7 @@ import {
   titleSimilarity,
   workIdentityKey,
 } from "./bookIdentity.js";
+import { canonicalSagaIdentity } from "./sagaIdentity.js";
 import { extractHeroColor, FALLBACK_HERO_COLOR } from "../heroColor.js";
 
 const BOOK_SELECT = `
@@ -179,6 +180,10 @@ function buildBookPayload(input: BookInput) {
   }
 
   const sagaName = textOrNull(getValue(input, "saga_name")) || textOrNull(getValue(input, "sagaName"));
+  const sagaIdentity = canonicalSagaIdentity(
+    getValue(input, "saga_key"),
+    sagaName,
+  );
   const provider = textOrNull(getValue(input, "provider"));
   const sourceId = textOrNull(getValue(input, "source_id")) || textOrNull(getValue(input, "sourceId"));
   const providedId = textOrNull(getValue(input, "id"));
@@ -195,9 +200,9 @@ function buildBookPayload(input: BookInput) {
     publisher: textOrNull(getValue(input, "publisher")),
     language: textOrNull(getValue(input, "language")) || "es",
     isbn: normalizedIsbn(getValue(input, "isbn")) || null,
-    saga_name: sagaName,
+    saga_name: sagaIdentity.name || sagaName,
     saga_number: intOrNull(getValue(input, "saga_number")) ?? intOrNull(getValue(input, "sagaNumber")),
-    saga_key: textOrNull(getValue(input, "saga_key")) || slugify(sagaName),
+    saga_key: sagaIdentity.key || slugify(sagaName),
     hero_color: textOrNull(getValue(input, "hero_color")) || textOrNull(getValue(input, "heroColor")),
     pdf_file: textOrNull(getValue(input, "pdf_file")),
     epub_file: textOrNull(getValue(input, "epub_file")),

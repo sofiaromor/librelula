@@ -43,15 +43,6 @@ const landingFeatures = [
   },
 ];
 
-const STATUS_LABELS = {
-  reading: "En lectura",
-  rereading: "Releyendo",
-  paused: "Pausado",
-  planned: "Pendiente",
-  completed: "Terminado",
-  dropped: "Abandonado",
-};
-
 const COVER_GRADIENTS = [
   "linear-gradient(160deg, #687e67, #34483d)",
   "linear-gradient(160deg, #c4865d, #8b5739)",
@@ -175,7 +166,6 @@ export default function Inicio({
   onExplore,
   onLogin,
   onProfile,
-  onLibrary,
   onReviews,
   onReviewBook,
   onClubs,
@@ -189,7 +179,6 @@ export default function Inicio({
       <LoggedInHome
         onExplore={onExplore}
         onProfile={onProfile}
-        onLibrary={onLibrary || onProfile}
         onReviews={onReviews || onProfile}
         onReviewBook={onReviewBook}
         onClubs={onClubs}
@@ -307,7 +296,7 @@ function FeedIcon({ name }) {
   );
 }
 
-function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook, onClubs, onSelectBook, onSelectAuthor, onSelectProfile, onOpenBookThread }) {
+function LoggedInHome({ onExplore, onProfile, onReviews, onReviewBook, onClubs, onSelectBook, onSelectAuthor, onSelectProfile, onOpenBookThread }) {
   const [homeData, setHomeData] = useState(null);
   const [socialData, setSocialData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -339,6 +328,11 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
   const [progressComposerBookId, setProgressComposerBookId] = useState(null);
   const [savingProgress, setSavingProgress] = useState({});
   const [completedBook, setCompletedBook] = useState(null);
+  const [readingPickerOpen, setReadingPickerOpen] = useState(false);
+  const [readingSearch, setReadingSearch] = useState("");
+  const [readingSearchResults, setReadingSearchResults] = useState([]);
+  const [readingSearching, setReadingSearching] = useState(false);
+  const [addingReadingBookId, setAddingReadingBookId] = useState("");
 
   async function loadSocialData({ silent = false } = {}) {
     if (!silent) setSocialLoading(true);
@@ -419,6 +413,31 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
     };
   }, [bookPickerOpen, bookSearch]);
 
+  useEffect(() => {
+    if (!readingPickerOpen || readingSearch.trim().length < 2) return undefined;
+
+    let cancelled = false;
+    const timeout = window.setTimeout(async () => {
+      setReadingSearching(true);
+      try {
+        const books = await searchReaderPostBooks(readingSearch);
+        if (!cancelled) setReadingSearchResults(books);
+      } catch (error) {
+        if (!cancelled) {
+          setReadingSearchResults([]);
+          setMessage(error.message || "No se pudieron buscar libros.");
+        }
+      } finally {
+        if (!cancelled) setReadingSearching(false);
+      }
+    }, 240);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeout);
+    };
+  }, [readingPickerOpen, readingSearch]);
+
   const profileName = homeData?.profile
     ? cleanName(homeData.profile.username || homeData.profile.email)
     : socialData?.context?.username || "lectora";
@@ -434,6 +453,59 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
   const friendsReading = socialData?.friendsReading || [];
   const clubSummary = socialData?.clubs || { total: 0, items: [], featured: null };
   const featuredClub = clubSummary.featured || null;
+
+  function closeReadingPicker() {
+    setReadingPickerOpen(false);
+    setReadingSearch("");
+    setReadingSearchResults([]);
+    setReadingSearching(false);
+  }
+
+  async function addBookToReading(book) {
+    const bookId = String(book?.id || "");
+    if (!bookId || addingReadingBookId) return;
+
+    if (currentReadingBooks.some((item) => String(item.id) === bookId)) {
+      return;
+    }
+
+    setAddingReadingBookId(bookId);
+    setMessage(null);
+
+    try {
+      const response = await saveCatalogUserBookProgress({
+        book_id: bookId,
+        progress: 0,
+        progress_mode: "percentage",
+      });
+      const saved = response?.item || {};
+      const nextBook = {
+        ...book,
+        ...saved,
+        id: book.id,
+        status: saved.status || "reading",
+        progress: saved.progress ?? 0,
+      };
+
+      setHomeData((current) => {
+        if (!current) return current;
+
+        return {
+          ...current,
+          currentReadingBooks: [
+            nextBook,
+            ...(current.currentReadingBooks || []).filter((item) => String(item.id) !== bookId),
+          ].slice(0, 8),
+        };
+      });
+      closeReadingPicker();
+      setMessage(`«${book.title}» está ahora en leyendo.`);
+    } catch (error) {
+      setMessage(error.message || "No se pudo añadir el libro a leyendo.");
+    } finally {
+      setAddingReadingBookId("");
+    }
+  }
 
   const visibleFeed = useMemo(() => {
     const items = socialData?.feed || [];
@@ -749,8 +821,80 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
                 <h2>Continúa leyendo</h2>
                 <span>Tus lecturas activas, siempre a mano.</span>
               </div>
-              <button type="button" onClick={onLibrary}>Ver biblioteca</button>
+              <button
+                type="button"
+                className="home-reading-add-button"
+                aria-label="Añadir un libro a leyendo"
+                aria-expanded={readingPickerOpen}
+                aria-controls="home-reading-picker"
+                title="Añadir un libro a leyendo"
+                onClick={() => {
+                  if (readingPickerOpen) {
+                    closeReadingPicker();
+                    return;
+                  }
+                  setReadingPickerOpen(true);
+                }}
+              >
+                <span aria-hidden="true">+</span>
+              </button>
             </div>
+
+            {readingPickerOpen && (
+              <section className="home-reading-picker" id="home-reading-picker" aria-labelledby="home-reading-picker-title">
+                <div className="home-reading-picker-heading">
+                  <div>
+                    <span>Añadir a leyendo</span>
+                    <h3 id="home-reading-picker-title">¿Qué leerás después?</h3>
+                  </div>
+                  <button type="button" className="home-reading-picker-close" aria-label="Cerrar búsqueda" onClick={closeReadingPicker}>×</button>
+                </div>
+                <label htmlFor="home-reading-search">Buscar en el catálogo</label>
+                <input
+                  id="home-reading-search"
+                  type="search"
+                  value={readingSearch}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setReadingSearch(value);
+                    if (value.trim().length < 2) {
+                      setReadingSearchResults([]);
+                      setReadingSearching(false);
+                    }
+                  }}
+                  placeholder="Título, autora o ISBN…"
+                  autoComplete="off"
+                  autoFocus
+                />
+                {readingSearching && <small role="status">Buscando…</small>}
+                {!readingSearching && readingSearch.trim().length >= 2 && readingSearchResults.length === 0 && <small>No hay coincidencias.</small>}
+                {readingSearchResults.length > 0 && (
+                  <div className="home-reading-picker-results">
+                    {readingSearchResults.map((book) => {
+                      const alreadyReading = currentReadingBooks.some((item) => String(item.id) === String(book.id));
+                      const isAdding = addingReadingBookId === String(book.id);
+
+                      return (
+                        <button
+                          type="button"
+                          className="home-reading-picker-result"
+                          key={book.id}
+                          disabled={alreadyReading || Boolean(addingReadingBookId)}
+                          onClick={() => addBookToReading(book)}
+                        >
+                          <img src={book.cover || "/images/fondo.png"} alt="" />
+                          <span>
+                            <strong>{book.title}</strong>
+                            <small>{book.author || "Autor desconocido"}</small>
+                          </span>
+                          <em>{isAdding ? "Añadiendo…" : alreadyReading ? "En leyendo" : "+"}</em>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+            )}
 
             {loading ? (
               <div className="home-empty-card">
@@ -763,7 +907,6 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
                   const bookKey = String(book.id);
                   const progressValue = displayedProgress(book);
                   const meta = readingMeta(book, progressValue);
-                  const label = STATUS_LABELS[book.status] || "En lectura";
                   const isSavingBookProgress = Boolean(savingProgress[bookKey]);
 
                   return (
@@ -815,12 +958,6 @@ function LoggedInHome({ onExplore, onProfile, onLibrary, onReviews, onReviewBook
                               ? `${meta.currentPage} / ${meta.totalPages} páginas`
                               : "Páginas no indicadas"}
                           </span>
-                          <span>{isSavingBookProgress ? "Guardando…" : meta.finished ? "Terminado" : label}</span>
-                        </div>
-
-                        <div className="home-reading-actions">
-                          <small>{progressComposerBookId === bookKey ? "Añade una nota o guarda." : "Ajusta tu avance."}</small>
-                          <button type="button" onClick={() => { if (onReviewBook) onReviewBook(book); else onReviews?.(); }}>Escribir reseña</button>
                         </div>
 
                         {progressComposerBookId === bookKey && (

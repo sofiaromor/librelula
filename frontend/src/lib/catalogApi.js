@@ -1,5 +1,6 @@
 import { supabase } from "./supabase.js";
 import { invalidateHomeReadingSnapshot } from "./profileApi.js";
+import { getSagaSearchCandidates } from "./sagaIdentity.js";
 
 const VALID_READING_STATUSES = [
   "planned",
@@ -113,12 +114,12 @@ export async function getCatalogFilterOptions() {
   };
 }
 
-
-
 export async function getCatalogSagaBooks({ sagaKey = "", sagaName = "" } = {}) {
   const cleanKey = String(sagaKey || "").trim();
   const cleanName = String(sagaName || "").trim();
   if (!cleanKey && !cleanName) return [];
+
+  const sagaCandidates = getSagaSearchCandidates(cleanKey, cleanName);
 
   const fields = "id, title, author, cover, pages, genre, year, saga_name, saga_number, saga_key";
   const queryBooks = (filter) => {
@@ -136,12 +137,12 @@ export async function getCatalogSagaBooks({ sagaKey = "", sagaName = "" } = {}) 
   const escapeIlike = (value) => String(value || "").replace(/[\\%_]/g, "\\$&");
   const requests = [];
 
-  if (cleanKey) {
-    requests.push(queryBooks((query) => query.eq("saga_key", cleanKey)));
+  if (sagaCandidates.keys.length) {
+    requests.push(queryBooks((query) => query.in("saga_key", sagaCandidates.keys)));
   }
 
-  if (cleanName) {
-    requests.push(queryBooks((query) => query.ilike("saga_name", escapeIlike(cleanName))));
+  for (const name of sagaCandidates.names) {
+    requests.push(queryBooks((query) => query.ilike("saga_name", escapeIlike(name))));
   }
 
   const results = await Promise.all(requests);
@@ -161,7 +162,6 @@ export async function getCatalogSagaBooks({ sagaKey = "", sagaName = "" } = {}) 
 
   return [...booksById.values()];
 }
-
 const DISCOVERY_BOOK_FIELDS = `
   id,
   title,

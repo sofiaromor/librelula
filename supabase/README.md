@@ -9,8 +9,9 @@ Este directorio guarda el esquema base versionado de Supabase para Librélula.
 3. Ejecutarlo una vez.
 4. Ejecutar las migraciones adicionales que use el proyecto (`moderation.sql`, `friends.sql`, etc.).
 5. Ejecutar `book-editions.sql` para activar obras principales, ediciones y protección de duplicados.
-6. Confirmar que las tablas existen.
-7. Marcar tu perfil como admin desde Supabase, no desde el frontend.
+6. Ejecutar `saga-unification-v2.sql` para unificar alias de sagas ya importadas.
+7. Confirmar que las tablas existen.
+8. Marcar tu perfil como admin desde Supabase, no desde el frontend.
 
 ## Nota sobre admin
 

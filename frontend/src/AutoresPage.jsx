@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { publicUrl } from "./api.js";
 import { getAuthorBiography, getAuthorProfile } from "./lib/authorsApi.js";
+import { canonicalSagaIdentity } from "./lib/sagaIdentity.js";
 import "./AutoresPage.css";
 
 function assetUrl(value) {
@@ -13,14 +14,6 @@ function assetUrl(value) {
 function authorInitials(name) {
   const words = String(name || "Autor").trim().split(/\s+/).filter(Boolean);
   return words.slice(0, 2).map((word) => word[0]).join("").toUpperCase() || "A";
-}
-
-function normalizeSaga(value) {
-  return String(value || "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLocaleLowerCase("es-ES");
 }
 
 function bookTitleWithoutSaga(book) {
@@ -35,6 +28,14 @@ function bookTitleWithoutSaga(book) {
 
   if (numberedIndex > 0 && title.endsWith(")")) return title.slice(0, numberedIndex).trim();
   if (simpleIndex > 0 && title.endsWith(simpleMarker)) return title.slice(0, simpleIndex).trim();
+
+  const genericSeriesMarker = title.match(
+    /\s+\((?:[^()]*#\s*\d[^()]*)\)$/iu,
+  );
+  if (genericSeriesMarker?.index > 0) {
+    return title.slice(0, genericSeriesMarker.index).trim();
+  }
+
   return title;
 }
 
@@ -57,15 +58,17 @@ function groupBooks(books) {
   const groups = new Map();
 
   for (const book of books) {
-    const sagaName = String(book?.saga_name || "").trim();
-    const sagaKey = String(book?.saga_key || "").trim() || normalizeSaga(sagaName);
-    const key = sagaName ? `saga:${sagaKey}` : "standalone";
+    const rawSagaName = String(book?.saga_name || "").trim();
+    const rawSagaKey = String(book?.saga_key || "").trim();
+    const hasSaga = Boolean(rawSagaName || rawSagaKey);
+    const saga = canonicalSagaIdentity(rawSagaKey, rawSagaName);
+    const key = hasSaga ? `saga:${saga.key || rawSagaKey || rawSagaName}` : "standalone";
 
     if (!groups.has(key)) {
       groups.set(key, {
         key,
-        title: sagaName || "Obras independientes",
-        isStandalone: !sagaName,
+        title: saga.name || rawSagaName || "Obras independientes",
+        isStandalone: !hasSaga,
         books: [],
       });
     }

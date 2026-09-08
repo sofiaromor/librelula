@@ -882,7 +882,6 @@ useEffect(() => {
             onExplore={openCatalog}
             onLogin={openLogin}
             onProfile={openProfile}
-            onLibrary={openLibrary}
             onReviews={openMyReviews}
             onReviewBook={(book) => openBookReview(book, "home")}
             onClubs={openClubs}

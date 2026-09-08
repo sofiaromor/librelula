@@ -21,6 +21,7 @@ import { READING_STATUS_BY_VALUE } from "./readingStatuses.js";
 import { removeCatalogUserBook, saveCatalogUserBookProgress } from "./lib/catalogApi.js";
 import ReaderCollections from "./ReaderCollections.jsx";
 import AuthorLink from "./AuthorLink.jsx";
+import { canonicalSagaLabel } from "./lib/sagaIdentity.js";
 
 const CATALOG_PAGE_SIZE = 25;
 
@@ -673,9 +674,9 @@ export default function BooksCatalog({
       })
       .sort((left, right) => String(left.title || "").localeCompare(String(right.title || ""), "es", { sensitivity: "base" }));
   }, [books, genreFilters, genreMode, search, yearFilter]);
-  const filteredTotalBooks = filteredCatalogBooks.length;
-  const filteredTotalPages = Math.max(1, Math.ceil(filteredTotalBooks / CATALOG_PAGE_SIZE));
-  const filteredBooks = filteredCatalogBooks.slice((page - 1) * CATALOG_PAGE_SIZE, page * CATALOG_PAGE_SIZE);
+  const filteredTotalBooks = totalBooks || filteredCatalogBooks.length;
+  const filteredTotalPages = Math.max(1, totalPages || Math.ceil(filteredTotalBooks / CATALOG_PAGE_SIZE));
+  const filteredBooks = filteredCatalogBooks;
   const visibleStart = filteredTotalBooks > 0 ? ((page - 1) * CATALOG_PAGE_SIZE) + 1 : 0;
   const visibleEnd = filteredTotalBooks > 0 ? Math.min(page * CATALOG_PAGE_SIZE, filteredTotalBooks) : 0;
   const showcaseBook = discovery.weekly.find((book) => String(book.id) === String(selectedShowcaseId))
@@ -1959,7 +1960,11 @@ export default function BooksCatalog({
                   ) : (
                     <span>Sin portada</span>
                   )}
-                  {book.saga_name && <small className="book-saga">{book.saga_name}</small>}
+                  {book.saga_name && (
+                    <small className="book-saga">
+                      {canonicalSagaLabel(book.saga_key, book.saga_name)}
+                    </small>
+                  )}
                   {currentStatusLabel && (
                     <span className={`book-status-badge status-${currentStatus}`}>
                       {currentStatusLabel}
