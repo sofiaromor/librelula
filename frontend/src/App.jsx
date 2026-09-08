@@ -24,6 +24,7 @@ const EMPTY_SESSION = EMPTY_SUPABASE_SESSION;
 const PROFILE_TABS = new Set(["summary", "shelf", "activity", "favorites", "reviews"]);
 const CatalogJsonImport = lazy(() => import("./CatalogJsonImport.jsx"));
 const ClubesLectura = lazy(() => import("./ClubesLectura.jsx"));
+const AutoresPage = lazy(() => import("./AutoresPage.jsx"));
 
 export default function App() {
   const [page, setPage] = useState("home");
@@ -31,6 +32,8 @@ export default function App() {
   const [bookThreadTarget, setBookThreadTarget] = useState(null);
   const [selectedSaga, setSelectedSaga] = useState(null);
   const [selectedCollection, setSelectedCollection] = useState(null);
+  const [selectedAuthor, setSelectedAuthor] = useState("");
+  const [authorBackPage, setAuthorBackPage] = useState("catalog");
   const [detailBackPage, setDetailBackPage] = useState("catalog");
   const [profileTab, setProfileTab] = useState("summary");
   const [profileUserId, setProfileUserId] = useState(null);
@@ -184,6 +187,7 @@ useEffect(() => {
     setSelectedBook(null);
 
     setSelectedSaga(null);
+    setSelectedAuthor("");
 
     setNewBookTitle("");
 
@@ -200,6 +204,7 @@ useEffect(() => {
     setSelectedBook(null);
     setSelectedSaga(null);
     setSelectedCollection(null);
+    setSelectedAuthor("");
     setNewBookTitle("");
     setDetailBackPage("catalog");
     setPage("catalog");
@@ -211,6 +216,7 @@ useEffect(() => {
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
+    setSelectedAuthor("");
     setSelectedCollection(collection);
     setDetailBackPage("catalog");
     setPage("collection");
@@ -230,6 +236,7 @@ useEffect(() => {
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
+    setSelectedAuthor("");
     setNewBookTitle("");
     setProfileReturnClubId(requestedClubId);
     setDetailBackPage("clubs");
@@ -244,6 +251,7 @@ useEffect(() => {
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
+    setSelectedAuthor("");
     setNewBookTitle("");
     setDetailBackPage("catalog");
     setProfileUserId(null);
@@ -258,6 +266,7 @@ useEffect(() => {
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
+    setSelectedAuthor("");
     setNewBookTitle("");
     setDetailBackPage("clubs");
     setProfileReturnClubId(clubId ? String(clubId) : null);
@@ -271,13 +280,14 @@ useEffect(() => {
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
+    setSelectedAuthor("");
     setNewBookTitle("");
     setProfileUserId(null);
     setProfileTab("summary");
     setPage("clubs");
   }
 
-    function openAddFriends() {
+  function openAddFriends() {
     if (!isLoggedIn) {
       openLogin();
       return;
@@ -287,6 +297,7 @@ useEffect(() => {
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
+    setSelectedAuthor("");
     setNewBookTitle("");
     setDetailBackPage("catalog");
     setPage("add-friends");
@@ -298,6 +309,7 @@ useEffect(() => {
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
+    setSelectedAuthor("");
     setNewBookTitle("");
     setDetailBackPage("library");
     setPage("library");
@@ -313,6 +325,7 @@ useEffect(() => {
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
+    setSelectedAuthor("");
     setNewBookTitle("");
     setDetailBackPage("catalog");
     setPage("login");
@@ -324,6 +337,7 @@ useEffect(() => {
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
+    setSelectedAuthor("");
     setNewBookTitle("");
     setDetailBackPage("library");
     setPage("library");
@@ -345,6 +359,7 @@ useEffect(() => {
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
+    setSelectedAuthor("");
     setNewBookTitle(String(initialTitle || "").trim());
     setPage("add-book");
   }
@@ -356,6 +371,7 @@ useEffect(() => {
     updateBookQuery();
     setSelectedBook(null);
     setSelectedSaga(null);
+    setSelectedAuthor("");
     setNewBookTitle("");
     setDetailBackPage("catalog");
     setPage("catalog-import");
@@ -369,6 +385,20 @@ useEffect(() => {
     setBookReviewIntent(false);
     setDetailBackPage(backPage);
     setPage("detail");
+  }
+
+  function openAuthor(authorName, backPage = "catalog") {
+    const cleanAuthor = String(authorName || "").trim();
+    if (!cleanAuthor) return;
+
+    closeNavigation();
+    updateBookQuery();
+    setBookThreadTarget(null);
+    setBookReviewIntent(false);
+    setSelectedSaga(null);
+    setSelectedAuthor(cleanAuthor);
+    setAuthorBackPage(backPage);
+    setPage("author");
   }
 
   function openBookReview(book, backPage = "home") {
@@ -446,6 +476,7 @@ useEffect(() => {
     setBookThreadTarget(null);
     setBookReviewIntent(false);
     setSelectedSaga(null);
+    setSelectedAuthor("");
     setNewBookTitle("");
     setDetailBackPage("catalog");
     setCatalogSearchKey((current) => current + 1);
@@ -529,6 +560,49 @@ useEffect(() => {
       return;
     }
 
+    if (detailBackPage === "author" && selectedAuthor) {
+      updateBookQuery();
+      setPage("author");
+      return;
+    }
+
+    openCatalog();
+  }
+
+  function backFromAuthor() {
+    const backPage = authorBackPage;
+    setSelectedAuthor("");
+
+    if (backPage === "detail" && selectedBook) {
+      setPage("detail");
+      return;
+    }
+
+    if (backPage === "profile") {
+      setPage("profile");
+      return;
+    }
+
+    if (backPage === "library") {
+      setPage("library");
+      return;
+    }
+
+    if (backPage === "home") {
+      setPage("home");
+      return;
+    }
+
+    if (backPage === "collection" && selectedCollection) {
+      setPage("collection");
+      return;
+    }
+
+    if (backPage === "clubs") {
+      setPage("clubs");
+      return;
+    }
+
     openCatalog();
   }
 
@@ -585,7 +659,11 @@ useEffect(() => {
             </button>
               <button
                 type="button"
-                className={["catalog", "catalog-import", "detail", "saga"].includes(page) && !["library", "profile-reviews", "clubs"].includes(detailBackPage) ? "is-active" : ""}
+                className={(
+                  ["catalog", "catalog-import", "saga"].includes(page)
+                  || (page === "author" && authorBackPage === "catalog")
+                  || (page === "detail" && !["library", "profile-reviews", "clubs", "profile", "author"].includes(detailBackPage))
+                ) ? "is-active" : ""}
                 onClick={openCatalog}
               >
                 Catálogo
@@ -809,6 +887,7 @@ useEffect(() => {
             onReviewBook={(book) => openBookReview(book, "home")}
             onClubs={openClubs}
             onSelectBook={(book) => openBookDetail(book, "home")}
+            onSelectAuthor={(author) => openAuthor(author, "home")}
             onSelectProfile={(userId) => openUserProfile(userId)}
             onOpenBookThread={(book, profile) => openBookThread(book, profile, "home")}
           />
@@ -822,6 +901,7 @@ useEffect(() => {
             onAddBook={openAddBook}
             onImportCatalog={openCatalogImport}
             onSelectBook={(book) => openBookDetail(book, "catalog")}
+            onSelectAuthor={(author) => openAuthor(author, "catalog")}
             onSelectCollection={openCollection}
           />
         )}
@@ -832,6 +912,23 @@ useEffect(() => {
             onBack={openCatalog}
             onSelectBook={(book) => openBookDetail(book, "collection")}
           />
+        )}
+
+        {!sessionLoading && page === "author" && selectedAuthor && (
+          <Suspense
+            fallback={
+              <section className="lector-empty-state">
+                <h3>Abriendo la ficha de autor…</h3>
+                <p>Estamos reuniendo su bibliografía.</p>
+              </section>
+            }
+          >
+            <AutoresPage
+              author={selectedAuthor}
+              onBack={backFromAuthor}
+              onSelectBook={(book) => openBookDetail(book, "author")}
+            />
+          </Suspense>
         )}
 
         {!sessionLoading && page === "clubs" && isLoggedIn && (
@@ -865,6 +962,7 @@ useEffect(() => {
             onOpenLibrary={openLibrary}
             onOpenCatalog={openCatalog}
             onSelectBook={(book) => openBookDetail(book, "profile")}
+            onSelectAuthor={(author) => openAuthor(author, "profile")}
             onSelectReviewBook={(book) =>
               openBookDetail(book, "profile-reviews")
             }
@@ -883,6 +981,7 @@ useEffect(() => {
           <MiBiblioteca
             onOpenCatalog={openCatalog}
             onSelectBook={(book) => openBookDetail(book, "library")}
+            onSelectAuthor={(author) => openAuthor(author, "library")}
           />
         )}
 
@@ -922,6 +1021,7 @@ useEffect(() => {
             onBack={backFromDetail}
             onEdit={openEditBook}
             onOpenSaga={openSaga}
+            onSelectAuthor={(author) => openAuthor(author, "detail")}
             onOpenMyReviews={openMyReviews}
             isAdmin={isAdmin}
             isLoggedIn={isLoggedIn}
