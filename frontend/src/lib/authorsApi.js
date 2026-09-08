@@ -72,6 +72,56 @@ function excerpt(value, maxLength = 520) {
   return `${(lastSpace > maxLength * 0.7 ? shortened.slice(0, lastSpace) : shortened).trim()}…`;
 }
 
+function uniqueValues(values) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))];
+}
+
+function splitBookValues(value) {
+  return String(value || "")
+    .split(/[,|/;·]+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
+function joinSpanish(values) {
+  const cleanValues = uniqueValues(values);
+  if (!cleanValues.length) return "";
+  if (cleanValues.length === 1) return cleanValues[0];
+  if (cleanValues.length === 2) return `${cleanValues[0]} y ${cleanValues[1]}`;
+  return `${cleanValues.slice(0, -1).join(", ")} y ${cleanValues.at(-1)}`;
+}
+
+function buildSpanishCatalogBiography(authorName, profile) {
+  const books = Array.isArray(profile?.books) ? profile.books : [];
+  const count = books.length;
+  const title = String(authorName || "Este autor").trim();
+  const genres = uniqueValues(books.flatMap((book) => splitBookValues(book.genre))).slice(0, 3);
+  const sagas = uniqueValues(
+    books
+      .map((book) => book.saga_name)
+      .filter(Boolean),
+  ).slice(0, 3);
+  const sampleTitles = uniqueValues(books.map((book) => book.title)).slice(0, 2);
+  const bookLabel = count === 1 ? "título" : "títulos";
+  const genreSentence = genres.length
+    ? `Su catálogo se mueve entre ${joinSpanish(genres)}.`
+    : "Su obra reúne distintas líneas y géneros literarios.";
+  const sagaSentence = sagas.length
+    ? `Entre sus series destacan ${joinSpanish(sagas)}.`
+    : "También puedes consultar sus obras independientes.";
+  const sampleSentence = sampleTitles.length
+    ? `En Librélula encontrarás ${joinSpanish(sampleTitles)}${count > sampleTitles.length ? " y más obras" : ""}.`
+    : "";
+
+  if (!count) {
+    return `La ficha de ${title} está en construcción. Pronto reuniremos aquí su trayectoria y sus obras disponibles en Librélula.`;
+  }
+
+  return `La obra de ${title} reúne ${count} ${bookLabel} en el catálogo de Librélula. ${genreSentence} ${sagaSentence} ${sampleSentence}`
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 async function fetchJson(url) {
   try {
     const response = await fetch(url, { headers: { Accept: "application/json" } });
@@ -83,7 +133,7 @@ async function fetchJson(url) {
   }
 }
 
-async function loadExternalBiography(authorName) {
+async function loadExternalAuthorPhoto(authorName) {
   const searchUrl = new URL("https://openlibrary.org/search/authors.json");
   searchUrl.searchParams.set("q", authorName);
   searchUrl.searchParams.set("limit", "8");
@@ -102,9 +152,53 @@ async function loadExternalBiography(authorName) {
     ? detail.photos.find((photo) => Number.isFinite(Number(photo)))
     : null;
 
+  return photoId ? `https://covers.openlibrary.org/a/id/${photoId}-M.jpg` : "";
+}
+
+async function loadSpanishWikipediaBiography(authorName) {
+  const searchUrl = new URL("https://es.wikipedia.org/w/api.php");
+  searchUrl.searchParams.set("action", "query");
+  searchUrl.searchParams.set("list", "search");
+  searchUrl.searchParams.set("srsearch", authorName);
+  searchUrl.searchParams.set("srnamespace", "0");
+  searchUrl.searchParams.set("srlimit", "6");
+  searchUrl.searchParams.set("format", "json");
+  searchUrl.searchParams.set("formatversion", "2");
+  searchUrl.searchParams.set("origin", "*");
+
+  const searchData = await fetchJson(searchUrl);
+  const results = Array.isArray(searchData?.query?.search) ? searchData.query.search : [];
+  const normalizedAuthor = normalizeName(authorName);
+  const match = results.find((result) => normalizeName(result?.title) === normalizedAuthor)
+    || results.find((result) => normalizeName(result?.title).includes(normalizedAuthor));
+
+  if (!match?.pageid) return { biography: "", photo_url: "" };
+
+  const detailUrl = new URL("https://es.wikipedia.org/w/api.php");
+  detailUrl.searchParams.set("action", "query");
+  detailUrl.searchParams.set("pageids", String(match.pageid));
+  detailUrl.searchParams.set("prop", "extracts|pageimages");
+  detailUrl.searchParams.set("exintro", "1");
+  detailUrl.searchParams.set("exchars", "1400");
+  detailUrl.searchParams.set("explaintext", "1");
+  detailUrl.searchParams.set("pithumbsize", "320");
+  detailUrl.searchParams.set("redirects", "1");
+  detailUrl.searchParams.set("format", "json");
+  detailUrl.searchParams.set("formatversion", "2");
+  detailUrl.searchParams.set("origin", "*");
+
+  const detailData = await fetchJson(detailUrl);
+  const page = Array.isArray(detailData?.query?.pages) ? detailData.query.pages[0] : null;
+  const biography = excerpt(page?.extract, 880);
+  const lowerBiography = biography.toLocaleLowerCase("es-ES");
+
+  if (!biography || lowerBiography.includes("puede referirse a") || lowerBiography.includes("desambiguación")) {
+    return { biography: "", photo_url: "" };
+  }
+
   return {
-    biography: excerpt(detail?.bio),
-    photo_url: photoId ? `https://covers.openlibrary.org/a/id/${photoId}-M.jpg` : "",
+    biography,
+    photo_url: page?.thumbnail?.source || page?.original?.source || "",
   };
 }
 
@@ -196,8 +290,18 @@ export async function getAuthorProfile(authorName) {
   };
 }
 
-export async function getAuthorBiography(authorName) {
+export async function getAuthorBiography(authorName, profile = null) {
   const cleanAuthor = String(authorName || "").trim();
-  if (!cleanAuthor) return { biography: "", photo_url: "" };
-  return loadExternalBiography(cleanAuthor);
+  if (!cleanAuthor) return { biography: "", photo_url: "", source: "" };
+
+  const [spanishWikipedia, openLibraryPhoto] = await Promise.all([
+    loadSpanishWikipediaBiography(cleanAuthor),
+    loadExternalAuthorPhoto(cleanAuthor),
+  ]);
+
+  return {
+    biography: spanishWikipedia.biography || buildSpanishCatalogBiography(cleanAuthor, profile),
+    photo_url: spanishWikipedia.photo_url || openLibraryPhoto,
+    source: spanishWikipedia.biography ? "wikipedia-es" : "catalogo",
+  };
 }
