@@ -400,6 +400,13 @@
   animation: profile-enter 180ms ease;
 }
 
+.profile-collections-tab-panel {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .profile-shelf-panel {
   min-height: 360px;
 }

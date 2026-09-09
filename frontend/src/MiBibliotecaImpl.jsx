@@ -15,7 +15,6 @@ import {
   updatePersonalSpineCrop,
   uploadPersonalSpine,
 } from "./lib/library.js";
-import { removeCatalogUserBook } from "./lib/catalogApi.js";
 import {
   LIBRARY_SPINE_VIEW_STORAGE_KEY,
   normalizeLibraryViewMode,
@@ -330,7 +329,6 @@ function ShelfSection({
   onSelectBook,
   onSelectAuthor,
   onScoreChange,
-  onRemoveBook,
   savingBookId,
   onChooseFile,
   onEditCrop,
@@ -555,26 +553,6 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook, onSelectAuth
     }
   }
 
-  async function handleRemoveBook(item) {
-    const bookId = String(item?.book_id || "").trim();
-    if (!bookId || savingBookId === bookId) return;
-    setSavingBookId(bookId);
-    setMessage(null);
-
-    try {
-      await removeCatalogUserBook({ book_id: bookId });
-      setLibrary((current) => {
-        const items = current.items.filter((currentItem) => String(currentItem.book_id) !== bookId);
-        return { ...current, items, counts: buildLibraryCounts(items) };
-      });
-      setMessage({ type: "success", text: "Libro quitado de tu biblioteca." });
-    } catch (error) {
-      setMessage({ type: "error", text: error.message || "No se pudo quitar el libro." });
-    } finally {
-      setSavingBookId("");
-    }
-  }
-
   function handleSpineFileSelected(item, event) {
     const file = event.target.files?.[0] || null;
     event.target.value = "";
@@ -755,7 +733,6 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook, onSelectAuth
               onSelectBook={onSelectBook}
               onSelectAuthor={onSelectAuthor}
               onScoreChange={handleScoreChange}
-              onRemoveBook={handleRemoveBook}
               savingBookId={savingBookId}
               onChooseFile={handleSpineFileSelected}
               onEditCrop={handleEditCrop}

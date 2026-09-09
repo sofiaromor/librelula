@@ -1,5 +1,5 @@
 // Isolated visual fixture: synthetic books, no backend, no personal account.
-import React, { useState } from "react";
+import { useState } from "react";
 import { createRoot } from "react-dom/client";
 import LibraryShelfShowcase from "../../src/LibraryShelfShowcase.jsx";
 import { CoverBook } from "../../src/MiBibliotecaImpl.jsx";
@@ -43,3 +43,5 @@ function Fixture() {
 }
 
 createRoot(document.getElementById("root")).render(<Fixture />);
+
+export { Fixture };
