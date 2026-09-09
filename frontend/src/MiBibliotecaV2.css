@@ -570,6 +570,7 @@
 
   .library-v2-cover-card {
     width: min(150px, calc((100% - 42px) / 4));
+    flex-basis: min(150px, calc((100% - 42px) / 4));
   }
 }
 

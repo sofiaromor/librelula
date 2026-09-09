@@ -3678,6 +3678,19 @@
   line-height: 1;
 }
 
+/* The mobile heading hides its descriptive spans; keep the action glyph visible. */
+.home-reading-add-button > .home-reading-add-glyph {
+  display: block !important;
+  color: #fffaf3 !important;
+  font-family: Arial, sans-serif;
+  font-size: 1.9rem;
+  font-weight: 300;
+  line-height: 1;
+  letter-spacing: 0;
+  opacity: 1 !important;
+  transform: translateY(-1px);
+}
+
 .home-reading-add-button:hover {
   transform: translateY(-2px) rotate(4deg) !important;
   background: #a94d2e !important;

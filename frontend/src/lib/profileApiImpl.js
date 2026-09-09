@@ -16,9 +16,11 @@ const EMPTY_PROFILE_DATA = {
   activityDays: [],
   readerCircle: [],
   social: { followers: 0, following: 0 },
-  featuredCollection: "favorites",
+  featuredCollection: "",
+  featuredCollectionId: "",
   featuredCollectionTitle: "",
   featuredBooks: [],
+  profileCollections: [],
   streak: 0,
   clubAchievements: [],
   isOwner: true,
@@ -138,7 +140,7 @@ async function getCurrentProfile() {
 
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, profile_visual_settings, featured_collection, featured_collection_title, is_admin, created_at")
+    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, profile_visual_settings, featured_collection, featured_collection_id, featured_collection_title, is_admin, created_at")
     .eq("id", user.id)
     .single();
 
@@ -156,6 +158,7 @@ async function getCurrentProfile() {
     cover_image: profile?.cover_image || "",
     profile_visual_settings: normalizeProfileVisualSettings(profile?.profile_visual_settings),
     featured_collection: profile?.featured_collection || "favorites",
+    featured_collection_id: profile?.featured_collection_id || "",
     featured_collection_title: profile?.featured_collection_title || "",
     initial: profileInitial(profile?.display_name || profile?.username || user.email || "L"),
   };
@@ -172,7 +175,7 @@ async function getProfileById(profileId) {
 
   const { data, error } = await supabase
     .from("profiles")
-    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, profile_visual_settings, featured_collection, featured_collection_title, is_admin, created_at")
+    .select("id, legacy_id, username, display_name, friend_code, avatar, bio, cover_image, profile_visual_settings, featured_collection, featured_collection_id, featured_collection_title, is_admin, created_at")
     .eq("id", cleanId)
     .single();
 
@@ -192,6 +195,7 @@ async function getProfileById(profileId) {
       cover_image: data?.cover_image || "",
       profile_visual_settings: normalizeProfileVisualSettings(data?.profile_visual_settings),
       featured_collection: data?.featured_collection || "favorites",
+      featured_collection_id: data?.featured_collection_id || "",
       featured_collection_title: data?.featured_collection_title || "",
       initial: profileInitial(data?.display_name || data?.username || "L"),
     },
@@ -287,14 +291,42 @@ async function getFavoriteBookRows(legacyUserId) {
   return error ? [] : data || [];
 }
 
-async function getFeaturedBookRows(profileId) {
-  const { data, error } = await supabase
-    .from("profile_featured_books")
-    .select("book_id, sort_order")
-    .eq("profile_id", profileId)
+async function getProfileCollections(profileId) {
+  const { data: rows, error } = await supabase
+    .from("reader_collections")
+    .select("id, creator_id, title, description, is_curated, created_at, updated_at")
+    .eq("creator_id", profileId)
+    .eq("is_public", true)
+    .eq("is_curated", false)
+    .order("created_at", { ascending: false })
+    .limit(30);
+
+  if (error || !rows?.length) return [];
+
+  const { data: bookRows, error: booksError } = await supabase
+    .from("reader_collection_books")
+    .select("collection_id, book_id, sort_order")
+    .in("collection_id", rows.map((row) => row.id))
     .order("sort_order", { ascending: true });
 
-  return error ? [] : data || [];
+  if (booksError || !bookRows?.length) {
+    return rows.map((row) => ({ ...row, books: [] }));
+  }
+
+  const books = await getBooksByIds(bookRows.map((row) => row.book_id));
+  const booksById = buildBookMap(books);
+  const booksByCollection = new Map();
+  for (const row of bookRows) {
+    const book = booksById.get(String(row.book_id));
+    if (!book) continue;
+    if (!booksByCollection.has(row.collection_id)) booksByCollection.set(row.collection_id, []);
+    booksByCollection.get(row.collection_id).push(book);
+  }
+
+  return rows.map((row) => ({
+    ...row,
+    books: booksByCollection.get(row.id) || [],
+  }));
 }
 
 async function getFavoriteAuthors(legacyUserId) {
@@ -528,20 +560,10 @@ function pickFavoriteBooks(rows, booksById) {
     .slice(0, 9);
 }
 
-function pickFeaturedBooks(profile, shelfBooks, favoriteBooks, featuredRows = []) {
-  const collection = asText(profile?.featured_collection) || "favorites";
-  if (collection === "custom") {
-    const booksById = buildBookMap(shelfBooks);
-    return featuredRows
-      .map((row) => booksById.get(String(row.book_id)))
-      .filter(Boolean)
-      .slice(0, 6);
-  }
-  if (collection === "favorites") return favoriteBooks.slice(0, 6);
-  if (collection === "reading") {
-    return shelfBooks.filter((book) => ["reading", "rereading", "paused"].includes(book.status)).slice(0, 6);
-  }
-  return shelfBooks.filter((book) => book.status === collection).slice(0, 6);
+function findFeaturedCollection(profile, profileCollections = []) {
+  const collectionId = asText(profile?.featured_collection_id);
+  if (!collectionId) return null;
+  return profileCollections.find((collection) => String(collection.id) === collectionId) || null;
 }
 
 async function buildProfileOverview(viewer, profile) {
@@ -552,13 +574,17 @@ async function buildProfileOverview(viewer, profile) {
   const socialPromise = getSocialCounts(profile.id);
   const readerCirclePromise = getReaderCircle(profile.id);
   const clubAchievementsPromise = getClubAchievements(profile.id);
+  const profileCollectionsPromise = getProfileCollections(profile.id);
 
   if (!profile.legacy_id) {
-    const [social, readerCircle, clubAchievements] = await Promise.all([
+    const [social, readerCircle, clubAchievements, profileCollections] = await Promise.all([
       socialPromise,
       readerCirclePromise,
       clubAchievementsPromise,
+      profileCollectionsPromise,
     ]);
+
+    const featuredCollection = findFeaturedCollection(profile, profileCollections);
 
     return {
       ...EMPTY_PROFILE_DATA,
@@ -567,6 +593,11 @@ async function buildProfileOverview(viewer, profile) {
       social,
       readerCircle,
       clubAchievements,
+      profileCollections,
+      featuredCollection: featuredCollection?.id || "",
+      featuredCollectionId: featuredCollection?.id || "",
+      featuredCollectionTitle: featuredCollection?.title || "",
+      featuredBooks: featuredCollection?.books || [],
       isOwner,
     };
   }
@@ -574,29 +605,28 @@ async function buildProfileOverview(viewer, profile) {
   const legacyUserId = profile.legacy_id;
   const userBooksPromise = getUserBooks(legacyUserId);
   const favoriteRowsPromise = getFavoriteBookRows(legacyUserId);
-  const featuredRowsPromise = getFeaturedBookRows(profile.id);
   const favoriteAuthorsPromise = getFavoriteAuthors(legacyUserId);
 
-  const [social, readerCircle, clubAchievements, userBooks, favoriteRows, featuredRows, favoriteAuthors] = await Promise.all([
+  const [social, readerCircle, clubAchievements, userBooks, favoriteRows, favoriteAuthors, profileCollections] = await Promise.all([
     socialPromise,
     readerCirclePromise,
     clubAchievementsPromise,
     userBooksPromise,
     favoriteRowsPromise,
-    featuredRowsPromise,
     favoriteAuthorsPromise,
+    profileCollectionsPromise,
   ]);
 
   // Una sola consulta de books abastece estantería y favoritos.
   const books = await getBooksByIds([
     ...userBooks.map((row) => row.book_id),
     ...favoriteRows.map((row) => row.book_id),
-    ...featuredRows.map((row) => row.book_id),
   ]);
   const booksById = buildBookMap(books);
   const shelfBooks = mapShelfBooks(userBooks, booksById);
   const favoriteBooks = pickFavoriteBooks(favoriteRows, booksById);
   const activity = buildActivityDays(userBooks);
+  const featuredCollection = findFeaturedCollection(profile, profileCollections);
 
   return {
     authenticated: true,
@@ -606,9 +636,11 @@ async function buildProfileOverview(viewer, profile) {
     shelfBooks,
     latestAdditions: shelfBooks.slice(0, 6),
     favoriteBooks,
-    featuredCollection: asText(profile.featured_collection) || "favorites",
-    featuredCollectionTitle: asText(profile.featured_collection_title),
-    featuredBooks: pickFeaturedBooks(profile, shelfBooks, favoriteBooks, featuredRows),
+    profileCollections,
+    featuredCollection: featuredCollection?.id || "",
+    featuredCollectionId: featuredCollection?.id || "",
+    featuredCollectionTitle: featuredCollection?.title || "",
+    featuredBooks: featuredCollection?.books || [],
     favoriteAuthors,
     currentReadingBooks: buildCurrentReadingBooks(shelfBooks),
     recentActivity: buildRecentActivity(shelfBooks),
@@ -809,22 +841,38 @@ export async function updateProfileVisualSettings(settings) {
   return value;
 }
 
-export async function updateFeaturedCollection(collection, title = "") {
-  const allowed = new Set(["favorites", "completed", "reading", "planned", "custom"]);
-  const value = allowed.has(collection) ? collection : "favorites";
+export async function updateFeaturedCollection(collectionId) {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
   if (userError || !user) throw apiError("Inicia sesión para elegir tu colección.", 401);
 
-  const cleanTitle = asText(title).slice(0, 80);
+  const value = asText(collectionId);
+  let collection = null;
+  if (value) {
+    const { data, error } = await supabase
+      .from("reader_collections")
+      .select("id, title, creator_id, is_public, is_curated")
+      .eq("id", value)
+      .eq("creator_id", user.id)
+      .eq("is_public", true)
+      .eq("is_curated", false)
+      .single();
+    if (error || !data) throw apiError("Solo puedes destacar una colección creada por ti.", 400);
+    collection = data;
+  }
+
   const { error } = await supabase
     .from("profiles")
-    .update({ featured_collection: value, featured_collection_title: cleanTitle })
+    .update({
+      featured_collection_id: collection?.id || null,
+      featured_collection: collection ? "custom" : "favorites",
+      featured_collection_title: collection?.title || "",
+    })
     .eq("id", user.id);
 
   if (error) throw apiError(error.message || "No se pudo guardar la colección destacada.");
   invalidateProfileOverview(user.id);
-  return value;
+  return collection?.id || "";
 }
 
 export async function updateFavoriteBooks(bookIds) {

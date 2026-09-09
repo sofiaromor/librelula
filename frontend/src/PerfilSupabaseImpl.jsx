@@ -9,7 +9,6 @@ import {
   updateProfileBio,
   normalizeProfileVisualSettings,
   updateProfileVisualSettings,
-  updateFeaturedBooks,
   updateFeaturedCollection,
   updateFavoriteBooks,
   updateFavoriteAuthors,
@@ -33,14 +32,6 @@ const SHELF_FILTERS = [
   { id: "reading", label: "Leyendo" },
   { id: "planned", label: "Pendientes" },
   { id: "dropped", label: "Abandonados" },
-];
-
-const FEATURED_COLLECTIONS = [
-  { id: "favorites", label: "Mis favoritos" },
-  { id: "completed", label: "Libros leídos" },
-  { id: "reading", label: "Lo que estoy leyendo" },
-  { id: "planned", label: "Mi lista de pendientes" },
-  { id: "custom", label: "Selección manual" },
 ];
 
 const PROFILE_AVATARS = [1, 2, 3, 4, 5, 6].map((number) => ({
@@ -243,75 +234,32 @@ function ReviewPreview({ review, onSelectBook }) {
 }
 
 function FeaturedCollection({ data, onSelectBook, onCollectionChange }) {
-  const [pickerOpen, setPickerOpen] = useState(false);
-  const [titleEditing, setTitleEditing] = useState(false);
-  const [titleDraft, setTitleDraft] = useState(data.featuredCollectionTitle || "");
-  const [selectedIds, setSelectedIds] = useState(() => (data.featuredBooks || []).map((book) => String(book.id)));
-  const [saving, setSaving] = useState(false);
-  const label = data.featuredCollectionTitle || FEATURED_COLLECTIONS.find((item) => item.id === data.featuredCollection)?.label
-    || "Mi colección";
-
-  function toggleBook(bookId) {
-    const id = String(bookId);
-    setSelectedIds((current) => current.includes(id)
-      ? current.filter((value) => value !== id)
-      : current.length >= 6 ? current : [...current, id]);
-  }
-
-  async function saveSelection() {
-    setSaving(true);
-    try {
-      await updateFeaturedBooks(selectedIds);
-      onCollectionChange?.("custom", data.featuredCollectionTitle, selectedIds);
-      setPickerOpen(false);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  async function saveTitle(event) {
-    event.preventDefault();
-    const title = titleDraft.trim().slice(0, 80);
-    await onCollectionChange?.(data.featuredCollection, title);
-    setTitleEditing(false);
-  }
+  const selectedId = String(data.featuredCollectionId || "");
+  const collections = data.profileCollections || [];
+  const selectedCollection = collections.find((collection) => String(collection.id) === selectedId);
+  const books = selectedCollection?.books || [];
 
   return (
     <article className="profile-panel profile-featured-panel">
       <div className="profile-featured-heading">
         <div>
-          <span className="profile-eyebrow">Expositor</span>
-          {titleEditing ? (
-            <form className="profile-featured-title-editor" onSubmit={saveTitle}>
-              <label className="sr-only" htmlFor="featured-collection-title">Título de la colección destacada</label>
-              <input id="featured-collection-title" value={titleDraft} maxLength={80} onChange={(event) => setTitleDraft(event.target.value)} placeholder="Mi colección" autoFocus />
-              <button type="submit">Guardar</button>
-            </form>
-          ) : <h2>{label}</h2>}
-          {data.isOwner ? <button type="button" className="profile-featured-title-edit" onClick={() => { setTitleDraft(data.featuredCollectionTitle || label); setTitleEditing(true); }}>Editar título</button> : null}
-          {data.isOwner ? <p className="profile-featured-note">Fijada en tu perfil</p> : null}
+          <span className="profile-eyebrow">Colección destacada</span>
+          <h2>{selectedCollection?.title || "Colección destacada"}</h2>
+          {selectedCollection?.description ? <p>{selectedCollection.description}</p> : null}
         </div>
         {data.isOwner ? (
           <label className="profile-featured-select">
-            <span className="sr-only">Colección que quieres destacar</span>
-            <select value={data.featuredCollection} onChange={(event) => {
-              const value = event.target.value;
-              onCollectionChange?.(value, data.featuredCollectionTitle);
-              if (value === "custom") setPickerOpen(true);
-            }}>
-              {FEATURED_COLLECTIONS.map((collection) => <option key={collection.id} value={collection.id}>{collection.label}</option>)}
+            <span className="sr-only">Elegir colección destacada</span>
+            <select value={selectedCollection?.id || ""} onChange={(event) => onCollectionChange?.(event.target.value)}>
+              <option value="">Sin colección destacada</option>
+              {collections.map((collection) => <option key={collection.id} value={collection.id}>{collection.title}</option>)}
             </select>
           </label>
         ) : null}
       </div>
-      {data.isOwner && data.featuredCollection === "custom" ? (
-        <button type="button" className="profile-featured-edit" onClick={() => setPickerOpen(true)}>
-          <span aria-hidden="true">✦</span> Elegir libros ({data.featuredBooks?.length || 0}/6)
-        </button>
-      ) : null}
-      {data.featuredBooks?.length ? (
+      {books.length ? (
         <div className="profile-featured-books">
-          {data.featuredBooks.map((book) => (
+          {books.slice(0, 6).map((book) => (
             <button type="button" key={book.id} className="profile-featured-book" onClick={() => onSelectBook?.(book)} title={book.title}>
               <CoverImage book={book} />
               <span>{book.title}</span>
@@ -319,33 +267,16 @@ function FeaturedCollection({ data, onSelectBook, onCollectionChange }) {
           ))}
         </div>
       ) : (
-        <EmptyBlock>{data.isOwner ? "Añade libros a esta sección para que tu perfil tenga una pequeña carta de presentación." : "Esta persona todavía no ha elegido una colección destacada."}</EmptyBlock>
+        <EmptyBlock>
+          {data.isOwner
+            ? collections.length
+              ? "Elige una colección para mostrarla aquí."
+              : "Crea una colección para destacarla en tu perfil."
+            : selectedCollection
+              ? "Esta colección todavía no tiene libros."
+              : "Esta persona todavía no ha elegido una colección destacada."}
+        </EmptyBlock>
       )}
-      {pickerOpen && data.isOwner ? (
-        <div className="profile-featured-picker-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setPickerOpen(false); }}>
-          <section className="profile-featured-picker" role="dialog" aria-modal="true" aria-labelledby="featured-picker-title">
-            <header>
-              <div><span className="profile-eyebrow">Tu expositor</span><h3 id="featured-picker-title">Elige los libros que quieres enseñar</h3></div>
-              <button type="button" aria-label="Cerrar" onClick={() => setPickerOpen(false)}>×</button>
-            </header>
-            <p>Selecciona hasta seis libros. Se mostrarán en el orden en que los elijas.</p>
-            <div className="profile-featured-picker-grid">
-              {(data.shelfBooks || []).map((book) => {
-                const selected = selectedIds.includes(String(book.id));
-                return (
-                  <button type="button" key={book.id} className={selected ? "is-selected" : ""} onClick={() => toggleBook(book.id)} aria-pressed={selected}>
-                    <CoverImage book={book} />
-                    <span>{book.title}</span>
-                    {selected ? <b aria-hidden="true">{selectedIds.indexOf(String(book.id)) + 1}</b> : null}
-                  </button>
-                );
-              })}
-            </div>
-            {!data.shelfBooks?.length ? <EmptyBlock>Añade algún libro a tu biblioteca para poder destacarlo.</EmptyBlock> : null}
-            <footer><span>{selectedIds.length}/6 seleccionados</span><button type="button" className="profile-picker-save" onClick={saveSelection} disabled={saving}>{saving ? "Guardando…" : "Guardar selección"}</button></footer>
-          </section>
-        </div>
-      ) : null}
     </article>
   );
 }
@@ -478,7 +409,7 @@ function SummaryView({ data, onSelectBook, onTabChange, onCollectionChange, onSe
         <FeaturedCollection data={data} onSelectBook={onSelectBook} onCollectionChange={onCollectionChange} />
         <ReaderCollections
           isLoggedIn={data.authenticated}
-          creatorId={data.isOwner ? null : data.profile?.id}
+          creatorId={data.profile?.id}
           availableBooks={data.shelfBooks}
           onSelectBook={onSelectBook}
           onSelectCollection={onSelectCollection}
@@ -787,7 +718,6 @@ function FavoritesView({ data, onSelectBook, onSelectAuthor, onFavoritesChange }
 export default function PerfilSupabase({
   activeTab = "summary",
   onTabChange,
-  onOpenLibrary,
   onOpenCatalog,
   onSelectBook,
   onSelectAuthor,
@@ -947,24 +877,31 @@ export default function PerfilSupabase({
     }
   }
 
-  async function handleCollectionChange(value, title = "", customIds = null) {
+  async function handleCollectionChange(collectionId) {
     try {
-      await updateFeaturedCollection(value, title);
-      setState((current) => current.data ? {
-        ...current,
-        data: {
-          ...current.data,
-          featuredCollection: value,
-          featuredCollectionTitle: title,
-          featuredBooks: value === "custom" && customIds
-            ? customIds.map((id) => current.data.shelfBooks.find((book) => String(book.id) === String(id))).filter(Boolean)
-            : value === "favorites"
-            ? current.data.favoriteBooks.slice(0, 6)
-            : current.data.shelfBooks.filter((book) => value === "reading"
-              ? ["reading", "rereading", "paused"].includes(book.status)
-              : book.status === value).slice(0, 6),
-        },
-      } : current);
+      const savedId = await updateFeaturedCollection(collectionId);
+      setState((current) => {
+        if (!current.data) return current;
+        const collection = (current.data.profileCollections || []).find(
+          (item) => String(item.id) === String(savedId)
+        );
+        return {
+          ...current,
+          data: {
+            ...current.data,
+            profile: {
+              ...current.data.profile,
+              featured_collection_id: savedId,
+              featured_collection: collection ? "custom" : "favorites",
+              featured_collection_title: collection?.title || "",
+            },
+            featuredCollection: savedId,
+            featuredCollectionId: savedId,
+            featuredCollectionTitle: collection?.title || "",
+            featuredBooks: collection?.books || [],
+          },
+        };
+      });
     } catch (error) {
       setCoverState({ saving: false, error: error?.message || "No se pudo guardar la colección destacada." });
     }

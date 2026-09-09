@@ -836,7 +836,7 @@ function LoggedInHome({ onExplore, onProfile, onReviews, onReviewBook, onClubs, 
                   setReadingPickerOpen(true);
                 }}
               >
-                <span aria-hidden="true">+</span>
+                <span className="home-reading-add-glyph" aria-hidden="true">+</span>
               </button>
             </div>
 

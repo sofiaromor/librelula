@@ -958,7 +958,6 @@ useEffect(() => {
           <PerfilSupabase
             activeTab={profileTab}
             onTabChange={setProfileTab}
-            onOpenLibrary={openLibrary}
             onOpenCatalog={openCatalog}
             onSelectBook={(book) => openBookDetail(book, "profile")}
             onSelectAuthor={(author) => openAuthor(author, "profile")}
