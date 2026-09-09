@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { publicUrl } from "./api.js";
-import { createReaderCollection, getPublicCollections, toggleCollectionLike } from "./lib/collectionsApi.js";
+import { getPublicCollections, toggleCollectionLike } from "./lib/collectionsApi.js";
 import "./ReaderCollections.css";
 
 function coverUrl(value) {
@@ -8,18 +8,14 @@ function coverUrl(value) {
   return text.startsWith("http") ? text : publicUrl(text || "images/librelula.png");
 }
 
-export default function ReaderCollections({ isLoggedIn = false, creatorId = null, availableBooks = [], onSelectBook, onSelectProfile, onSelectCollection }) {
+export default function ReaderCollections({ isLoggedIn = false, creatorId = null, onSelectBook, onSelectCollection, onCreateCollection }) {
   const [collections, setCollections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [composerOpen, setComposerOpen] = useState(false);
-  const [form, setForm] = useState({ title: "", description: "", bookIds: [] });
-  const [saving, setSaving] = useState(false);
   const [showAll, setShowAll] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
     getPublicCollections({ creatorId })
       .then((items) => { if (!cancelled) setCollections(items); })
       .catch((requestError) => { if (!cancelled) setError(requestError.message); })
@@ -27,33 +23,7 @@ export default function ReaderCollections({ isLoggedIn = false, creatorId = null
     return () => { cancelled = true; };
   }, [creatorId]);
 
-  const canCreate = isLoggedIn && !creatorId;
-  const availableById = useMemo(() => new Map(availableBooks.map((book) => [String(book.id), book])), [availableBooks]);
-
-  function toggleBook(bookId) {
-    const id = String(bookId);
-    setForm((current) => ({
-      ...current,
-      bookIds: current.bookIds.includes(id)
-        ? current.bookIds.filter((value) => value !== id)
-        : [...current.bookIds, id],
-    }));
-  }
-
-  async function submit(event) {
-    event.preventDefault();
-    setSaving(true);
-    try {
-      const created = await createReaderCollection(form);
-      setCollections((current) => [created, ...current]);
-      setForm({ title: "", description: "", bookIds: [] });
-      setComposerOpen(false);
-    } catch (requestError) {
-      setError(requestError.message);
-    } finally {
-      setSaving(false);
-    }
-  }
+  const canCreate = Boolean(isLoggedIn && !creatorId && onCreateCollection);
 
   async function like(collection) {
     if (!isLoggedIn) return;
@@ -73,16 +43,8 @@ export default function ReaderCollections({ isLoggedIn = false, creatorId = null
     <section className="reader-collections" aria-labelledby="reader-collections-title">
       <header className="reader-collections-heading">
         <div><span className="catalog-kicker">Listas hechas por lectores</span><h2 id="reader-collections-title">Colecciones para descubrir</h2><p>Ideas de lectura creadas por la comunidad.</p></div>
-        {canCreate ? <button type="button" className="reader-collections-create" onClick={() => setComposerOpen((value) => !value)}>+ Crear colección</button> : null}
+        {canCreate ? <button type="button" className="reader-collections-create" onClick={onCreateCollection}>＋ Crear colección</button> : null}
       </header>
-      {composerOpen ? (
-        <form className="reader-collection-composer" onSubmit={submit}>
-          <label>Nombre<input required maxLength="80" value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} placeholder="Ej.: Fantasía acogedora para otoño" /></label>
-          <label>Descripción<textarea maxLength="280" value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} placeholder="¿Qué une a estos libros?" /></label>
-          {availableBooks.length ? <fieldset><legend>Libros de esta página</legend><div className="reader-collection-book-picker">{availableBooks.slice(0, 12).map((book) => <button type="button" key={book.id} className={form.bookIds.includes(String(book.id)) ? "is-selected" : ""} onClick={() => toggleBook(book.id)} aria-pressed={form.bookIds.includes(String(book.id))}><img src={coverUrl(book.cover)} alt="" /><span>{book.title}</span></button>)}</div></fieldset> : null}
-          <div className="reader-collection-composer-actions"><button type="button" onClick={() => setComposerOpen(false)}>Cancelar</button><button type="submit" disabled={saving}>{saving ? "Creando…" : "Publicar colección"}</button></div>
-        </form>
-      ) : null}
       {error ? <p className="reader-collections-error" role="alert">{error}</p> : null}
       {loading ? <p className="reader-collections-empty">Cargando colecciones…</p> : null}
       {!loading && !collections.length ? <p className="reader-collections-empty">Todavía no hay colecciones públicas.</p> : null}

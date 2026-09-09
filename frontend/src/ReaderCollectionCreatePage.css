@@ -1,0 +1,397 @@
+.reader-collection-create-page {
+  min-height: calc(100vh - 5rem);
+  padding: clamp(1rem, 3vw, 2.5rem) clamp(1rem, 4vw, 3.5rem) calc(7rem + env(safe-area-inset-bottom));
+  background: linear-gradient(145deg, #f8f0e5 0%, #fffaf4 52%, #eef0e8 100%);
+  color: #3a271c;
+}
+
+.reader-collection-create-inner {
+  width: min(1120px, 100%);
+  margin: 0 auto;
+}
+
+.reader-collection-create-back {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 42px;
+  padding: .55rem .9rem;
+  border: 1px solid rgba(103, 68, 43, .2);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, .82);
+  color: #624633;
+  font: 700 1rem Georgia, serif;
+  cursor: pointer;
+}
+
+.reader-collection-create-header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: clamp(2rem, 5vw, 4rem) 0 1.8rem;
+}
+
+.reader-collection-create-kicker,
+.reader-collection-create-section-label {
+  color: #a75131;
+  font-size: .78rem;
+  font-weight: 850;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.reader-collection-create-header h1 {
+  margin: .45rem 0 .55rem;
+  color: #33231a;
+  font: 700 clamp(2.45rem, 6vw, 4.8rem)/.96 Georgia, serif;
+  letter-spacing: -.04em;
+}
+
+.reader-collection-create-header p {
+  margin: 0;
+  color: #765f4e;
+  font-size: 1.05rem;
+}
+
+.reader-collection-create-public {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  min-height: 40px;
+  padding: .55rem .8rem;
+  border: 1px solid rgba(49, 88, 76, .22);
+  border-radius: 999px;
+  color: #31584c;
+  background: rgba(235, 245, 237, .78);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.reader-collection-create-layout {
+  display: grid;
+  grid-template-columns: minmax(250px, .37fr) minmax(0, .63fr);
+  gap: 1rem;
+  align-items: start;
+}
+
+.reader-collection-create-details,
+.reader-collection-create-books {
+  min-width: 0;
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid rgba(103, 68, 43, .16);
+  border-radius: 24px;
+  background: rgba(255, 252, 247, .92);
+  box-shadow: 0 18px 48px rgba(70, 42, 24, .08);
+}
+
+.reader-collection-create-details h2,
+.reader-collection-create-books h2 {
+  margin: .3rem 0 1.25rem;
+  color: #3a271c;
+  font: 700 clamp(1.5rem, 3vw, 2rem)/1 Georgia, serif;
+}
+
+.reader-collection-create-details label {
+  display: grid;
+  gap: .4rem;
+  margin-top: 1rem;
+  color: #5e4433;
+  font-weight: 750;
+}
+
+.reader-collection-create-details label span {
+  color: #967d6a;
+  font-weight: 500;
+}
+
+.reader-collection-create-details input,
+.reader-collection-create-details textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(103, 68, 43, .22);
+  border-radius: 12px;
+  padding: .75rem .8rem;
+  color: #3a271c;
+  background: #fffaf3;
+  font: inherit;
+}
+
+.reader-collection-create-details textarea {
+  min-height: 130px;
+  resize: vertical;
+}
+
+.reader-collection-create-details input:focus-visible,
+.reader-collection-create-details textarea:focus-visible,
+.reader-collection-create-search:focus-within {
+  outline: 3px solid rgba(49, 88, 76, .2);
+  outline-offset: 2px;
+  border-color: #31584c;
+}
+
+.reader-collection-create-note {
+  margin: 1.5rem 0 0;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(103, 68, 43, .13);
+  color: #806b5c;
+  font-size: .92rem;
+  line-height: 1.45;
+}
+
+.reader-collection-create-books-heading {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.reader-collection-create-books-heading h2 {
+  margin-bottom: .9rem;
+}
+
+.reader-collection-create-books-heading > strong {
+  color: #31584c;
+  font-size: .9rem;
+}
+
+.reader-collection-create-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-bottom: .9rem;
+}
+
+.reader-collection-create-selected button {
+  display: inline-flex;
+  align-items: center;
+  gap: .45rem;
+  min-width: 0;
+  max-width: 220px;
+  padding: .25rem .45rem .25rem .25rem;
+  border: 1px solid rgba(49, 88, 76, .24);
+  border-radius: 999px;
+  color: #31584c;
+  background: #edf4ed;
+  cursor: pointer;
+}
+
+.reader-collection-create-selected img {
+  width: 25px;
+  height: 34px;
+  border-radius: 4px;
+  object-fit: cover;
+}
+
+.reader-collection-create-selected span {
+  overflow: hidden;
+  font-size: .78rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-collection-create-selected b {
+  color: #8b5944;
+  font-size: 1.05rem;
+  line-height: 1;
+}
+
+.reader-collection-create-empty-selection,
+.reader-collection-create-status {
+  margin: 0 0 .9rem;
+  padding: .7rem .8rem;
+  border-radius: 10px;
+  color: #806b5c;
+  background: #fbf5ea;
+  font-size: .92rem;
+}
+
+.reader-collection-create-search {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  min-height: 44px;
+  margin-bottom: 1rem;
+  padding: 0 .75rem;
+  border: 1px solid rgba(103, 68, 43, .2);
+  border-radius: 12px;
+  color: #806b5c;
+  background: #fffaf3;
+}
+
+.reader-collection-create-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  color: #3a271c;
+  background: transparent;
+  font: inherit;
+}
+
+.reader-collection-create-book-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: .65rem;
+  max-height: 660px;
+  overflow: auto;
+  padding: .15rem;
+}
+
+.reader-collection-create-book-grid button {
+  min-width: 0;
+  padding: .35rem;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  color: #4e392a;
+  background: #fbf5ea;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, transform 160ms ease, background 160ms ease;
+}
+
+.reader-collection-create-book-grid button:hover,
+.reader-collection-create-book-grid button:focus-visible {
+  border-color: rgba(167, 81, 49, .55);
+  transform: translateY(-2px);
+}
+
+.reader-collection-create-book-grid button.is-selected {
+  border-color: #31584c;
+  background: #edf4ed;
+}
+
+.reader-collection-create-cover {
+  position: relative;
+  display: block;
+}
+
+.reader-collection-create-cover img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 2 / 3;
+  border-radius: 7px;
+  object-fit: cover;
+  box-shadow: 0 5px 12px rgba(30, 20, 12, .16);
+}
+
+.reader-collection-create-cover > span {
+  position: absolute;
+  right: .3rem;
+  bottom: .3rem;
+  display: grid;
+  width: 24px;
+  height: 24px;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: #31584c;
+  font-weight: 900;
+}
+
+.reader-collection-create-book-grid strong,
+.reader-collection-create-book-grid small {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.reader-collection-create-book-grid strong {
+  margin-top: .45rem;
+  font: 700 .86rem/1.15 Georgia, serif;
+}
+
+.reader-collection-create-book-grid small {
+  margin-top: .25rem;
+  color: #806b5c;
+  font-size: .74rem;
+}
+
+.reader-collection-create-error {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: .75rem .9rem;
+  border: 1px solid rgba(143, 49, 37, .2);
+  border-radius: 12px;
+  color: #8f3125;
+  background: #fff0eb;
+}
+
+.reader-collection-create-actions {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: .65rem;
+  padding: .25rem 0;
+}
+
+.reader-collection-create-actions button {
+  min-height: 44px;
+  padding: .65rem 1rem;
+  border-radius: 999px;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.reader-collection-create-actions button:first-child {
+  border: 1px solid rgba(103, 68, 43, .2);
+  color: #765f4e;
+  background: #fffaf3;
+}
+
+.reader-collection-create-actions button:last-child {
+  border: 1px solid #31584c;
+  color: #fffaf3;
+  background: #31584c;
+}
+
+.reader-collection-create-actions button:last-child:disabled {
+  cursor: wait;
+  opacity: .65;
+}
+
+@media (max-width: 840px) {
+  .reader-collection-create-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .reader-collection-create-book-grid {
+    max-height: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .reader-collection-create-page {
+    padding-inline: .8rem;
+  }
+
+  .reader-collection-create-header {
+    align-items: flex-start;
+    flex-direction: column;
+    margin-top: 1.8rem;
+  }
+
+  .reader-collection-create-header p {
+    font-size: .98rem;
+  }
+
+  .reader-collection-create-details,
+  .reader-collection-create-books {
+    border-radius: 18px;
+  }
+
+  .reader-collection-create-book-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .reader-collection-create-actions {
+    flex-direction: column-reverse;
+  }
+
+  .reader-collection-create-actions button {
+    width: 100%;
+  }
+}

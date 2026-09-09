@@ -11,6 +11,7 @@ import EditBook from "./EditBook.jsx";
 import GoodreadsImport from "./GoodreadsImport.jsx";
 import SagaBooks from "./SagaBooks.jsx";
 import ReaderCollectionPage from "./ReaderCollectionPage.jsx";
+import ReaderCollectionCreatePage from "./ReaderCollectionCreatePage.jsx";
 import { appUrl, publicUrl } from "./api.js";
 import { searchReaderPostBooks } from "./lib/homeDashboardApi.js";
 import {
@@ -32,6 +33,7 @@ export default function App() {
   const [bookThreadTarget, setBookThreadTarget] = useState(null);
   const [selectedSaga, setSelectedSaga] = useState(null);
   const [selectedCollection, setSelectedCollection] = useState(null);
+  const [collectionCreateBackPage, setCollectionCreateBackPage] = useState("catalog");
   const [selectedAuthor, setSelectedAuthor] = useState("");
   const [authorBackPage, setAuthorBackPage] = useState("catalog");
   const [detailBackPage, setDetailBackPage] = useState("catalog");
@@ -219,6 +221,43 @@ useEffect(() => {
     setSelectedAuthor("");
     setSelectedCollection(collection);
     setDetailBackPage("catalog");
+    setPage("collection");
+  }
+
+  function openCollectionCreate(backPage = "catalog") {
+    if (!isLoggedIn) {
+      openLogin();
+      return;
+    }
+
+    closeNavigation();
+    updateBookQuery();
+    setSelectedBook(null);
+    setSelectedSaga(null);
+    setSelectedAuthor("");
+    setSelectedCollection(null);
+    setCollectionCreateBackPage(backPage === "profile" ? "profile" : "catalog");
+    setPage("collection-create");
+  }
+
+  function backFromCollectionCreate() {
+    if (collectionCreateBackPage === "profile") {
+      setPage("profile");
+      return;
+    }
+
+    openCatalog();
+  }
+
+  function handleCollectionCreated(collection) {
+    if (collectionCreateBackPage === "profile") {
+      setProfileTab("summary");
+      setProfileUserId(null);
+      setPage("profile");
+      return;
+    }
+
+    setSelectedCollection(collection);
     setPage("collection");
   }
 
@@ -902,6 +941,7 @@ useEffect(() => {
             onSelectBook={(book) => openBookDetail(book, "catalog")}
             onSelectAuthor={(author) => openAuthor(author, "catalog")}
             onSelectCollection={openCollection}
+            onCreateCollection={() => openCollectionCreate("catalog")}
           />
         )}
 
@@ -910,6 +950,13 @@ useEffect(() => {
             collection={selectedCollection}
             onBack={openCatalog}
             onSelectBook={(book) => openBookDetail(book, "collection")}
+          />
+        )}
+
+        {!sessionLoading && page === "collection-create" && isLoggedIn && (
+          <ReaderCollectionCreatePage
+            onBack={backFromCollectionCreate}
+            onCreated={handleCollectionCreated}
           />
         )}
 
@@ -968,6 +1015,7 @@ useEffect(() => {
             onOpenOwnProfile={() => openProfile("summary")}
             onBackToClub={profileReturnClubId ? returnToClubFromProfile : null}
             onSelectProfile={openUserProfile}
+            onCreateCollection={() => openCollectionCreate("profile")}
           />
         )}
 

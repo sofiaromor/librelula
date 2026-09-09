@@ -14,7 +14,6 @@ import {
   updateFavoriteAuthors,
 } from "./lib/profileApi.js";
 import { getProfileConnections } from "./lib/friendsApi.js";
-import ReaderCollections from "./ReaderCollections.jsx";
 import AuthorLink from "./AuthorLink.jsx";
 import "./PerfilSupabase.css";
 
@@ -233,7 +232,7 @@ function ReviewPreview({ review, onSelectBook }) {
   );
 }
 
-function FeaturedCollection({ data, onSelectBook, onCollectionChange }) {
+function FeaturedCollection({ data, onSelectBook, onCollectionChange, onCreateCollection }) {
   const selectedId = String(data.featuredCollectionId || "");
   const collections = data.profileCollections || [];
   const selectedCollection = collections.find((collection) => String(collection.id) === selectedId);
@@ -248,13 +247,18 @@ function FeaturedCollection({ data, onSelectBook, onCollectionChange }) {
           {selectedCollection?.description ? <p>{selectedCollection.description}</p> : null}
         </div>
         {data.isOwner ? (
-          <label className="profile-featured-select">
-            <span className="sr-only">Elegir colección destacada</span>
-            <select value={selectedCollection?.id || ""} onChange={(event) => onCollectionChange?.(event.target.value)}>
-              <option value="">Sin colección destacada</option>
-              {collections.map((collection) => <option key={collection.id} value={collection.id}>{collection.title}</option>)}
-            </select>
-          </label>
+          <div className="profile-featured-actions">
+            <label className="profile-featured-select">
+              <span className="sr-only">Elegir colección destacada</span>
+              <select value={selectedCollection?.id || ""} onChange={(event) => onCollectionChange?.(event.target.value)}>
+                <option value="">Sin colección destacada</option>
+                {collections.map((collection) => <option key={collection.id} value={collection.id}>{collection.title}</option>)}
+              </select>
+            </label>
+            <button type="button" className="profile-featured-create" onClick={onCreateCollection}>
+              <span aria-hidden="true">＋</span> Crear colección
+            </button>
+          </div>
         ) : null}
       </div>
       {books.length ? (
@@ -400,19 +404,17 @@ function CircleReader({ reader, onSelectBook, onSelectProfile }) {
   );
 }
 
-function SummaryView({ data, onSelectBook, onTabChange, onCollectionChange, onSelectProfile, onSelectCollection }) {
+function SummaryView({ data, onSelectBook, onTabChange, onCollectionChange, onSelectProfile, onCreateCollection }) {
   const recentDays = (data.activityDays || []).slice(-7);
 
   return (
     <section className="profile-dashboard" id="profile-panel-summary" role="tabpanel">
       <div className="profile-dashboard-main">
-        <FeaturedCollection data={data} onSelectBook={onSelectBook} onCollectionChange={onCollectionChange} />
-        <ReaderCollections
-          isLoggedIn={data.authenticated}
-          creatorId={data.profile?.id}
-          availableBooks={data.shelfBooks}
+        <FeaturedCollection
+          data={data}
           onSelectBook={onSelectBook}
-          onSelectCollection={onSelectCollection}
+          onCollectionChange={onCollectionChange}
+          onCreateCollection={onCreateCollection}
         />
         <article className="profile-panel profile-shelf-panel">
           <SectionHeading
@@ -726,7 +728,7 @@ export default function PerfilSupabase({
   onOpenOwnProfile,
   onBackToClub,
   onSelectProfile,
-  onSelectCollection,
+  onCreateCollection,
 }) {
   const fileInputRef = useRef(null);
   const avatarInputRef = useRef(null);
@@ -1143,7 +1145,7 @@ export default function PerfilSupabase({
             onTabChange={onTabChange}
             onCollectionChange={handleCollectionChange}
             onSelectProfile={onSelectProfile}
-            onSelectCollection={onSelectCollection}
+            onCreateCollection={onCreateCollection}
           />
         ) : null}
         {currentTab === "shelf" ? (

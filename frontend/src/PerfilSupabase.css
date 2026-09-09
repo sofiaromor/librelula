@@ -445,6 +445,34 @@
 }
 .profile-featured-select select option { background: #fffaf1; color: #2e2925; }
 
+.profile-featured-actions {
+  display: grid;
+  min-width: min(100%, 230px);
+  gap: 0.55rem;
+}
+
+.profile-featured-create {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-height: 40px;
+  padding: 0.5rem 0.8rem;
+  border: 1px solid rgba(255, 250, 241, 0.34);
+  border-radius: 999px;
+  color: #fffaf1;
+  background: rgba(255, 250, 241, 0.12);
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 160ms ease, transform 160ms ease;
+}
+
+.profile-featured-create:hover,
+.profile-featured-create:focus-visible {
+  background: rgba(255, 250, 241, 0.2);
+  transform: translateY(-1px);
+}
+
 .profile-featured-edit {
   display: inline-flex;
   align-items: center;
@@ -1468,6 +1496,10 @@
 
   .profile-featured-select,
   .profile-featured-select select {
+    width: 100%;
+  }
+
+  .profile-featured-actions {
     width: 100%;
   }
 

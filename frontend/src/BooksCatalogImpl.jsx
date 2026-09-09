@@ -279,6 +279,7 @@ export default function BooksCatalog({
   onSelectBook,
   onSelectAuthor,
   onSelectCollection,
+  onCreateCollection,
 }) {
   const [books, setBooks] = useState([]);
   const [discovery, setDiscovery] = useState({ latest: [], weekly: [], upcoming: [], recommendations: [] });
@@ -1445,9 +1446,9 @@ export default function BooksCatalog({
 
       <ReaderCollections
         isLoggedIn={isLoggedIn}
-        availableBooks={books}
         onSelectBook={openBook}
         onSelectCollection={onSelectCollection}
+        onCreateCollection={onCreateCollection}
       />
 
       <header className="books-hero">
