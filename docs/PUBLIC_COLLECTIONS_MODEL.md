@@ -42,6 +42,12 @@ La interfaz tolera que la migración todavía no exista: muestra una vista previ
 
 La migración `supabase/library-collections-v18.sql` es transaccional, comprueba duplicados antes del índice único y no se ejecutará en producción hasta hacer backup/export del esquema, probarla en staging y verificar RLS con al menos dos cuentas y una sesión anónima.
 
+El endurecimiento adicional del esquema existente está separado en
+`supabase/backend-hardening-v1.sql`: limita RPCs internas a los roles que las
+necesitan, fija el `search_path` de triggers y añade índices para las claves
+foráneas públicas que carecían de ellos. No revoca los helpers necesarios para
+lecturas públicas del catálogo ni modifica las políticas RLS existentes.
+
 Casos mínimos antes de activar producción:
 
 1. Propietaria ve públicas y privadas.

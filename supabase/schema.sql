@@ -195,6 +195,11 @@ as $$
   select coalesce(is_admin, false) from public.profiles where id = auth.uid()
 $$;
 
+revoke execute on function public.current_legacy_user_id() from public, anon;
+grant execute on function public.current_legacy_user_id() to authenticated;
+revoke execute on function public.current_user_is_admin() from public, anon;
+grant execute on function public.current_user_is_admin() to authenticated;
+
 alter table public.profiles enable row level security;
 alter table public.books enable row level security;
 alter table public.book_taxonomy enable row level security;

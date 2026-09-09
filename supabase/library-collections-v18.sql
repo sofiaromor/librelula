@@ -56,6 +56,8 @@ create table if not exists public.library_collection_books (
 
 create index if not exists library_collection_books_order_idx
   on public.library_collection_books(collection_id, sort_order, added_at);
+create index if not exists library_collection_books_book_idx
+  on public.library_collection_books(book_id);
 
 create table if not exists public.library_collection_follows (
   collection_id uuid not null references public.library_collections(id) on delete cascade,
@@ -66,6 +68,8 @@ create table if not exists public.library_collection_follows (
 
 create index if not exists library_collection_follows_collection_idx
   on public.library_collection_follows(collection_id, created_at desc);
+create index if not exists library_collection_follows_user_idx
+  on public.library_collection_follows(user_id);
 
 alter table public.library_collections enable row level security;
 alter table public.library_collection_books enable row level security;
@@ -96,26 +100,26 @@ create policy library_collections_read_visible
 on public.library_collections
 for select
 to anon, authenticated
-using (visibility = 'public' or owner_id = auth.uid());
+using (visibility = 'public' or owner_id = (select auth.uid()));
 
 create policy library_collections_insert_own
 on public.library_collections
 for insert
 to authenticated
-with check (owner_id = auth.uid());
+with check (owner_id = (select auth.uid()));
 
 create policy library_collections_update_own
 on public.library_collections
 for update
 to authenticated
-using (owner_id = auth.uid())
-with check (owner_id = auth.uid());
+using (owner_id = (select auth.uid()))
+with check (owner_id = (select auth.uid()));
 
 create policy library_collections_delete_own
 on public.library_collections
 for delete
 to authenticated
-using (owner_id = auth.uid());
+using (owner_id = (select auth.uid()));
 
 create policy library_collection_books_read_visible
 on public.library_collection_books
@@ -126,7 +130,7 @@ using (
     select 1
     from public.library_collections c
     where c.id = library_collection_books.collection_id
-      and (c.visibility = 'public' or c.owner_id = auth.uid())
+      and (c.visibility = 'public' or c.owner_id = (select auth.uid()))
   )
 );
 
@@ -137,20 +141,20 @@ create policy library_collection_follows_read_self
 on public.library_collection_follows
 for select
 to authenticated
-using (user_id = auth.uid());
+using (user_id = (select auth.uid()));
 
 create policy library_collection_follows_insert_self_public
 on public.library_collection_follows
 for insert
 to authenticated
 with check (
-  user_id = auth.uid()
+  user_id = (select auth.uid())
   and exists (
     select 1
     from public.library_collections c
     where c.id = library_collection_follows.collection_id
       and c.visibility = 'public'
-      and c.owner_id <> auth.uid()
+      and c.owner_id <> (select auth.uid())
   )
 );
 
@@ -158,7 +162,7 @@ create policy library_collection_follows_delete_self
 on public.library_collection_follows
 for delete
 to authenticated
-using (user_id = auth.uid());
+using (user_id = (select auth.uid()));
 
 -- Decisión de privacidad: al privatizar una colección se eliminan todos sus
 -- follows. Si vuelve a ser pública, cada persona debe seguirla de nuevo.
@@ -204,7 +208,7 @@ security definer
 set search_path = public
 as $$
 declare
-  viewer_id uuid := auth.uid();
+  viewer_id uuid := (select auth.uid());
   requested_count integer := coalesce(array_length(target_book_ids, 1), 0);
 begin
   if viewer_id is null then
@@ -270,7 +274,7 @@ as $$
   from public.library_collection_follows f
   join public.library_collections c on c.id = f.collection_id
   where f.collection_id = any(coalesce(target_collection_ids, array[]::uuid[]))
-    and (c.visibility = 'public' or c.owner_id = auth.uid())
+    and (c.visibility = 'public' or c.owner_id = (select auth.uid()))
   group by f.collection_id;
 $$;
 
