@@ -58,7 +58,6 @@ function scrollToCatalogBooks(attempt = 0) {
 }
 
 export default function MobileReaderDock() {
-  const [signedIn, setSignedIn] = useState(false);
   const [activeItem, setActiveItem] = useState("home");
   const [composerOpen, setComposerOpen] = useState(false);
   const [draft, setDraft] = useState("");
@@ -75,11 +74,10 @@ export default function MobileReaderDock() {
   const [toast, setToast] = useState("");
   const textareaRef = useRef(null);
   const imageInputRef = useRef(null);
+  const imagePreviewUrlRef = useRef("");
 
   useEffect(() => {
     function syncNavigationState() {
-      setSignedIn(Boolean(document.querySelector(".user-btn")));
-
       const activeButton = document.querySelector(".site-nav-links button.is-active");
       const activeLabel = activeButton?.textContent?.trim();
       if (activeLabel === "Inicio") setActiveItem("home");
@@ -114,21 +112,14 @@ export default function MobileReaderDock() {
   }, [composerOpen, publishing]);
 
   useEffect(() => {
-    if (!imageFile) {
-      setImagePreview("");
-      return undefined;
-    }
-
-    const nextPreview = URL.createObjectURL(imageFile);
-    setImagePreview(nextPreview);
-    return () => URL.revokeObjectURL(nextPreview);
-  }, [imageFile]);
+    return () => {
+      if (imagePreviewUrlRef.current) URL.revokeObjectURL(imagePreviewUrlRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const cleanSearch = bookSearch.trim();
     if (!bookPickerOpen || cleanSearch.length < 2) {
-      setBookResults([]);
-      setBookSearching(false);
       return undefined;
     }
 
@@ -150,6 +141,8 @@ export default function MobileReaderDock() {
       window.clearTimeout(timer);
     };
   }, [bookPickerOpen, bookSearch]);
+
+  const bookSearchReady = bookPickerOpen && bookSearch.trim().length >= 2;
 
   useEffect(() => {
     if (!toast) return undefined;
@@ -201,9 +194,17 @@ export default function MobileReaderDock() {
     setBookPickerOpen(false);
     setBookSearch("");
     setBookResults([]);
-    setImageFile(null);
+    replaceImageFile(null);
     setMessage("");
     if (imageInputRef.current) imageInputRef.current.value = "";
+  }
+
+  function replaceImageFile(file) {
+    if (imagePreviewUrlRef.current) URL.revokeObjectURL(imagePreviewUrlRef.current);
+    const nextPreview = file ? URL.createObjectURL(file) : "";
+    imagePreviewUrlRef.current = nextPreview;
+    setImageFile(file);
+    setImagePreview(nextPreview);
   }
 
   function closeComposer() {
@@ -288,7 +289,7 @@ export default function MobileReaderDock() {
                   {imagePreview && (
                     <div className="mobile-post-image-preview">
                       <img src={imagePreview} alt="Vista previa de la imagen" />
-                      <button type="button" aria-label="Quitar imagen" onClick={() => setImageFile(null)}>
+                      <button type="button" aria-label="Quitar imagen" onClick={() => replaceImageFile(null)}>
                         <DockIcon name="close" />
                       </button>
                     </div>
@@ -313,7 +314,7 @@ export default function MobileReaderDock() {
                   </label>
 
                   <div className="mobile-post-book-results">
-                    {bookSearching ? (
+                    {bookSearching && bookSearchReady ? (
                       <p>Buscando libros…</p>
                     ) : bookSearch.trim().length < 2 ? (
                       <p>Escribe al menos dos letras.</p>
@@ -361,7 +362,7 @@ export default function MobileReaderDock() {
                     className="mobile-post-file-input"
                     type="file"
                     accept="image/jpeg,image/png,image/webp,image/gif"
-                    onChange={(event) => setImageFile(event.target.files?.[0] || null)}
+                    onChange={(event) => replaceImageFile(event.target.files?.[0] || null)}
                   />
                   <label className="mobile-post-spoiler">
                     <input type="checkbox" checked={spoiler} onChange={(event) => setSpoiler(event.target.checked)} />

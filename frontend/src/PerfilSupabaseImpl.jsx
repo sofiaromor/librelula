@@ -19,6 +19,7 @@ import "./PerfilSupabase.css";
 
 const PROFILE_TABS = [
   { id: "summary", label: "Resumen" },
+  { id: "collections", label: "Colecciones" },
   { id: "shelf", label: "Estantería" },
   { id: "activity", label: "Actividad" },
   { id: "favorites", label: "Favoritos" },
@@ -729,6 +730,7 @@ export default function PerfilSupabase({
   onBackToClub,
   onSelectProfile,
   onCreateCollection,
+  collectionsContent,
 }) {
   const fileInputRef = useRef(null);
   const avatarInputRef = useRef(null);
@@ -1147,6 +1149,16 @@ export default function PerfilSupabase({
             onSelectProfile={onSelectProfile}
             onCreateCollection={onCreateCollection}
           />
+        ) : null}
+        {currentTab === "collections" ? (
+          <section
+            id="profile-panel-collections"
+            className="profile-tab-view profile-collections-tab-panel"
+            role="tabpanel"
+            aria-labelledby="profile-tab-collections"
+          >
+            {collectionsContent}
+          </section>
         ) : null}
         {currentTab === "shelf" ? (
           <ShelfView

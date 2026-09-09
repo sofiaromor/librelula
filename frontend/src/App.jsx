@@ -22,13 +22,46 @@ import {
 } from "./lib/session.js";
 
 const EMPTY_SESSION = EMPTY_SUPABASE_SESSION;
-const PROFILE_TABS = new Set(["summary", "shelf", "activity", "favorites", "reviews"]);
+const PROFILE_TABS = new Set(["summary", "collections", "shelf", "activity", "favorites", "reviews"]);
 const CatalogJsonImport = lazy(() => import("./CatalogJsonImport.jsx"));
 const ClubesLectura = lazy(() => import("./ClubesLectura.jsx"));
 const AutoresPage = lazy(() => import("./AutoresPage.jsx"));
+const PublicCollectionsPage = lazy(() => import("./PublicCollectionsPage.jsx"));
+
+function getInitialRoute() {
+  if (typeof window === "undefined") {
+    return { page: "home", profileTab: "summary", profileUserId: null, publicCollectionsProfileId: null };
+  }
+
+  const params = new URLSearchParams(window.location.search);
+  const collectionsProfileId = String(params.get("collections") || "").trim();
+  const profileId = String(params.get("profile") || "").trim();
+  const requestedTab = String(params.get("tab") || "summary");
+
+  if (collectionsProfileId) {
+    return {
+      page: "public-collections",
+      profileTab: "collections",
+      profileUserId: null,
+      publicCollectionsProfileId: collectionsProfileId,
+    };
+  }
+
+  if (profileId) {
+    return {
+      page: "profile",
+      profileTab: PROFILE_TABS.has(requestedTab) ? requestedTab : "collections",
+      profileUserId: profileId,
+      publicCollectionsProfileId: null,
+    };
+  }
+
+  return { page: "home", profileTab: "summary", profileUserId: null, publicCollectionsProfileId: null };
+}
 
 export default function App() {
-  const [page, setPage] = useState("home");
+  const [initialRoute] = useState(() => getInitialRoute());
+  const [page, setPage] = useState(initialRoute.page);
   const [selectedBook, setSelectedBook] = useState(null);
   const [bookThreadTarget, setBookThreadTarget] = useState(null);
   const [selectedSaga, setSelectedSaga] = useState(null);
@@ -37,8 +70,9 @@ export default function App() {
   const [selectedAuthor, setSelectedAuthor] = useState("");
   const [authorBackPage, setAuthorBackPage] = useState("catalog");
   const [detailBackPage, setDetailBackPage] = useState("catalog");
-  const [profileTab, setProfileTab] = useState("summary");
-  const [profileUserId, setProfileUserId] = useState(null);
+  const [profileTab, setProfileTab] = useState(initialRoute.profileTab);
+  const [profileUserId, setProfileUserId] = useState(initialRoute.profileUserId);
+  const [publicCollectionsProfileId, setPublicCollectionsProfileId] = useState(initialRoute.publicCollectionsProfileId);
   const [profileReturnClubId, setProfileReturnClubId] = useState(null);
   const [newBookTitle, setNewBookTitle] = useState("");
   const [bookReviewIntent, setBookReviewIntent] = useState(false);
@@ -170,12 +204,43 @@ useEffect(() => {
   function updateBookQuery(bookId = null) {
     const url = new URL(window.location.href);
 
+    url.searchParams.delete("profile");
+    url.searchParams.delete("tab");
+    url.searchParams.delete("collections");
+
     if (bookId) {
       url.searchParams.set("book", String(bookId));
       url.searchParams.delete("q");
     } else {
       url.searchParams.delete("book");
     }
+
+    window.history.replaceState({}, "", url);
+  }
+
+  function updateProfileRoute(profileId, tab = "summary") {
+    const url = new URL(window.location.href);
+    const cleanProfileId = String(profileId || "").trim();
+
+    url.searchParams.delete("book");
+    url.searchParams.delete("collections");
+    if (cleanProfileId) url.searchParams.set("profile", cleanProfileId);
+    else url.searchParams.delete("profile");
+    if (tab && tab !== "summary") url.searchParams.set("tab", tab);
+    else url.searchParams.delete("tab");
+
+    window.history.replaceState({}, "", url);
+  }
+
+  function updatePublicCollectionsRoute(profileId) {
+    const url = new URL(window.location.href);
+    const cleanProfileId = String(profileId || "").trim();
+
+    url.searchParams.delete("book");
+    url.searchParams.delete("profile");
+    url.searchParams.delete("tab");
+    if (cleanProfileId) url.searchParams.set("collections", cleanProfileId);
+    else url.searchParams.delete("collections");
 
     window.history.replaceState({}, "", url);
   }
@@ -194,6 +259,7 @@ useEffect(() => {
     setNewBookTitle("");
 
     setDetailBackPage("catalog");
+    setPublicCollectionsProfileId(null);
 
     setPage("home");
 
@@ -209,6 +275,7 @@ useEffect(() => {
     setSelectedAuthor("");
     setNewBookTitle("");
     setDetailBackPage("catalog");
+    setPublicCollectionsProfileId(null);
     setPage("catalog");
   }
 
@@ -220,6 +287,7 @@ useEffect(() => {
     setSelectedSaga(null);
     setSelectedAuthor("");
     setSelectedCollection(collection);
+    setPublicCollectionsProfileId(null);
     setDetailBackPage("catalog");
     setPage("collection");
   }
@@ -295,8 +363,18 @@ useEffect(() => {
     setDetailBackPage("catalog");
     setProfileUserId(null);
     setProfileReturnClubId(null);
+    setPublicCollectionsProfileId(null);
     setProfileTab(nextTab);
+    updateProfileRoute(session.user?.id, nextTab);
     setPage("profile");
+  }
+
+  function handleProfileTabChange(nextTab) {
+    if (!PROFILE_TABS.has(nextTab)) return;
+
+    setProfileTab(nextTab);
+    const targetProfileId = profileUserId || session.user?.id || "";
+    if (targetProfileId) updateProfileRoute(targetProfileId, nextTab);
   }
 
   function openUserProfile(userId, clubId = null) {
@@ -311,6 +389,8 @@ useEffect(() => {
     setProfileReturnClubId(clubId ? String(clubId) : null);
     setProfileUserId(String(userId));
     setProfileTab("summary");
+    setPublicCollectionsProfileId(null);
+    updateProfileRoute(String(userId), "summary");
     setPage("profile");
   }
 
@@ -323,6 +403,7 @@ useEffect(() => {
     setNewBookTitle("");
     setProfileUserId(null);
     setProfileTab("summary");
+    setPublicCollectionsProfileId(null);
     setPage("clubs");
   }
 
@@ -484,7 +565,9 @@ useEffect(() => {
             ? "clubs"
             : page === "profile"
               ? "profile"
-              : "catalog";
+              : page === "public-collections"
+                ? "public-collections"
+                : "catalog";
 
     openBookDetail(book, backPage);
   }
@@ -502,6 +585,9 @@ useEffect(() => {
     url.searchParams.delete("genres");
     url.searchParams.delete("genre_mode");
     url.searchParams.delete("year");
+    url.searchParams.delete("profile");
+    url.searchParams.delete("tab");
+    url.searchParams.delete("collections");
 
     if (cleanSearch) {
       url.searchParams.set("q", cleanSearch);
@@ -518,6 +604,7 @@ useEffect(() => {
     setSelectedAuthor("");
     setNewBookTitle("");
     setDetailBackPage("catalog");
+    setPublicCollectionsProfileId(null);
     setCatalogSearchKey((current) => current + 1);
     setPage("catalog");
   }
@@ -583,6 +670,13 @@ useEffect(() => {
     if (detailBackPage === "profile") {
       updateBookQuery();
       setPage("profile");
+      return;
+    }
+
+    if (detailBackPage === "public-collections" && publicCollectionsProfileId) {
+      updateBookQuery();
+      updatePublicCollectionsRoute(publicCollectionsProfileId);
+      setPage("public-collections");
       return;
     }
 
@@ -1004,7 +1098,7 @@ useEffect(() => {
         {!sessionLoading && page === "profile" && isLoggedIn && (
           <PerfilSupabase
             activeTab={profileTab}
-            onTabChange={setProfileTab}
+            onTabChange={handleProfileTabChange}
             onOpenCatalog={openCatalog}
             onSelectBook={(book) => openBookDetail(book, "profile")}
             onSelectAuthor={(author) => openAuthor(author, "profile")}
@@ -1017,6 +1111,40 @@ useEffect(() => {
             onSelectProfile={openUserProfile}
             onCreateCollection={() => openCollectionCreate("profile")}
           />
+        )}
+
+        {!sessionLoading && page === "profile" && !isLoggedIn && profileUserId && (
+          <Suspense
+            fallback={
+              <section className="lector-empty-state">
+                <h3>Abriendo las colecciones…</h3>
+                <p>Estamos preparando esta selección pública.</p>
+              </section>
+            }
+          >
+            <PublicCollectionsPage
+              profileId={profileUserId}
+              onOpenCatalog={openCatalog}
+              onSelectBook={(book) => openBookDetail(book, "public-collections")}
+            />
+          </Suspense>
+        )}
+
+        {!sessionLoading && page === "public-collections" && publicCollectionsProfileId && (
+          <Suspense
+            fallback={
+              <section className="lector-empty-state">
+                <h3>Abriendo las colecciones…</h3>
+                <p>Estamos preparando esta selección pública.</p>
+              </section>
+            }
+          >
+            <PublicCollectionsPage
+              profileId={publicCollectionsProfileId}
+              onOpenCatalog={openCatalog}
+              onSelectBook={(book) => openBookDetail(book, "public-collections")}
+            />
+          </Suspense>
         )}
 
         {!sessionLoading && page === "add-friends" && isLoggedIn && (

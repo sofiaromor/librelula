@@ -131,9 +131,12 @@ as $librelula_function$
   );
 $librelula_function$;
 
+revoke execute on function public.is_current_user_admin() from public;
 grant execute on function public.is_current_user_admin() to anon, authenticated;
+revoke execute on function public.can_read_book(text) from public;
 grant execute on function public.can_read_book(text) to anon, authenticated;
-grant execute on function public.can_manage_book(text) to anon, authenticated;
+revoke execute on function public.can_manage_book(text) from public, anon;
+grant execute on function public.can_manage_book(text) to authenticated;
 
 alter table public.books enable row level security;
 alter table public.book_taxonomy enable row level security;

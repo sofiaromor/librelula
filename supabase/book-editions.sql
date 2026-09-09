@@ -311,8 +311,11 @@ begin
 end;
 $function$;
 
+revoke execute on function public.book_editions_current_user_is_admin() from public;
 grant execute on function public.book_editions_current_user_is_admin() to anon, authenticated;
-grant execute on function public.can_manage_book_editions(text) to anon, authenticated;
+revoke execute on function public.can_manage_book_editions(text) from public, anon;
+grant execute on function public.can_manage_book_editions(text) to authenticated;
+revoke execute on function public.can_read_book_editions(text) from public;
 grant execute on function public.can_read_book_editions(text) to anon, authenticated;
 
 drop policy if exists book_editions_select_moderated on public.book_editions;

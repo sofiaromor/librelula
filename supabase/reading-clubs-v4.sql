@@ -131,9 +131,9 @@ $$;
 -- PostgreSQL concede EXECUTE a PUBLIC por defecto al crear funciones.
 -- Se revoca y se vuelven a conceder solo los accesos que necesita Librélula.
 revoke execute on function public.is_reading_club_member(bigint, uuid) from public;
-revoke execute on function public.is_reading_club_admin(bigint, uuid) from public;
+revoke execute on function public.is_reading_club_admin(bigint, uuid) from public, anon;
 grant execute on function public.is_reading_club_member(bigint, uuid) to anon, authenticated;
-grant execute on function public.is_reading_club_admin(bigint, uuid) to anon, authenticated;
+grant execute on function public.is_reading_club_admin(bigint, uuid) to authenticated;
 
 revoke execute on function public.reading_club_unlocked_chapter(bigint, timestamptz) from public, anon;
 revoke execute on function public.reading_club_can_access_chapter(bigint, integer, uuid) from public, anon;

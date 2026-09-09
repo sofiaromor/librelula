@@ -311,8 +311,10 @@ grant execute on function public.join_reading_club(bigint, text) to authenticate
 grant execute on function public.join_reading_club_by_code(text) to authenticated;
 grant execute on function public.leave_reading_club(bigint) to authenticated;
 grant execute on function public.update_reading_club_progress(bigint, integer, integer) to authenticated;
+revoke execute on function public.is_reading_club_member(bigint, uuid) from public;
 grant execute on function public.is_reading_club_member(bigint, uuid) to anon, authenticated;
-grant execute on function public.is_reading_club_admin(bigint, uuid) to anon, authenticated;
+revoke execute on function public.is_reading_club_admin(bigint, uuid) from public, anon;
+grant execute on function public.is_reading_club_admin(bigint, uuid) to authenticated;
 
 alter table public.reading_clubs enable row level security;
 alter table public.reading_club_members enable row level security;

@@ -1,0 +1,69 @@
+.public-collections-page {
+  min-height: 100%;
+  padding: clamp(1.5rem, 4vw, 3.5rem) 0 2rem;
+  background:
+    radial-gradient(circle at 12% 0%, rgba(184, 137, 106, 0.16), transparent 26rem),
+    linear-gradient(180deg, #faf6ef 0%, #f4ece2 100%);
+}
+
+.public-collections-page-shell {
+  width: min(1440px, calc(100% - clamp(2rem, 4.8vw, 4.4rem)));
+  margin: 0 auto;
+}
+
+.public-collections-back {
+  min-height: 40px;
+  padding: 0 14px;
+  border: 1px solid rgba(103, 68, 43, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 252, 247, 0.82);
+  color: #5f4433;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.public-collections-heading {
+  max-width: 720px;
+  padding: clamp(2.5rem, 7vw, 5rem) 0 1rem;
+}
+
+.public-collections-heading h1 {
+  margin: 0;
+  color: #3a271c;
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: clamp(2.3rem, 7vw, 4.6rem);
+  line-height: 0.98;
+}
+
+.public-collections-heading p {
+  max-width: 560px;
+  margin: 1rem 0 0;
+  color: #7b6859;
+  font-size: clamp(1rem, 2vw, 1.2rem);
+  line-height: 1.55;
+}
+
+.public-collections-page .profile-collections-standalone-shell {
+  width: 100%;
+  margin-bottom: 0;
+}
+
+.public-collections-page button:focus-visible {
+  outline: 3px solid rgba(184, 122, 80, 0.34);
+  outline-offset: 3px;
+}
+
+@media (max-width: 650px) {
+  .public-collections-page {
+    padding-top: 1rem;
+  }
+
+  .public-collections-page-shell {
+    width: calc(100% - 2rem);
+  }
+
+  .public-collections-heading {
+    padding-top: 2.4rem;
+  }
+}
