@@ -3948,3 +3948,179 @@
   }
 }
 .home-friend-avatar-button{border:0;background:transparent;padding:0;display:block;cursor:pointer;border-radius:50%}.home-friend-avatar-button:focus-visible{outline:3px solid #d79a52;outline-offset:3px}
+
+/* Inicio · edición rápida de porcentaje y página */
+.home-reading-meta {
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-reading-page-trigger,
+.home-reading-percent-trigger {
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: inherit;
+  cursor: text;
+}
+
+.home-reading-page-trigger {
+  align-self: flex-start;
+  text-decoration: underline dotted rgba(128, 111, 101, 0.45);
+  text-underline-offset: 4px;
+}
+
+.home-reading-percent-trigger {
+  flex: 0 0 auto;
+  text-decoration: underline dotted rgba(189, 102, 62, 0.42);
+  text-underline-offset: 4px;
+}
+
+.home-reading-title-row > div:first-child {
+  min-width: 0;
+}
+
+.home-reading-page-trigger:hover,
+.home-reading-percent-trigger:hover {
+  transform: none;
+  box-shadow: none;
+  color: #a14f31;
+}
+
+.home-reading-page-trigger:focus-visible,
+.home-reading-percent-trigger:focus-visible {
+  outline: 2px solid rgba(161, 79, 49, 0.4);
+  outline-offset: 4px;
+}
+
+.home-reading-percent-editor,
+.home-reading-page-editor {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin: 0;
+}
+
+.home-reading-percent-editor {
+  justify-content: flex-end;
+  color: #bd663e;
+  font-family: "Fraunces", Georgia, serif;
+  font-size: 1.7rem;
+  line-height: 0.9;
+}
+
+.home-reading-percent-editor input,
+.home-reading-page-editor input {
+  box-sizing: border-box;
+  border: 1px solid rgba(105, 78, 58, 0.28);
+  border-radius: 8px;
+  outline: 0;
+  background: #fffaf3;
+  color: #bd663e;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.home-reading-percent-editor input {
+  width: 3.8rem;
+  padding: 5px 4px;
+  font-size: 1.7rem;
+}
+
+.home-reading-page-editor {
+  flex-wrap: wrap;
+  color: #806f65;
+  font-size: inherit;
+}
+
+.home-reading-page-editor input {
+  width: 4.2rem;
+  padding: 5px 7px;
+  color: #493a31;
+  font-size: 1rem;
+}
+
+.home-reading-percent-editor input:focus,
+.home-reading-page-editor input:focus {
+  border-color: #6f9378;
+  box-shadow: 0 0 0 3px rgba(111, 147, 120, 0.16);
+}
+
+.home-reading-percent-editor input::-webkit-inner-spin-button,
+.home-reading-percent-editor input::-webkit-outer-spin-button,
+.home-reading-page-editor input::-webkit-inner-spin-button,
+.home-reading-page-editor input::-webkit-outer-spin-button {
+  margin: 0;
+  appearance: none;
+}
+
+.home-inline-progress-confirm,
+.home-inline-progress-cancel {
+  display: inline-grid;
+  place-items: center;
+  width: 25px;
+  min-width: 25px;
+  height: 25px;
+  min-height: 25px;
+  margin: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  font: inherit;
+  font-size: 0.86rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.home-inline-progress-confirm {
+  background: #295847;
+  color: #fffaf3;
+}
+
+.home-inline-progress-cancel {
+  background: #efe3d0;
+  color: #76665d;
+}
+
+.home-inline-progress-confirm:hover,
+.home-inline-progress-cancel:hover {
+  transform: none;
+  box-shadow: none;
+  filter: brightness(0.97);
+}
+
+.home-inline-progress-confirm:focus-visible,
+.home-inline-progress-cancel:focus-visible {
+  outline: 2px solid rgba(161, 79, 49, 0.42);
+  outline-offset: 2px;
+}
+
+@media (max-width: 560px) {
+  .home-reading-meta {
+    font-size: 0.94rem;
+  }
+
+  .home-reading-percent-editor {
+    font-size: 1.48rem;
+  }
+
+  .home-reading-percent-editor input {
+    width: 3.35rem;
+    font-size: 1.48rem;
+  }
+
+  .home-reading-page-editor {
+    gap: 4px;
+  }
+
+  .home-reading-page-editor input {
+    width: 3.65rem;
+    font-size: 0.94rem;
+  }
+}

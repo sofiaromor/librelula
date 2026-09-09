@@ -326,6 +326,7 @@ function LoggedInHome({ onExplore, onProfile, onReviews, onReviewBook, onClubs, 
   const [progressNotes, setProgressNotes] = useState({});
   const [progressSpoilers, setProgressSpoilers] = useState({});
   const [progressComposerBookId, setProgressComposerBookId] = useState(null);
+  const [progressInlineEditor, setProgressInlineEditor] = useState(null);
   const [savingProgress, setSavingProgress] = useState({});
   const [completedBook, setCompletedBook] = useState(null);
   const [readingPickerOpen, setReadingPickerOpen] = useState(false);
@@ -545,6 +546,45 @@ function LoggedInHome({ onExplore, onProfile, onReviews, onReviewBook, onClubs, 
     }));
   }
 
+  function startInlineProgressEdit(book, mode) {
+    const bookKey = String(book?.id || "");
+    if (!bookKey || savingProgress[bookKey]) return;
+
+    const meta = readingMeta(book, displayedProgress(book));
+    if (mode === "page" && meta.totalPages <= 0) return;
+
+    setProgressInlineEditor({
+      bookKey,
+      mode,
+      value: String(mode === "page" ? meta.currentPage : meta.progress),
+    });
+  }
+
+  function cancelInlineProgressEdit() {
+    setProgressInlineEditor(null);
+  }
+
+  function confirmInlineProgressEdit(book) {
+    const editor = progressInlineEditor;
+    const bookKey = String(book?.id || "");
+    if (!editor || editor.bookKey !== bookKey) return;
+
+    const rawInput = String(editor.value ?? "").trim();
+    const rawValue = Number(rawInput);
+    if (!rawInput || !Number.isFinite(rawValue)) {
+      setMessage("Escribe un número válido para actualizar el progreso.");
+      return;
+    }
+
+    const meta = readingMeta(book, displayedProgress(book));
+    const progress = editor.mode === "page"
+      ? clampPercent((Math.max(0, Math.min(meta.totalPages, Math.round(rawValue))) / meta.totalPages) * 100)
+      : clampPercent(rawValue);
+
+    setProgressInlineEditor(null);
+    requestProgressSave(book, progress);
+  }
+
   function requestProgressSave(book, value) {
     const key = String(book?.id || "");
     if (!key) return;
@@ -691,6 +731,7 @@ function LoggedInHome({ onExplore, onProfile, onReviews, onReviewBook, onClubs, 
       setProgressNotes((items) => ({ ...items, [key]: "" }));
       setProgressSpoilers((items) => ({ ...items, [key]: false }));
       setProgressComposerBookId(null);
+      setProgressInlineEditor(null);
       setSavingProgress((items) => ({ ...items, [key]: false }));
     }
   }
@@ -927,10 +968,46 @@ function LoggedInHome({ onExplore, onProfile, onReviews, onReviewBook, onClubs, 
                             <h3>{book.title}</h3>
                             <AuthorLink author={book.author} onSelectAuthor={onSelectAuthor} />
                           </div>
-                          <div className="home-reading-percent">
-                            <strong>{meta.progress}%</strong>
-                            <span>leído</span>
-                          </div>
+                          {progressInlineEditor?.bookKey === bookKey && progressInlineEditor.mode === "percentage" ? (
+                            <form
+                              className="home-reading-percent-editor"
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                confirmInlineProgressEdit(book);
+                              }}
+                            >
+                              <label className="sr-only" htmlFor={`home-reading-percent-${bookKey}`}>Porcentaje leído de {book.title}</label>
+                              <input
+                                id={`home-reading-percent-${bookKey}`}
+                                type="number"
+                                min="0"
+                                max="100"
+                                step="1"
+                                inputMode="numeric"
+                                value={progressInlineEditor.value}
+                                onChange={(event) => setProgressInlineEditor((current) => current ? { ...current, value: event.target.value } : current)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Escape") cancelInlineProgressEdit();
+                                }}
+                                onFocus={(event) => event.currentTarget.select()}
+                                autoFocus
+                              />
+                              <span aria-hidden="true">%</span>
+                              <button type="submit" className="home-inline-progress-confirm" aria-label="Usar este porcentaje">✓</button>
+                              <button type="button" className="home-inline-progress-cancel" aria-label="Cancelar edición" onClick={cancelInlineProgressEdit}>×</button>
+                            </form>
+                          ) : (
+                            <button
+                              type="button"
+                              className="home-reading-percent home-reading-percent-trigger"
+                              onClick={() => startInlineProgressEdit(book, "percentage")}
+                              aria-label={`Editar porcentaje leído de ${book.title}. Ahora ${meta.progress}%`}
+                              title="Editar porcentaje"
+                            >
+                              <strong>{meta.progress}%</strong>
+                              <span>leído</span>
+                            </button>
+                          )}
                         </div>
 
                         <div className="home-reading-slider" style={{ "--progress": `${meta.progress}%` }}>
@@ -953,11 +1030,45 @@ function LoggedInHome({ onExplore, onProfile, onReviews, onReviewBook, onClubs, 
                         </div>
 
                         <div className="home-reading-meta">
-                          <span>
-                            {meta.totalPages > 0
-                              ? `${meta.currentPage} / ${meta.totalPages} páginas`
-                              : "Páginas no indicadas"}
-                          </span>
+                          {progressInlineEditor?.bookKey === bookKey && progressInlineEditor.mode === "page" ? (
+                            <form
+                              className="home-reading-page-editor"
+                              onSubmit={(event) => {
+                                event.preventDefault();
+                                confirmInlineProgressEdit(book);
+                              }}
+                            >
+                              <label className="sr-only" htmlFor={`home-reading-page-${bookKey}`}>Página actual de {book.title}</label>
+                              <input
+                                id={`home-reading-page-${bookKey}`}
+                                type="number"
+                                min="0"
+                                max={meta.totalPages}
+                                step="1"
+                                inputMode="numeric"
+                                value={progressInlineEditor.value}
+                                onChange={(event) => setProgressInlineEditor((current) => current ? { ...current, value: event.target.value } : current)}
+                                onKeyDown={(event) => {
+                                  if (event.key === "Escape") cancelInlineProgressEdit();
+                                }}
+                                onFocus={(event) => event.currentTarget.select()}
+                                autoFocus
+                              />
+                              <span>/ {meta.totalPages} páginas</span>
+                              <button type="submit" className="home-inline-progress-confirm" aria-label="Usar esta página">✓</button>
+                              <button type="button" className="home-inline-progress-cancel" aria-label="Cancelar edición" onClick={cancelInlineProgressEdit}>×</button>
+                            </form>
+                          ) : meta.totalPages > 0 ? (
+                            <button
+                              type="button"
+                              className="home-reading-page-trigger"
+                              onClick={() => startInlineProgressEdit(book, "page")}
+                              aria-label={`Editar página actual de ${book.title}. Ahora ${meta.currentPage} de ${meta.totalPages}`}
+                              title="Editar página actual"
+                            >
+                              {meta.currentPage} / {meta.totalPages} páginas
+                            </button>
+                          ) : <span>Páginas no indicadas</span>}
                         </div>
 
                         {progressComposerBookId === bookKey && (
