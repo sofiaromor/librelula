@@ -305,31 +305,134 @@ function VisualRange({ id, label, value, min, max, onChange, formatValue = (curr
   );
 }
 
+function CoverPanEditor({ coverUrl, settings, onChange }) {
+  const editorRef = useRef(null);
+  const dragRef = useRef(null);
+  const [isDragging, setIsDragging] = useState(false);
+
+  function handlePointerDown(event) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    const bounds = editorRef.current?.getBoundingClientRect();
+    if (!bounds) return;
+
+    dragRef.current = {
+      pointerId: event.pointerId,
+      startClientX: event.clientX,
+      startClientY: event.clientY,
+      startCoverX: settings.coverX,
+      startCoverY: settings.coverY,
+      width: bounds.width,
+      height: bounds.height,
+    };
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    setIsDragging(true);
+    event.preventDefault();
+  }
+
+  function handlePointerMove(event) {
+    const drag = dragRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const nextCoverX = drag.startCoverX - ((event.clientX - drag.startClientX) / drag.width) * 100;
+    const nextCoverY = drag.startCoverY - ((event.clientY - drag.startClientY) / drag.height) * 100;
+    onChange("coverX", Math.min(100, Math.max(0, Math.round(nextCoverX))));
+    onChange("coverY", Math.min(100, Math.max(0, Math.round(nextCoverY))));
+    event.preventDefault();
+  }
+
+  function finishPointer(event) {
+    const drag = dragRef.current;
+    if (!drag || (event.pointerId != null && drag.pointerId !== event.pointerId)) return;
+
+    dragRef.current = null;
+    setIsDragging(false);
+    if (event.currentTarget.hasPointerCapture?.(drag.pointerId)) {
+      event.currentTarget.releasePointerCapture(drag.pointerId);
+    }
+  }
+
+  function handleWheel(event) {
+    event.preventDefault();
+    const change = event.deltaY < 0 ? 5 : -5;
+    onChange("coverScale", Math.min(140, Math.max(100, settings.coverScale + change)));
+  }
+
+  return (
+    <div
+      ref={editorRef}
+      className={`profile-cover-editor-canvas${isDragging ? " is-dragging" : ""}`}
+      role="img"
+      aria-label="Vista previa interactiva de la portada. Arrastra para mover la imagen y usa la rueda para ampliar."
+      tabIndex={0}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={finishPointer}
+      onPointerCancel={finishPointer}
+      onLostPointerCapture={finishPointer}
+      onWheel={handleWheel}
+    >
+      <div className="profile-hero-banner-image" style={coverStyle(coverUrl, settings)} aria-hidden="true" />
+      <span className="profile-cover-editor-hint">Arrastra para encuadrar</span>
+    </div>
+  );
+}
+
 function ProfileVisualSettings({
   avatarUrl,
   coverUrl,
+  coverFileName,
   displayName,
   handle,
   settings,
   onChange,
+  onSelectCover,
   onReset,
   onClose,
   onSave,
   saving,
   error,
 }) {
+  const coverInputRef = useRef(null);
+
   return (
     <div className="profile-visual-settings-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <section className="profile-visual-settings" role="dialog" aria-modal="true" aria-labelledby="profile-visual-settings-title">
         <header>
           <div>
-            <span className="profile-eyebrow">Personaliza tu carnet</span>
+            <span className="profile-eyebrow">Personaliza tu perfil</span>
             <h2 id="profile-visual-settings-title">Ajustes visuales</h2>
           </div>
           <button type="button" className="profile-visual-settings-close" onClick={onClose} aria-label="Cerrar ajustes">×</button>
         </header>
 
+        <div className="profile-cover-editor">
+          <div className="profile-cover-editor-header">
+            <div>
+              <strong>Portada</strong>
+              <p>Arrastra la imagen para encuadrarla a tu gusto.</p>
+            </div>
+            <button type="button" className="profile-cover-editor-upload" onClick={() => coverInputRef.current?.click()} disabled={saving}>
+              <span aria-hidden="true">↑</span>
+              {coverFileName ? "Elegir otra imagen" : "Cambiar imagen"}
+            </button>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              hidden
+              onChange={onSelectCover}
+            />
+          </div>
+          <CoverPanEditor coverUrl={coverUrl} settings={settings} onChange={onChange} />
+          <VisualRange id="profile-cover-scale" label="Zoom" value={settings.coverScale} min={100} max={140} onChange={(value) => onChange("coverScale", value)} formatValue={(value) => `${value}%`} />
+          {coverFileName ? <small className="profile-cover-editor-file">Nueva imagen: {coverFileName}</small> : null}
+        </div>
+
         <div className="profile-visual-preview" aria-label="Vista previa de tu portada e icono">
+          <div className="profile-visual-preview-heading">
+            <strong>Vista previa</strong>
+            <small>Así quedará tu perfil al guardar los cambios.</small>
+          </div>
           <div className="profile-visual-preview-banner" style={coverStyle(coverUrl, settings)}>
             <div className="profile-hero-banner-image" aria-hidden="true" />
             <span>Portada</span>
@@ -351,12 +454,6 @@ function ProfileVisualSettings({
             <VisualRange id="profile-avatar-scale" label="Zoom" value={settings.avatarScale} min={100} max={160} onChange={(value) => onChange("avatarScale", value)} formatValue={(value) => `${value}%`} />
             <VisualRange id="profile-avatar-x" label="Horizontal" value={settings.avatarX} min={-20} max={20} onChange={(value) => onChange("avatarX", value)} formatValue={(value) => `${value > 0 ? "+" : ""}${value}`} />
             <VisualRange id="profile-avatar-y" label="Vertical" value={settings.avatarY} min={-20} max={20} onChange={(value) => onChange("avatarY", value)} formatValue={(value) => `${value > 0 ? "+" : ""}${value}`} />
-          </fieldset>
-          <fieldset>
-            <legend>Fondo</legend>
-            <VisualRange id="profile-cover-scale" label="Zoom" value={settings.coverScale} min={100} max={140} onChange={(value) => onChange("coverScale", value)} formatValue={(value) => `${value}%`} />
-            <VisualRange id="profile-cover-x" label="Horizontal" value={settings.coverX} min={0} max={100} onChange={(value) => onChange("coverX", value)} formatValue={(value) => `${value}%`} />
-            <VisualRange id="profile-cover-y" label="Vertical" value={settings.coverY} min={0} max={100} onChange={(value) => onChange("coverY", value)} formatValue={(value) => `${value}%`} />
           </fieldset>
         </div>
 
@@ -732,17 +829,17 @@ export default function PerfilSupabase({
   onCreateCollection,
   collectionsContent,
 }) {
-  const fileInputRef = useRef(null);
   const avatarInputRef = useRef(null);
+  const visualCoverPreviewRef = useRef("");
   const [state, setState] = useState({ loading: true, error: "", data: null });
-  const [coverState, setCoverState] = useState({ saving: false, error: "" });
+  const [profileActionState, setProfileActionState] = useState({ saving: false, error: "" });
   const [avatarState, setAvatarState] = useState({ open: false, saving: false, error: "" });
   const [shelfFilter, setShelfFilter] = useState("all");
   const [connections, setConnections] = useState({ open: false, direction: "followers", loading: false, error: "", items: [] });
   const [bioEditing, setBioEditing] = useState(false);
   const [bioDraft, setBioDraft] = useState("");
   const [bioSaving, setBioSaving] = useState(false);
-  const [visualEditor, setVisualEditor] = useState({ open: false, draft: null, saving: false, error: "" });
+  const [visualEditor, setVisualEditor] = useState({ open: false, draft: null, coverFile: null, coverPreviewUrl: "", saving: false, error: "" });
 
   async function loadProfile() {
     try {
@@ -777,12 +874,23 @@ export default function PerfilSupabase({
     };
   }, [profileId]);
 
+  useEffect(() => () => {
+    if (visualCoverPreviewRef.current) {
+      URL.revokeObjectURL(visualCoverPreviewRef.current);
+      visualCoverPreviewRef.current = "";
+    }
+  }, []);
+
   useEffect(() => {
     if (!visualEditor.open) return undefined;
 
     function handleVisualEditorKeyDown(event) {
       if (event.key === "Escape" && !visualEditor.saving) {
-        setVisualEditor({ open: false, draft: null, saving: false, error: "" });
+        if (visualCoverPreviewRef.current) {
+          URL.revokeObjectURL(visualCoverPreviewRef.current);
+          visualCoverPreviewRef.current = "";
+        }
+        setVisualEditor({ open: false, draft: null, coverFile: null, coverPreviewUrl: "", saving: false, error: "" });
       }
     }
 
@@ -795,32 +903,6 @@ export default function PerfilSupabase({
   const currentTab = PROFILE_TABS.some((tab) => tab.id === activeTab)
     ? activeTab
     : "summary";
-
-  async function handleCoverSelected(event) {
-    const file = event.target.files?.[0];
-    event.target.value = "";
-    if (!file) return;
-
-    setCoverState({ saving: true, error: "" });
-    try {
-      const coverImage = await uploadProfileCover(file);
-      setState((current) => ({
-        ...current,
-        data: current.data
-          ? {
-              ...current.data,
-              profile: { ...current.data.profile, cover_image: coverImage },
-            }
-          : current.data,
-      }));
-      setCoverState({ saving: false, error: "" });
-    } catch (error) {
-      setCoverState({
-        saving: false,
-        error: error?.message || "No se pudo cambiar la portada.",
-      });
-    }
-  }
 
   async function handleAvatarSelected(event) {
     const file = event.target.files?.[0];
@@ -875,7 +957,7 @@ export default function PerfilSupabase({
       setBioEditing(false);
       window.dispatchEvent(new CustomEvent("librelula:profile-updated", { detail: { bio } }));
     } catch (error) {
-      setCoverState({ saving: false, error: error?.message || "No se pudo guardar la descripción." });
+      setProfileActionState({ saving: false, error: error?.message || "No se pudo guardar la descripción." });
     } finally {
       setBioSaving(false);
     }
@@ -907,7 +989,7 @@ export default function PerfilSupabase({
         };
       });
     } catch (error) {
-      setCoverState({ saving: false, error: error?.message || "No se pudo guardar la colección destacada." });
+      setProfileActionState({ saving: false, error: error?.message || "No se pudo guardar la colección destacada." });
     }
   }
 
@@ -962,8 +1044,49 @@ export default function PerfilSupabase({
   const currentVisualSettings = normalizeProfileVisualSettings(profile.profile_visual_settings);
   const editorVisualSettings = visualEditor.draft || currentVisualSettings;
 
+  function clearVisualCoverPreview() {
+    if (visualCoverPreviewRef.current) {
+      URL.revokeObjectURL(visualCoverPreviewRef.current);
+      visualCoverPreviewRef.current = "";
+    }
+  }
+
+  function handleVisualCoverSelected(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+
+    const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+    if (!allowedTypes.has(file.type)) {
+      setVisualEditor((current) => ({ ...current, error: "La portada debe ser JPG, PNG o WebP." }));
+      return;
+    }
+
+    if (file.size > 8 * 1024 * 1024) {
+      setVisualEditor((current) => ({ ...current, error: "La portada no puede superar los 8 MB." }));
+      return;
+    }
+
+    clearVisualCoverPreview();
+    const previewUrl = URL.createObjectURL(file);
+    visualCoverPreviewRef.current = previewUrl;
+    setVisualEditor((current) => ({
+      ...current,
+      coverFile: file,
+      coverPreviewUrl: previewUrl,
+      draft: normalizeProfileVisualSettings({
+        ...(current.draft || currentVisualSettings),
+        coverScale: 100,
+        coverX: 50,
+        coverY: 50,
+      }),
+      error: "",
+    }));
+  }
+
   function openVisualSettings() {
-    setVisualEditor({ open: true, draft: currentVisualSettings, saving: false, error: "" });
+    clearVisualCoverPreview();
+    setVisualEditor({ open: true, draft: currentVisualSettings, coverFile: null, coverPreviewUrl: coverUrl, saving: false, error: "" });
   }
 
   function changeVisualSetting(key, value) {
@@ -983,21 +1106,33 @@ export default function PerfilSupabase({
   }
 
   function closeVisualSettings() {
-    if (!visualEditor.saving) setVisualEditor({ open: false, draft: null, saving: false, error: "" });
+    if (!visualEditor.saving) {
+      clearVisualCoverPreview();
+      setVisualEditor({ open: false, draft: null, coverFile: null, coverPreviewUrl: "", saving: false, error: "" });
+    }
   }
 
   async function saveVisualSettings() {
+    const draft = editorVisualSettings;
+    const coverFile = visualEditor.coverFile;
     setVisualEditor((current) => ({ ...current, saving: true, error: "" }));
     try {
-      const saved = await updateProfileVisualSettings(editorVisualSettings);
+      const coverImage = coverFile ? await uploadProfileCover(coverFile) : profile.cover_image || "";
+      const saved = await updateProfileVisualSettings(draft);
       setState((current) => current.data ? {
         ...current,
         data: {
           ...current.data,
-          profile: { ...current.data.profile, profile_visual_settings: saved },
+          profile: {
+            ...current.data.profile,
+            ...(coverFile ? { cover_image: coverImage } : {}),
+            profile_visual_settings: saved,
+          },
         },
       } : current);
-      setVisualEditor({ open: false, draft: null, saving: false, error: "" });
+      clearVisualCoverPreview();
+      setVisualEditor({ open: false, draft: null, coverFile: null, coverPreviewUrl: "", saving: false, error: "" });
+      window.dispatchEvent(new CustomEvent("librelula:profile-updated", { detail: { cover_image: coverImage, profile_visual_settings: saved } }));
     } catch (error) {
       setVisualEditor((current) => ({ ...current, saving: false, error: error?.message || "No se pudieron guardar los ajustes." }));
     }
@@ -1018,29 +1153,11 @@ export default function PerfilSupabase({
             <div className="profile-hero-banner-image" aria-hidden="true" />
           </div>
           {data.isOwner ? (
-            <>
-              <div className="profile-hero-tools">
-                <button type="button" className="profile-visual-settings-trigger" onClick={openVisualSettings} aria-label="Ajustar icono y portada" title="Ajustar icono y portada">
-                  <span aria-hidden="true">⚙</span>
-                </button>
-                <button
-                  type="button"
-                  className="profile-change-cover"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={coverState.saving}
-                >
-                  <span aria-hidden="true">▣</span>
-                  {coverState.saving ? "Guardando…" : "Cambiar portada"}
-                </button>
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                hidden
-                onChange={handleCoverSelected}
-              />
-            </>
+            <div className="profile-hero-tools">
+              <button type="button" className="profile-visual-settings-trigger" onClick={openVisualSettings} aria-label="Ajustar icono y portada" title="Ajustar icono y portada">
+                <span aria-hidden="true">⚙</span>
+              </button>
+            </div>
           ) : null}
           <div className="profile-identity">
             <div className="profile-avatar-wrap">
@@ -1107,11 +1224,13 @@ export default function PerfilSupabase({
         {visualEditor.open ? (
           <ProfileVisualSettings
             avatarUrl={avatarUrl}
-            coverUrl={coverUrl}
+            coverUrl={visualEditor.coverPreviewUrl || coverUrl}
+            coverFileName={visualEditor.coverFile?.name || ""}
             displayName={displayName}
             handle={handle}
             settings={editorVisualSettings}
             onChange={changeVisualSetting}
+            onSelectCover={handleVisualCoverSelected}
             onReset={resetVisualSettings}
             onClose={closeVisualSettings}
             onSave={saveVisualSettings}
@@ -1120,7 +1239,7 @@ export default function PerfilSupabase({
           />
         ) : null}
 
-        {coverState.error ? <p className="profile-inline-error">{coverState.error}</p> : null}
+        {profileActionState.error ? <p className="profile-inline-error">{profileActionState.error}</p> : null}
 
         <nav className="profile-tabs" aria-label="Secciones del perfil" role="tablist">
           {PROFILE_TABS.map((tab) => (
