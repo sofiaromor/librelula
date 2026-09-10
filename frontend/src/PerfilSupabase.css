@@ -514,7 +514,7 @@
 
 .profile-featured-picker-backdrop {
   position: fixed;
-  z-index: 30;
+  z-index: 2400;
   inset: 0;
   display: grid;
   place-items: center;
@@ -650,7 +650,7 @@
 
 .profile-connections-backdrop {
   position: fixed;
-  z-index: 20;
+  z-index: 2400;
   inset: 0;
   display: grid;
   place-items: center;
@@ -2114,7 +2114,7 @@
 
 .profile-visual-settings-backdrop {
   position: fixed;
-  z-index: 50;
+  z-index: 2400;
   inset: 0;
   display: grid;
   place-items: center;

@@ -439,7 +439,8 @@
 
 @media (max-width: 900px) {
   body {
-    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    /* Deja sitio para el dock, el botón central que sobresale y el área segura. */
+    padding-bottom: calc(110px + env(safe-area-inset-bottom));
   }
 }
 
