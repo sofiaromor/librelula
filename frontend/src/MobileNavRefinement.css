@@ -218,3 +218,13 @@
     font-size: .68rem;
   }
 }
+
+/* Los diálogos ocupan toda la pantalla: el dock no debe quedar por encima de ellos. */
+@media (max-width: 900px) {
+  body:has([role="dialog"]) .mobile-reader-dock,
+  body:has([aria-modal="true"]) .mobile-reader-dock,
+  body:has([role="dialog"]) .mobile-reader-toast,
+  body:has([aria-modal="true"]) .mobile-reader-toast {
+    display: none !important;
+  }
+}
