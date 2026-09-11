@@ -215,8 +215,7 @@ body.is-reader-guest .site-brand {
     justify-content: center !important;
   }
 
-  body.is-reader-authenticated .user-btn > span,
-  body.is-reader-authenticated .user-btn > svg {
+  body.is-reader-authenticated .user-menu-toggle {
     display: none !important;
   }
 

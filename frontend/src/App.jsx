@@ -933,40 +933,46 @@ useEffect(() => {
 
               {!sessionLoading && isLoggedIn && (
                 <div className="user-menu" ref={userMenuRef}>
-                  <button
-                    className="user-btn"
-                    type="button"
-                    aria-expanded={userMenuOpen}
-                    aria-controls="catalog-user-dropdown"
-                    onClick={() => setUserMenuOpen((open) => !open)}
-                  >
-                    <img
-                      src={avatarUrl}
-                      alt={`Avatar de ${username}`}
-                      className="user-avatar"
-                      title="Abrir mi perfil"
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        openProfile();
-                      }}
-                      onError={(event) => {
-                        event.currentTarget.onerror = null;
-                        event.currentTarget.src = defaultAvatar;
-                      }}
-                    />
-                    <span>{username}</span>
-                    <svg
-                      width="14"
-                      height="14"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      aria-hidden="true"
+                  <div className="user-btn">
+                    <button
+                      className="user-avatar-button"
+                      type="button"
+                      aria-label={`Abrir el perfil de ${username}`}
+                      onClick={openProfile}
                     >
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                  </button>
+                      <img
+                        src={avatarUrl}
+                        alt=""
+                        className="user-avatar"
+                        title="Abrir mi perfil"
+                        onError={(event) => {
+                          event.currentTarget.onerror = null;
+                          event.currentTarget.src = defaultAvatar;
+                        }}
+                      />
+                    </button>
+                    <button
+                      className="user-menu-toggle"
+                      type="button"
+                      aria-expanded={userMenuOpen}
+                      aria-controls="catalog-user-dropdown"
+                      aria-label="Abrir menú de usuario"
+                      onClick={() => setUserMenuOpen((open) => !open)}
+                    >
+                      <span>{username}</span>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        aria-hidden="true"
+                      >
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </button>
+                  </div>
 
                   <div
                     className={`dropdown-menu${userMenuOpen ? " show" : ""}`}
