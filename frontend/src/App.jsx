@@ -12,6 +12,7 @@ import GoodreadsImport from "./GoodreadsImport.jsx";
 import SagaBooks from "./SagaBooks.jsx";
 import ReaderCollectionPage from "./ReaderCollectionPage.jsx";
 import ReaderCollectionCreatePage from "./ReaderCollectionCreatePage.jsx";
+import NotificationBell from "./NotificationBell.jsx";
 import { appUrl, publicUrl } from "./api.js";
 import { searchReaderPostBooks } from "./lib/homeDashboardApi.js";
 import {
@@ -375,6 +376,15 @@ useEffect(() => {
     setProfileTab(nextTab);
     const targetProfileId = profileUserId || session.user?.id || "";
     if (targetProfileId) updateProfileRoute(targetProfileId, nextTab);
+  }
+
+  function openNotification(notification) {
+    if (notification?.type === "follow" && notification.actor_id) {
+      openUserProfile(notification.actor_id);
+      return;
+    }
+
+    openProfile("activity");
   }
 
   function openUserProfile(userId, clubId = null) {
@@ -913,6 +923,14 @@ useEffect(() => {
             </form>
 
             <div className="site-nav-actions">
+              {!sessionLoading && isLoggedIn && (
+                <NotificationBell
+                  userId={session.user?.id}
+                  onOpen={() => setUserMenuOpen(false)}
+                  onOpenNotification={openNotification}
+                />
+              )}
+
               {!sessionLoading && isLoggedIn && (
                 <div className="user-menu" ref={userMenuRef}>
                   <button

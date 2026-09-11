@@ -7,7 +7,7 @@ Este directorio guarda el esquema base versionado de Supabase para Librélula.
 1. Revisar `schema.sql`.
 2. Pegar `schema.sql` en Supabase SQL Editor.
 3. Ejecutarlo una vez.
-4. Ejecutar las migraciones adicionales que use el proyecto (`moderation.sql`, `friends.sql`, etc.).
+4. Ejecutar las migraciones adicionales que use el proyecto (`moderation.sql`, `friends.sql`, `notifications-v1.sql`, etc.).
 5. Ejecutar `book-editions.sql` para activar obras principales, ediciones y protección de duplicados.
 6. Ejecutar `saga-unification-v2.sql` para unificar alias de sagas ya importadas.
 7. Confirmar que las tablas existen.
