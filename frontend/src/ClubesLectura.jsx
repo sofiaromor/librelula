@@ -33,7 +33,7 @@ import "./ClubesLectura.css";
 const CLUB_TABS = [
   { id: "summary", label: "Inicio" },
   { id: "shelf", label: "Estantería" },
-  { id: "general", label: "Chat general" },
+  { id: "general", label: "Chats" },
   { id: "chapters", label: "Capítulos" },
   { id: "achievements", label: "Logros" },
   { id: "calendar", label: "Calendario" },
@@ -189,6 +189,49 @@ function relativeTime(value) {
   return `hace ${days} día${days === 1 ? "" : "s"}`;
 }
 
+function chatDateKey(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return [date.getFullYear(), date.getMonth(), date.getDate()].join("-");
+}
+
+function chatDayLabel(value) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Conversación";
+
+  const today = new Date();
+  const todayKey = chatDateKey(today);
+  const yesterday = new Date(today);
+  yesterday.setDate(today.getDate() - 1);
+  const dateKey = chatDateKey(date);
+
+  if (dateKey === todayKey) return "Hoy";
+  if (dateKey === chatDateKey(yesterday)) return "Ayer";
+
+  return new Intl.DateTimeFormat("es-ES", {
+    day: "numeric",
+    month: "short",
+    year: date.getFullYear() === today.getFullYear() ? undefined : "numeric",
+  }).format(date).replace(".", "");
+}
+
+function chatTime(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  return new Intl.DateTimeFormat("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function chatPreviewText(post) {
+  if (!post) return "Todavía no hay mensajes";
+  if (post.image_url) return "▧ Imagen compartida";
+  if (post.quote_text) return `❞ ${post.quote_text}`;
+  return post.content || "Mensaje compartido";
+}
+
 function clubBackground(club) {
   const bookCover = club?.book?.cover;
   const custom = club?.banner_asset_url || club?.banner_url;
@@ -273,6 +316,179 @@ function ClubIcon({ club, className = "" }) {
         if (event.currentTarget.src !== next) event.currentTarget.src = next;
       }}
     />
+  );
+}
+
+function ChatAvatar({ club, chapterNumber = null }) {
+  if (chapterNumber !== null) {
+    return <span className="club-chat-list-avatar is-chapter" aria-hidden="true">{chapterNumber}</span>;
+  }
+
+  return <ClubIcon club={club} className="club-chat-list-avatar" />;
+}
+
+function ClubChatList({
+  club,
+  chapters = [],
+  visibleChapters = chapters,
+  posts = [],
+  members = [],
+  selectedChannel = "general",
+  selectedChapter = 1,
+  generalUnreadCount = 0,
+  currentChapter = 1,
+  unlockedChapter = 1,
+  isAdmin = false,
+  mobileOpen = false,
+  onCloseMobile,
+  onSelect,
+}) {
+  const [query, setQuery] = useState("");
+  const selectedKey = selectedChannel === "general" ? "general" : `chapter:${selectedChapter}`;
+
+  const conversations = useMemo(() => {
+    const latestPost = (rows) => [...rows]
+      .sort((first, second) => new Date(first.created_at).getTime() - new Date(second.created_at).getTime())
+      .at(-1) || null;
+    const generalPosts = posts.filter((post) => post.channel === "general");
+    const generalLastPost = latestPost(generalPosts);
+
+    const chapterConversations = visibleChapters.map((chapter) => {
+      const chapterNumber = Number(chapter.chapter_number);
+      const chapterPosts = posts.filter(
+        (post) => post.channel === "chapter" && Number(post.chapter_number) === chapterNumber,
+      );
+      const planLocked = chapterNumber > unlockedChapter;
+      const progressLocked = !isAdmin && chapterNumber > currentChapter;
+
+      return {
+        key: `chapter:${chapterNumber}`,
+        channel: "chapter",
+        chapterNumber,
+        title: `Capítulo ${chapterNumber}`,
+        subtitle: chapter.title || "Conversación de lectura",
+        preview: chapterPosts.length
+          ? `${displayName(latestPost(chapterPosts)?.profile)}: ${chatPreviewText(latestPost(chapterPosts))}`
+          : "Todavía no hay mensajes",
+        timestamp: latestPost(chapterPosts)?.created_at || null,
+        count: chapterPosts.length,
+        locked: planLocked || progressLocked,
+      };
+    });
+
+    return [
+      {
+        key: "general",
+        channel: "general",
+        chapterNumber: null,
+        title: "Chat general",
+        subtitle: `${members.length} miembros · conversación abierta`,
+        preview: generalLastPost
+          ? `${displayName(generalLastPost.profile)}: ${chatPreviewText(generalLastPost)}`
+          : "Da la bienvenida al club",
+        timestamp: generalLastPost?.created_at || null,
+        count: generalPosts.length,
+        unread: generalUnreadCount,
+        locked: false,
+      },
+      ...chapterConversations,
+    ];
+  }, [currentChapter, generalUnreadCount, isAdmin, members.length, posts, unlockedChapter, visibleChapters]);
+
+  const normalizedQuery = query.trim().toLocaleLowerCase();
+  const filteredConversations = normalizedQuery
+    ? conversations.filter((conversation) => [conversation.title, conversation.subtitle, conversation.preview]
+      .join(" ")
+      .toLocaleLowerCase()
+      .includes(normalizedQuery))
+    : conversations;
+
+  return (
+    <aside
+      className={`club-chat-list-panel${mobileOpen ? " is-mobile-open" : ""}`}
+      aria-label="Conversaciones del club"
+    >
+      <header className="club-chat-list-header">
+        <div>
+          <span className="clubs-kicker">La mesa lectora</span>
+          <h2>Conversaciones</h2>
+          <p>{conversations.length} espacios para hablar sin perder el hilo.</p>
+        </div>
+        <button
+          type="button"
+          className="club-chat-mobile-close"
+          onClick={onCloseMobile}
+          aria-label="Cerrar lista de conversaciones"
+        >
+          ×
+        </button>
+      </header>
+
+      <label className="club-chat-search">
+        <span aria-hidden="true">⌕</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Buscar conversación"
+          aria-label="Buscar conversación"
+        />
+        {query && (
+          <button type="button" onClick={() => setQuery("")} aria-label="Limpiar búsqueda">
+            ×
+          </button>
+        )}
+      </label>
+
+      <div className="club-chat-list" role="list" aria-label="Lista de chats">
+        {filteredConversations.map((conversation) => {
+          const active = conversation.key === selectedKey;
+          return (
+            <button
+              type="button"
+              key={conversation.key}
+              className={`club-chat-list-item${active ? " is-active" : ""}${conversation.locked ? " is-locked" : ""}`}
+              onClick={() => !conversation.locked && onSelect(conversation)}
+              aria-current={active ? "page" : undefined}
+              disabled={conversation.locked}
+            >
+              <ChatAvatar club={club} chapterNumber={conversation.chapterNumber} />
+              <span className="club-chat-list-copy">
+                <span className="club-chat-list-title-row">
+                  <strong>{conversation.title}</strong>
+                  {conversation.timestamp && <time dateTime={conversation.timestamp}>{chatTime(conversation.timestamp)}</time>}
+                </span>
+                <span className="club-chat-list-subtitle">{conversation.subtitle}</span>
+                <span className="club-chat-list-preview">{conversation.locked ? "▣ Disponible cuando avances en la lectura" : conversation.preview}</span>
+              </span>
+              <span className="club-chat-list-meta">
+                {conversation.locked && <span className="club-chat-lock" aria-label="Conversación bloqueada">▣</span>}
+                {!conversation.locked && conversation.unread > 0 && (
+                  <span className="club-chat-unread" aria-label={`${conversation.unread} mensajes sin leer`}>
+                    {conversation.unread > 99 ? "99+" : conversation.unread}
+                  </span>
+                )}
+              </span>
+            </button>
+          );
+        })}
+        {filteredConversations.length === 0 && (
+          <div className="club-chat-list-empty">
+            <span aria-hidden="true">⌕</span>
+            <strong>No encontramos ese chat</strong>
+            <p>Prueba con «general» o con el nombre de un capítulo.</p>
+          </div>
+        )}
+      </div>
+
+      <footer className="club-chat-list-reading">
+        <ChatAvatar club={club} />
+        <span>
+          <small>Lectura actual</small>
+          <strong>{club.book?.title || "Aún sin libro elegido"}</strong>
+        </span>
+      </footer>
+    </aside>
   );
 }
 
@@ -593,6 +809,8 @@ function ClubPost({
   onToggleThread,
   revealedPosts = new Set(),
   isReply = false,
+  currentUserId = null,
+  isMine = false,
 }) {
   const futureLocked = post.channel === "chapter" && Number(post.chapter_number) > currentChapter;
   const spoilerHidden = post.contains_spoilers && !isRevealed;
@@ -611,7 +829,7 @@ function ClubPost({
   }
 
   return (
-    <article className={`club-post${isReply ? " club-post-reply" : ""}`}>
+    <article className={`club-post${isReply ? " club-post-reply" : ""}${isMine ? " is-mine" : ""}`}>
       <AvatarImage className="club-post-avatar" profile={profile} />
       <div className="club-post-body">
         <header>
@@ -702,6 +920,8 @@ function ClubPost({
                 onModerate={onModerate}
                 revealedPosts={revealedPosts}
                 isRevealed={revealedPosts.has(reply.id)}
+                currentUserId={currentUserId}
+                isMine={String(reply.user_id) === String(currentUserId)}
                 isReply
               />
             ))}
@@ -765,7 +985,11 @@ function ClubComposer({
   }
 
   return (
-    <form className="club-composer" onSubmit={submit}>
+    <form
+      className="club-composer"
+      onSubmit={submit}
+      aria-label={replyTo ? `Responder a ${displayName(replyTo.profile)}` : "Escribir un mensaje"}
+    >
       {replyTo && (
         <div className="club-reply-context">
           <span>Respondiendo a <strong>{displayName(replyTo.profile)}</strong></span>
@@ -777,6 +1001,7 @@ function ClubComposer({
         value={content}
         onChange={(event) => setContent(event.target.value)}
         placeholder={replyTo ? "Escribe tu respuesta…" : channel === "chapter" ? "Escribe sobre este capítulo…" : "Comparte una idea con el club…"}
+        aria-label={replyTo ? "Escribe tu respuesta" : "Escribe un mensaje"}
         rows={2}
         maxLength={2000}
       />
@@ -785,6 +1010,7 @@ function ClubComposer({
           value={quoteText}
           onChange={(event) => setQuoteText(event.target.value)}
           placeholder="Añade una cita del libro…"
+          aria-label="Cita del libro"
           maxLength={500}
         />
       )}
@@ -863,13 +1089,6 @@ function planNextSession(club, referenceTime = Date.now()) {
   if (first > referenceTime) return new Date(first);
   const periods = Math.floor((referenceTime - first) / intervalMs) + 1;
   return new Date(first + periods * intervalMs);
-}
-
-function planFrequencyLabel(club) {
-  const days = Math.max(1, Number(club?.reading_plan_interval_days) || 7);
-  if (days === 7) return "cada semana";
-  if (days === 14) return "cada quince días";
-  return `cada ${days} días`;
 }
 
 function ClubProgressEditor({ club, membership, chapters, onSaved, compact = false }) {
@@ -1881,7 +2100,7 @@ function ClubShelf({ club, membership, library = [], members = [], onReload, onS
 }
 
 function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onOpenBookThread, onInvite, onOpenProfile, onExitClub }) {
-  const { club, membership, members, chapters, posts, meetings, achievements = [], library = [] } = data;
+  const { club, membership, profile, members, chapters, posts, meetings, achievements = [], library = [] } = data;
   const currentChapter = Math.max(1, Number(membership?.current_chapter) || 1);
   const clubUnlockedChapter = Math.max(1, Number(club?.unlocked_chapter) || chapters.length || 1);
   const isAdmin = membership?.role === "owner" || membership?.role === "moderator";
@@ -1892,15 +2111,16 @@ function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onOpenBo
   const [startReadingOpen, setStartReadingOpen] = useState(false);
   const [replyingTo, setReplyingTo] = useState(null);
   const [openThreads, setOpenThreads] = useState(() => new Set());
+  const [mobileChatListOpen, setMobileChatListOpen] = useState(false);
   const [notice, setNotice] = useState("");
   const selectedChapterInfo = chapters.find((item) => item.chapter_number === selectedChapter);
   const visibleChapters = chapters.filter((item) => item.chapter_number <= clubUnlockedChapter + 1);
   const [renderReferenceTime] = useState(() => Date.now());
   const futureMeetings = meetings.filter((item) => new Date(item.starts_at).getTime() >= renderReferenceTime - 3600000);
   const meeting = futureMeetings[0] || null;
-  const meetingParts = compactDate(meeting?.starts_at);
   const nextPlanSession = planNextSession(club, renderReferenceTime);
   const collectiveProgress = Math.round(members.reduce((sum, item) => sum + Number(item.progress || 0), 0) / Math.max(1, members.length));
+  const isChatTab = tab === "general" || tab === "chapters";
 
   const chapterPosts = useMemo(
     () => posts.filter((post) => post.channel === "chapter" && post.chapter_number === selectedChapter),
@@ -1994,11 +2214,31 @@ function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onOpenBo
   function changeTab(nextTab) {
     setReplyingTo(null);
     setOpenThreads(new Set());
+    setMobileChatListOpen(false);
     onTab(nextTab);
   }
 
+  function selectChat(conversation) {
+    setReplyingTo(null);
+    setOpenThreads(new Set());
+    setMobileChatListOpen(false);
+    if (conversation.channel === "general") {
+      onTab("general");
+      return;
+    }
+    setSelectedChapter(conversation.chapterNumber);
+    onTab("chapters");
+  }
+
+  const chatTitle = tab === "general"
+    ? "Chat general"
+    : `Capítulo ${selectedChapter} · ${selectedChapterInfo?.title || "Conversación"}`;
+  const chatSubtitle = tab === "general"
+    ? `${members.length} miembros · conversación abierta`
+    : `${members.filter((member) => member.current_chapter === selectedChapter).length} personas leyendo · sin spoilers`;
+
   return (
-    <section className="club-inside club-inside-v2">
+    <section className={`club-inside club-inside-v2${isChatTab ? " is-chat-view" : ""}`}>
       <button type="button" className="clubs-back-button" onClick={onBack}>← Todos mis clubes</button>
       <header className="club-inside-banner" style={clubBackground(club)}>
         <div className="club-inside-emblem"><img src={assetUrl(club.icon_asset_url || club.icon_url || club.book?.cover)} alt={`Icono de ${club.name}`} /></div>
@@ -2014,102 +2254,105 @@ function ClubInside({ data, tab, onTab, onBack, onReload, onSelectBook, onOpenBo
       <nav className="club-tabs" aria-label="Secciones del club">
         {CLUB_TABS.filter((item) => item.id !== "chapters" || club.book).map((item) => <button type="button" key={item.id} className={tab === item.id ? "is-active" : ""} onClick={() => changeTab(item.id)} aria-pressed={tab === item.id}>{item.label}{item.id === "general" && generalUnreadCount > 0 && <span aria-label={`${generalUnreadCount} mensajes sin leer`}>{generalUnreadCount}</span>}</button>)}
       </nav>
-      <div className="club-inside-action-strip" aria-label="Acciones rápidas del club">
-        <div className="club-inside-action-progress">
-          <span className="clubs-kicker">Tu ritmo de lectura</span>
-          <strong>{membership?.progress || 0}%</strong>
-          <i><u style={{ width: `${membership?.progress || 0}%` }} /></i>
+      {!isChatTab && (
+        <div className="club-inside-action-strip" aria-label="Acciones rápidas del club">
+          <div className="club-inside-action-progress">
+            <span className="clubs-kicker">Tu ritmo de lectura</span>
+            <strong>{membership?.progress || 0}%</strong>
+            <i><u style={{ width: `${membership?.progress || 0}%` }} /></i>
+          </div>
+          <button type="button" onClick={() => changeTab("summary")}>Actualizar progreso</button>
+          <button type="button" onClick={() => changeTab("general")}>Abrir conversación</button>
+          <button type="button" onClick={() => changeTab("calendar")}>Ver calendario</button>
         </div>
-        <button type="button" onClick={() => changeTab("summary")}>Actualizar progreso</button>
-        <button type="button" onClick={() => changeTab("general")}>Abrir conversación</button>
-        <button type="button" onClick={() => changeTab("calendar")}>Ver calendario</button>
-      </div>
+      )}
       {notice && <div className="clubs-notice is-inline">{notice}<button type="button" onClick={() => setNotice("")}>×</button></div>}
 
       {(tab === "chapters" || tab === "general") && (
-        <div className="club-conversation-layout">
-          <aside className="club-reading-sidebar">
-            {club.book ? (
-              <article className="club-current-book-card"><BookCover book={club.book} onOpen={onSelectBook} /><div><strong>{club.book.title}</strong><small>{club.book.author}</small><label>Tu progreso <b>{membership?.progress || 0}%</b></label><i><span style={{ width: `${membership?.progress || 0}%` }} /></i><small>{membership?.current_page || 0} / {club.book.pages || "?"} páginas · capítulo {currentChapter}</small><button type="button" onClick={() => changeTab("summary")}>Actualizar mi progreso</button><button type="button" onClick={() => onSelectBook?.(club.book)}>Ver libro</button></div></article>
-            ) : (
-              <article className={`club-current-book-card club-current-book-card-empty${isAdmin ? " is-actionable" : ""}`}>
-                <div>
-                  <span className="clubs-kicker">Próxima lectura</span>
-                  <strong>Aún no tenemos libro para nuestra próxima reunión</strong>
-                  <small>
-                    {isAdmin
-                      ? "Puedes escoger la siguiente lectura cuando el club la tenga decidida."
-                      : "Mientras lo decidimos, el chat general y la estantería siguen abiertos."}
-                  </small>
-                  {isAdmin
-                    ? <button type="button" onClick={() => setStartReadingOpen(true)}>Elegir próxima lectura</button>
-                    : <button type="button" onClick={() => changeTab("shelf")}>Abrir estantería</button>}
-                </div>
-              </article>
-            )}
+        <div className="club-chat-shell">
+          <ClubChatList
+            club={club}
+            chapters={chapters}
+            visibleChapters={visibleChapters}
+            posts={posts}
+            members={members}
+            selectedChannel={tab === "general" ? "general" : "chapter"}
+            selectedChapter={selectedChapter}
+            generalUnreadCount={generalUnreadCount}
+            currentChapter={currentChapter}
+            unlockedChapter={clubUnlockedChapter}
+            isAdmin={isAdmin}
+            mobileOpen={mobileChatListOpen}
+            onCloseMobile={() => setMobileChatListOpen(false)}
+            onSelect={selectChat}
+          />
+          <main className="club-chat-window">
+            <header className="club-chat-header">
+              <button
+                type="button"
+                className="club-chat-list-toggle"
+                onClick={() => setMobileChatListOpen(true)}
+                aria-label="Abrir conversaciones"
+              >
+                <span aria-hidden="true">☰</span>
+                <span>Conversaciones</span>
+              </button>
+              <ChatAvatar club={club} chapterNumber={tab === "chapters" ? selectedChapter : null} />
+              <div className="club-chat-header-copy">
+                <span className="clubs-kicker">{tab === "general" ? club.name : "Lectura por capítulos"}</span>
+                <h2>{chatTitle}</h2>
+                <p>{chatSubtitle}</p>
+              </div>
+              <div className="club-chat-header-actions">
+                <button type="button" onClick={() => changeTab("summary")} aria-label="Abrir información del club" title="Información del club">ⓘ</button>
+                <button type="button" onClick={() => onInvite(club)} aria-label="Invitar al club" title="Invitar">♙</button>
+              </div>
+            </header>
+
             {tab === "chapters" && (
-              <article className="club-chapter-list club-chapter-list-v3">
-                <h3>Conversaciones por capítulos</h3>
-                {visibleChapters.map((chapter) => {
-                  const planLocked = chapter.chapter_number > clubUnlockedChapter;
-                  const progressLocked = !isAdmin && chapter.chapter_number > currentChapter;
-                  const locked = planLocked || progressLocked;
-                  return (
-                    <button
-                      type="button"
-                      key={chapter.id}
-                      className={`${selectedChapter === chapter.chapter_number ? "is-active" : ""} ${planLocked ? "is-plan-locked" : ""}`}
-                      onClick={() => !locked && setSelectedChapter(chapter.chapter_number)}
-                      disabled={locked}
-                    >
-                      <span>{chapter.chapter_number}. {chapter.title}</span>
-                      <i>{locked ? "▣" : chapter.chapter_number < accessibleChapter ? "✓" : "○"}</i>
-                    </button>
-                  );
-                })}
-                <p>
-                  {club.reading_plan_enabled
-                    ? `❧ El club ha abierto hasta el capítulo ${clubUnlockedChapter}.`
-                    : "❧ Actualiza tu progreso en Inicio para desbloquear nuevos capítulos."}
-                </p>
+              <article className="club-spoiler-mode club-chat-spoiler-mode">
+                <span>♧</span>
+                <div>
+                  <strong>Modo sin spoilers activado</strong>
+                  <p>Puedes conversar hasta el capítulo {accessibleChapter}; el club ha abierto hasta el {clubUnlockedChapter}.</p>
+                </div>
+                <button type="button" onClick={() => changeTab("summary")}>Pág. {membership?.current_page || 0} · cap. {currentChapter}</button>
               </article>
             )}
-            <article className="club-next-meeting-card"><h3>Próxima reunión</h3>{meetingParts ? <><div className="clubs-meeting-date"><span><b>{meetingParts.month}</b><strong>{meetingParts.day}</strong></span><p><strong>{meetingParts.time}</strong><small>{meetingParts.weekday}</small></p></div><p>{meeting?.title}</p><button type="button" onClick={() => changeTab("calendar")}>Ver calendario</button></> : <p className="clubs-soft-empty">Todavía no hay una fecha fijada.</p>}</article>
-            {club.reading_plan_enabled && (
-              <article className="club-reading-plan-card">
-                <span className="clubs-kicker">Plan de lectura</span>
-                <h3>Hasta el capítulo {clubUnlockedChapter}</h3>
-                <p>Se abrirán {club.reading_plan_chapters_per_period || 1} capítulo(s) {planFrequencyLabel(club)}.</p>
-                <strong>{nextPlanSession ? `Próxima sesión: ${formatDateTime(nextPlanSession)}` : "Sin próxima sesión fijada"}</strong>
-                {isAdmin && <button type="button" onClick={() => setSettingsOpen(true)}>Editar ritmo</button>}
-              </article>
-            )}
-            <article className="club-rules-card"><h3>Normas del club</h3>{(club.rules || []).map((rule, index) => <p key={`${rule}-${index}`}>{index + 1}. {rule}</p>)}{isAdmin && <button type="button" onClick={() => setSettingsOpen(true)}>Editar normas</button>}</article>
-          </aside>
-          <main className="club-conversation-main">
-            {tab === "chapters" && <article className="club-spoiler-mode"><span>♧</span><div><strong>Modo sin spoilers activado</strong><p>Puedes conversar hasta el capítulo {accessibleChapter}; el club ha abierto hasta el {clubUnlockedChapter}.</p></div><button type="button" onClick={() => changeTab("summary")}>Página {membership?.current_page || 0} · cap. {currentChapter}</button></article>}
-            <header className="club-feed-heading"><div><h2>{tab === "general" ? "Chat general" : `Capítulo ${selectedChapter} · ${selectedChapterInfo?.title || "Conversación"}`}</h2><p>{members.filter((member) => member.current_chapter === selectedChapter).length} leyendo este capítulo</p></div></header>
-            <div className="club-feed">
-              {rootFeed.length === 0 && <div className="clubs-empty-card"><span>☕</span><h3>Todavía no hay mensajes aquí</h3><p>Sé la primera persona en abrir esta conversación.</p></div>}
-              {rootFeed.map((post) => {
+
+            <div className="club-chat-messages" role="log" aria-live="polite" aria-label={chatTitle}>
+              {rootFeed.length === 0 && (
+                <div className="club-chat-empty">
+                  <span aria-hidden="true">☕</span>
+                  <h3>Aún no hay mensajes</h3>
+                  <p>Abre la conversación y deja la primera idea de la mesa.</p>
+                </div>
+              )}
+              {rootFeed.map((post, index) => {
+                const previousPost = rootFeed[index - 1];
                 const replies = repliesByPostId.get(String(post.id)) || [];
+                const showDay = !previousPost || chatDateKey(previousPost.created_at) !== chatDateKey(post.created_at);
                 return (
-                  <ClubPost
-                    key={post.id}
-                    post={post}
-                    currentChapter={accessibleChapter}
-                    onReact={react}
-                    onReveal={reveal}
-                    isRevealed={revealed.has(post.id)}
-                    revealedPosts={revealed}
-                    canModerate={isAdmin}
-                    onModerate={moderate}
-                    onReply={setReplyingTo}
-                    replyCount={replies.length}
-                    replies={replies}
-                    threadOpen={openThreads.has(String(post.id))}
-                    onToggleThread={toggleThread}
-                  />
+                  <div className="club-chat-message-group" key={post.id}>
+                    {showDay && <div className="club-chat-day-separator"><span>{chatDayLabel(post.created_at)}</span></div>}
+                    <ClubPost
+                      post={post}
+                      currentChapter={accessibleChapter}
+                      currentUserId={profile?.id}
+                      isMine={String(post.user_id) === String(profile?.id)}
+                      onReact={react}
+                      onReveal={reveal}
+                      isRevealed={revealed.has(post.id)}
+                      revealedPosts={revealed}
+                      canModerate={isAdmin}
+                      onModerate={moderate}
+                      onReply={setReplyingTo}
+                      replyCount={replies.length}
+                      replies={replies}
+                      threadOpen={openThreads.has(String(post.id))}
+                      onToggleThread={toggleThread}
+                    />
+                  </div>
                 );
               })}
             </div>
