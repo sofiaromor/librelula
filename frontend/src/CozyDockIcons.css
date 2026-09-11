@@ -42,12 +42,20 @@
   mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.65'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M4.2%209h11.2v5.3a4.7%204.7%200%200%201-4.7%204.7H8.9a4.7%204.7%200%200%201-4.7-4.7Z'%2F%3E%3Cpath%20d%3D'M15.4%2010.6h2.1a2.3%202.3%200%200%201%200%204.6h-2.1'%2F%3E%3Cpath%20d%3D'M6.5%205.4c0%20.8.65%201.05.65%201.8M10%204.4c0%20.9.75%201.2.75%202.1M13.4%205.2c0%20.8.65%201.05.65%201.8'%2F%3E%3Cpath%20d%3D'M8.5%2012.2c.7-.8%202.05-.8%202.7%200%20.7-.8%202.05-.8%202.7%200-1.05%201.15-2.15%201.9-2.7%202.2-.55-.3-1.65-1.05-2.7-2.2Z'%2F%3E%3Cpath%20d%3D'M3%2021h17'%2F%3E%3C%2Fsvg%3E");
 }
 
-/* Perfil · libélula propia de Librélula, con el mismo trazo redondeado. */
+/* Biblioteca · lomos de libros con el mismo trazo redondeado. */
 .mobile-reader-dock > button:nth-child(5)::before {
   width: 24px;
   height: 24px;
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.55'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Ccircle%20cx%3D'12'%20cy%3D'6.1'%20r%3D'1.2'%2F%3E%3Cpath%20d%3D'M12%207.6v10.8M10.8%2010.2h2.4M11%2013.3h2M11.25%2016.4h1.5'%2F%3E%3Cpath%20d%3D'M10.15%209.1C8.4%205.85%205.45%204.65%203.7%206.4c-1.55%201.55.15%204.35%205.65%204.45'%2F%3E%3Cpath%20d%3D'M13.85%209.1c1.75-3.25%204.7-4.45%206.45-2.7%201.55%201.55-.15%204.35-5.65%204.45'%2F%3E%3Cpath%20d%3D'M10.05%2012.6c-2.75.15-5.2%201.8-5.15%203.95.05%202.25%202.85%202.55%205.65-.55'%2F%3E%3Cpath%20d%3D'M13.95%2012.6c2.75.15%205.2%201.8%205.15%203.95-.05%202.25-2.85%202.55-5.65-.55'%2F%3E%3Cpath%20d%3D'M12%2018.4l-1.15%202M12%2018.4l1.15%202'%2F%3E%3C%2Fsvg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.55'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Ccircle%20cx%3D'12'%20cy%3D'6.1'%20r%3D'1.2'%2F%3E%3Cpath%20d%3D'M12%207.6v10.8M10.8%2010.2h2.4M11%2013.3h2M11.25%2016.4h1.5'%2F%3E%3Cpath%20d%3D'M10.15%209.1C8.4%205.85%205.45%204.65%203.7%206.4c-1.55%201.55.15%204.35%205.65%204.45'%2F%3E%3Cpath%20d%3D'M13.85%209.1c1.75-3.25%204.7-4.45%206.45-2.7%201.55%201.55-.15%204.35-5.65%204.45'%2F%3E%3Cpath%20d%3D'M10.05%2012.6c-2.75.15-5.2%201.8-5.15%203.95.05%202.25%202.85%202.55%205.65-.55'%2F%3E%3Cpath%20d%3D'M13.95%2012.6c2.75.15%205.2%201.8%205.15%203.95-.05%202.25-2.85%202.55-5.65-.55'%2F%3E%3Cpath%20d%3D'M12%2018.4l-1.15%202M12%2018.4l1.15%202'%2F%3E%3C%2Fsvg%3E");
+}
+
+/* La quinta acción es Biblioteca, no Perfil. */
+.mobile-reader-dock > button:nth-child(5)::before {
+  width: 24px;
+  height: 24px;
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.55'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M4%205.5h4v13H4z'%2F%3E%3Cpath%20d%3D'M10%203.5h4v15h-4z'%2F%3E%3Cpath%20d%3D'M16%206h4v12h-4z'%2F%3E%3Cpath%20d%3D'M3%2020.5h18'%2F%3E%3C%2Fsvg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2024%2024'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.55'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%3E%3Cpath%20d%3D'M4%205.5h4v13H4z'%2F%3E%3Cpath%20d%3D'M10%203.5h4v15h-4z'%2F%3E%3Cpath%20d%3D'M16%206h4v12h-4z'%2F%3E%3Cpath%20d%3D'M3%2020.5h18'%2F%3E%3C%2Fsvg%3E");
 }
 
 /* Un poco más de aire para que los dibujos respiren dentro de la barra. */

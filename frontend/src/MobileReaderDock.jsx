@@ -11,7 +11,7 @@ function DockIcon({ name }) {
     home: <><path d="M3.5 10.5 12 3l8.5 7.5" /><path d="M5.5 9.5V21h13V9.5" /></>,
     search: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m15.5 15.5 5 5" /></>,
     clubs: <><path d="M8 20h8" /><path d="M9.5 16.5h5" /><path d="M12 4v10" /><path d="M8.5 8h7" /><circle cx="12" cy="4" r="1.5" /></>,
-    profile: <><circle cx="12" cy="8" r="3.5" /><path d="M5.5 20c.8-4 3-6 6.5-6s5.7 2 6.5 6" /></>,
+    library: <><path d="M4 5.5h4v13H4z" /><path d="M10 3.5h4v15h-4z" /><path d="M16 6h4v12h-4z" /><path d="M3 20.5h18" /></>,
     plus: <><path d="M12 5v14" /><path d="M5 12h14" /></>,
     image: <><rect x="3" y="4" width="18" height="16" rx="3" /><circle cx="8.5" cy="9" r="1.5" /><path d="m5.5 17 4.3-4.4 3.2 3 2.4-2.2 3.1 3.6" /></>,
     book: <><path d="M4 5.5A3.5 3.5 0 0 1 7.5 2H20v17H7.5A3.5 3.5 0 0 0 4 22Z" /><path d="M4 5.5V22" /></>,
@@ -83,6 +83,7 @@ export default function MobileReaderDock() {
       if (activeLabel === "Inicio") setActiveItem("home");
       if (activeLabel === "Catálogo") setActiveItem("search");
       if (activeLabel === "Clubes") setActiveItem("clubs");
+      if (activeLabel === "Mi biblioteca") setActiveItem("library");
     }
 
     syncNavigationState();
@@ -174,11 +175,10 @@ export default function MobileReaderDock() {
     setActiveItem("clubs");
   }
 
-  function goProfile() {
+  function goLibrary() {
     if (!requireSession()) return;
-    const button = findButtonByText(".dropdown-menu button", "Mi rincón");
-    button?.click();
-    setActiveItem("profile");
+    clickPrimaryNavigation("Mi biblioteca");
+    setActiveItem("library");
   }
 
   function openComposer() {
@@ -397,9 +397,9 @@ export default function MobileReaderDock() {
           <DockIcon name="clubs" />
           <span>Clubes</span>
         </button>
-        <button type="button" className={activeItem === "profile" ? "is-active" : ""} onClick={goProfile}>
-          <DockIcon name="profile" />
-          <span>Perfil</span>
+        <button type="button" className={activeItem === "library" ? "is-active" : ""} onClick={goLibrary}>
+          <DockIcon name="library" />
+          <span>Biblioteca</span>
         </button>
       </nav>
 
