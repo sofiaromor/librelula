@@ -2,13 +2,16 @@ import { useState } from "react";
 import { publicUrl } from "./api.js";
 import {
   getAuthRedirectUrl,
+  requestPasswordRecovery,
+  requestSignInCode,
   resendSignupConfirmation,
   signInSupabase,
   signUpSupabase,
+  verifyPasswordRecoveryCode,
+  verifySignInCode,
   verifySignupCode,
 } from "./lib/session.js";
 import { friendlyAuthError } from "./lib/authErrors.js";
-import { supabase } from "./lib/supabase.js";
 import "./LoginSupabase.css";
 
 const hasSupabaseConfig = Boolean(
@@ -30,12 +33,32 @@ function getRecoveryRedirectUrl() {
   return url.toString();
 }
 
+const CODE_PURPOSE_COPY = {
+  signup: {
+    label: "Código de confirmación",
+    resend: "Reenviar correo de verificación",
+    resendSuccess: "Hemos solicitado un nuevo correo de verificación. Revisa tu bandeja de entrada y spam.",
+  },
+  login: {
+    label: "Código para entrar",
+    resend: "Reenviar código de acceso",
+    resendSuccess: "Hemos enviado un código nuevo para entrar. Revisa tu bandeja de entrada y spam.",
+  },
+  recovery: {
+    label: "Código de recuperación",
+    resend: "Reenviar código de recuperación",
+    resendSuccess: "Hemos solicitado un correo nuevo de recuperación. Revisa tu bandeja de entrada y spam.",
+  },
+};
+
 export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
   const [activePanel, setActivePanel] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [signupUsername, setSignupUsername] = useState("");
-  const [pendingConfirmationEmail, setPendingConfirmationEmail] = useState("");
+  const [loginMethod, setLoginMethod] = useState("password");
+  const [pendingCodePurpose, setPendingCodePurpose] = useState("");
+  const [pendingCodeEmail, setPendingCodeEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -43,10 +66,17 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
 
   function switchPanel(panel) {
     setActivePanel(panel);
-    setPendingConfirmationEmail("");
+    setPendingCodePurpose("");
+    setPendingCodeEmail("");
     setVerificationCode("");
     setErrorMessage("");
     setSuccessMessage("");
+  }
+
+  function startCodeVerification(purpose, address) {
+    setPendingCodePurpose(purpose);
+    setPendingCodeEmail(address);
+    setVerificationCode("");
   }
 
   async function handleSubmit(event) {
@@ -83,7 +113,8 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
     setSubmitting(true);
     setErrorMessage("");
     setSuccessMessage("");
-    setPendingConfirmationEmail("");
+    setPendingCodePurpose("");
+    setPendingCodeEmail("");
 
     try {
       const session = await signUpSupabase({
@@ -93,10 +124,9 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
       });
 
       if (session?.needsEmailConfirmation) {
-        setPendingConfirmationEmail(session.email || email.trim().toLowerCase());
-        setVerificationCode("");
+        startCodeVerification("signup", session.email || email.trim().toLowerCase());
         setSuccessMessage(
-          "Tu cuenta está pendiente de confirmar. Revisa tu correo y la carpeta de spam. Si no recibes el mensaje, puedes reenviarlo desde aquí.",
+          "Tu cuenta está pendiente de confirmar. Revisa tu correo: puedes pulsar el enlace o introducir el código de seis cifras aquí. Si no recibes el mensaje, puedes reenviarlo desde aquí.",
         );
         setActivePanel("login");
         return;
@@ -117,28 +147,30 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
     }
   }
 
-  async function handleVerifySignupCode(event) {
+  async function handleRequestSignInCode(event) {
     event.preventDefault();
+    const cleanEmail = email.trim().toLowerCase();
+
+    if (!cleanEmail) {
+      setErrorMessage("Escribe el correo electrónico de tu cuenta.");
+      return;
+    }
+
     setSubmitting(true);
     setErrorMessage("");
+    setSuccessMessage("");
 
     try {
-      const session = await verifySignupCode(
-        pendingConfirmationEmail || email,
-        verificationCode,
+      await requestSignInCode(cleanEmail);
+      startCodeVerification("login", cleanEmail);
+      setSuccessMessage(
+        "Te hemos enviado un código de seis cifras para entrar sin contraseña. Revisa tu correo y la carpeta de spam.",
       );
-
-      if (!session) {
-        throw new Error("No se pudo confirmar la cuenta con ese código.");
-      }
-
-      onLoginSuccess?.(session);
-      goHomeAfterAuth();
     } catch (error) {
       setErrorMessage(
         friendlyAuthError(
           error,
-          "El código no es válido o ya ha caducado. Solicita un correo nuevo e inténtalo otra vez.",
+          "No pudimos enviar el código de acceso. Inténtalo de nuevo en unos minutos.",
           { hasSupabaseConfig },
         ),
       );
@@ -147,11 +179,54 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
     }
   }
 
-  async function handleResendConfirmation(event) {
+  async function handleVerifyCode(event) {
     event.preventDefault();
-    const confirmationEmail = pendingConfirmationEmail || email.trim().toLowerCase();
+    setSubmitting(true);
+    setErrorMessage("");
 
-    if (!confirmationEmail) {
+    try {
+      const codeEmail = pendingCodeEmail || email;
+      let session;
+
+      if (pendingCodePurpose === "signup") {
+        session = await verifySignupCode(codeEmail, verificationCode);
+      } else if (pendingCodePurpose === "login") {
+        session = await verifySignInCode(codeEmail, verificationCode);
+      } else if (pendingCodePurpose === "recovery") {
+        session = await verifyPasswordRecoveryCode(codeEmail, verificationCode);
+        if (!session) {
+          throw new Error("No se pudo iniciar la recuperación con ese código.");
+        }
+        window.location.assign(getRecoveryRedirectUrl());
+        return;
+      } else {
+        throw new Error("Solicita primero un código de verificación.");
+      }
+
+      if (!session) {
+        throw new Error("No se pudo completar el acceso con ese código.");
+      }
+
+      onLoginSuccess?.(session);
+      goHomeAfterAuth();
+    } catch (error) {
+      setErrorMessage(
+        friendlyAuthError(
+          error,
+          "El código no es válido o ya ha caducado. Solicita un código nuevo e inténtalo otra vez.",
+          { hasSupabaseConfig },
+        ),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleResendCode(event) {
+    event.preventDefault();
+    const codeEmail = pendingCodeEmail || email.trim().toLowerCase();
+
+    if (!codeEmail) {
       setErrorMessage("Escribe el correo electrónico de tu cuenta.");
       return;
     }
@@ -160,15 +235,22 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
     setErrorMessage("");
 
     try {
-      await resendSignupConfirmation(confirmationEmail);
-      setSuccessMessage(
-        "Hemos solicitado un nuevo correo de verificación. Revisa tu bandeja de entrada y spam; por seguridad, los reenvíos pueden tener un pequeño límite de frecuencia.",
-      );
+      if (pendingCodePurpose === "signup") {
+        await resendSignupConfirmation(codeEmail);
+      } else if (pendingCodePurpose === "login") {
+        await requestSignInCode(codeEmail);
+      } else if (pendingCodePurpose === "recovery") {
+        await requestPasswordRecovery(codeEmail);
+      } else {
+        throw new Error("Solicita primero un código de verificación.");
+      }
+
+      setSuccessMessage(CODE_PURPOSE_COPY[pendingCodePurpose]?.resendSuccess || "Hemos enviado un correo nuevo.");
     } catch (error) {
       setErrorMessage(
         friendlyAuthError(
           error,
-          "No pudimos reenviar el correo de verificación. Inténtalo de nuevo en unos minutos.",
+          "No pudimos reenviar el código. Inténtalo de nuevo en unos minutos.",
           { hasSupabaseConfig },
         ),
       );
@@ -189,17 +271,13 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
     setSubmitting(true);
     setErrorMessage("");
     setSuccessMessage("");
-    setPendingConfirmationEmail("");
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
-        redirectTo: getRecoveryRedirectUrl(),
-      });
-
-      if (error) throw error;
+      await requestPasswordRecovery(cleanEmail);
+      startCodeVerification("recovery", cleanEmail);
 
       setSuccessMessage(
-        "Si existe una cuenta con ese correo, recibirás un enlace para cambiar tu contraseña. Revisa también spam y correo no deseado.",
+        "Si existe una cuenta con ese correo, recibirás un enlace y un código de seis cifras para cambiar tu contraseña. Revisa también spam y correo no deseado.",
       );
     } catch (error) {
       setErrorMessage(
@@ -213,6 +291,8 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
       setSubmitting(false);
     }
   }
+
+  const pendingCodeCopy = CODE_PURPOSE_COPY[pendingCodePurpose] || CODE_PURPOSE_COPY.signup;
 
   return (
     <main className="login-supabase-page">
@@ -263,10 +343,10 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
           {successMessage && (
             <div className="lg-note">
               <p>{successMessage}</p>
-              {pendingConfirmationEmail && (
+              {pendingCodeEmail && (
                 <>
-                  <form onSubmit={handleVerifySignupCode} className="lg-code-form">
-                    <label htmlFor="verification-code">Código de verificación</label>
+                  <form onSubmit={handleVerifyCode} className="lg-code-form">
+                    <label htmlFor="verification-code">{pendingCodeCopy.label}</label>
                     <div className="lg-code-row">
                       <input
                         id="verification-code"
@@ -275,7 +355,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
                         placeholder="123456"
                         maxLength={6}
                         value={verificationCode}
-                        onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, ""))}
+                        onChange={(event) => setVerificationCode(event.target.value.replace(/\D/g, "").slice(0, 6))}
                       />
                       <button type="submit" disabled={submitting || verificationCode.length !== 6}>
                         {submitting ? "Comprobando…" : "Verificar"}
@@ -283,8 +363,8 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
                     </div>
                   </form>
                   <p>
-                    <a href="#" onClick={handleResendConfirmation}>
-                      {submitting ? "Reenviando…" : "Reenviar correo de verificación"}
+                    <a href="#" onClick={handleResendCode}>
+                      {submitting ? "Reenviando…" : pendingCodeCopy.resend}
                     </a>
                   </p>
                 </>
@@ -298,57 +378,104 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
             </div>
             <div className="lg-sub">Tu rincón literario te espera</div>
 
-            <form onSubmit={handleSubmit}>
-              <div className="lg-fields">
-                <div className="lg-field">
-                  <label htmlFor="login-email">Correo electrónico</label>
-                  <input
-                    type="email"
-                    id="login-email"
-                    name="email"
-                    placeholder="tu@correo.com"
-                    autoComplete="email"
-                    required
-                    value={email}
-                    onChange={(event) => setEmail(event.target.value)}
-                  />
-                </div>
-
-                <div className="lg-field">
-                  <label htmlFor="login-pass">Contraseña</label>
-                  <input
-                    type="password"
-                    id="login-pass"
-                    name="password"
-                    placeholder="••••••••"
-                    autoComplete="current-password"
-                    required
-                    value={password}
-                    onChange={(event) => setPassword(event.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="lg-check">
-                <input type="checkbox" id="remember" />
-                <label htmlFor="remember">
-                  Recordarme ·{" "}
-                  <a
-                    href="#"
-                    onClick={(event) => {
-                      event.preventDefault();
-                      switchPanel("forgot");
-                    }}
-                  >
-                    ¿Olvidaste tu contraseña?
-                  </a>
-                </label>
-              </div>
-
-              <button type="submit" className="lg-btn" disabled={submitting}>
-                {submitting ? "Entrando…" : "Entrar a mi rincón"}
+            <div className="lg-auth-methods" aria-label="Método de acceso">
+              <button
+                type="button"
+                className={`lg-auth-method${loginMethod === "password" ? " active" : ""}`}
+                aria-pressed={loginMethod === "password"}
+                onClick={() => setLoginMethod("password")}
+              >
+                Contraseña
               </button>
-            </form>
+              <button
+                type="button"
+                className={`lg-auth-method${loginMethod === "code" ? " active" : ""}`}
+                aria-pressed={loginMethod === "code"}
+                onClick={() => setLoginMethod("code")}
+              >
+                Código por email
+              </button>
+            </div>
+
+            {loginMethod === "password" ? (
+              <form onSubmit={handleSubmit}>
+                <div className="lg-fields">
+                  <div className="lg-field">
+                    <label htmlFor="login-email">Correo electrónico</label>
+                    <input
+                      type="email"
+                      id="login-email"
+                      name="email"
+                      placeholder="tu@correo.com"
+                      autoComplete="email"
+                      required
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                    />
+                  </div>
+
+                  <div className="lg-field">
+                    <label htmlFor="login-pass">Contraseña</label>
+                    <input
+                      type="password"
+                      id="login-pass"
+                      name="password"
+                      placeholder="••••••••"
+                      autoComplete="current-password"
+                      required
+                      value={password}
+                      onChange={(event) => setPassword(event.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="lg-check">
+                  <input type="checkbox" id="remember" />
+                  <label htmlFor="remember">
+                    Recordarme ·{" "}
+                    <a
+                      href="#"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        switchPanel("forgot");
+                      }}
+                    >
+                      ¿Olvidaste tu contraseña?
+                    </a>
+                  </label>
+                </div>
+
+                <button type="submit" className="lg-btn" disabled={submitting}>
+                  {submitting ? "Entrando…" : "Entrar a mi rincón"}
+                </button>
+              </form>
+            ) : (
+              <form onSubmit={handleRequestSignInCode}>
+                <div className="lg-fields">
+                  <div className="lg-field">
+                    <label htmlFor="login-code-email">Correo electrónico</label>
+                    <input
+                      type="email"
+                      id="login-code-email"
+                      name="email-code"
+                      placeholder="tu@correo.com"
+                      autoComplete="email"
+                      required
+                      value={email}
+                      onChange={(event) => setEmail(event.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <p className="lg-helper-text">
+                  Te enviaremos un código de seis cifras. No necesitas recordar la contraseña.
+                </p>
+
+                <button type="submit" className="lg-btn" disabled={submitting}>
+                  {submitting ? "Enviando…" : "Enviar código al correo"}
+                </button>
+              </form>
+            )}
 
             <div className="lg-switch">
               ¿No tienes cuenta?{" "}
@@ -440,7 +567,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
               Recupera tu <em>contraseña</em>
             </div>
             <div className="lg-sub">
-              Te enviaremos un enlace seguro para elegir una contraseña nueva.
+              Te enviaremos un enlace y un código de seis cifras para elegir una contraseña nueva.
             </div>
 
             <form onSubmit={handleForgotPassword}>
@@ -461,7 +588,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
               </div>
 
               <button type="submit" className="lg-btn" disabled={submitting}>
-                {submitting ? "Enviando…" : "Enviar enlace de recuperación"}
+                {submitting ? "Enviando…" : "Enviar enlace y código"}
               </button>
             </form>
 

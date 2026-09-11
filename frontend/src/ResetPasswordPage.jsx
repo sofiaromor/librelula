@@ -27,14 +27,14 @@ export default function ResetPasswordPage() {
       .then(({ data: sessionData, error }) => {
         if (!active) return;
         if (error) {
-          setErrorMessage(friendlyAuthError(error, "No pudimos validar el enlace de recuperación."));
+          setErrorMessage(friendlyAuthError(error, "No pudimos validar la recuperación de tu cuenta."));
         }
         setRecoveryReady(Boolean(sessionData?.session));
         setCheckingRecovery(false);
       })
       .catch((error) => {
         if (!active) return;
-        setErrorMessage(friendlyAuthError(error, "No pudimos validar el enlace de recuperación."));
+        setErrorMessage(friendlyAuthError(error, "No pudimos validar la recuperación de tu cuenta."));
         setRecoveryReady(false);
         setCheckingRecovery(false);
       });
@@ -64,7 +64,7 @@ export default function ResetPasswordPage() {
 
     try {
       if (!recoveryReady) {
-        throw new Error("El enlace de recuperación ha caducado o ya se ha utilizado.");
+        throw new Error("La sesión de recuperación ha caducado o ya se ha utilizado.");
       }
 
       const { error } = await supabase.auth.updateUser({ password });
@@ -83,7 +83,7 @@ export default function ResetPasswordPage() {
       setErrorMessage(
         friendlyAuthError(
           error,
-          "No pudimos actualizar la contraseña. Solicita un nuevo enlace e inténtalo otra vez.",
+          "No pudimos actualizar la contraseña. Solicita un nuevo enlace o código e inténtalo otra vez.",
         ),
       );
     } finally {
@@ -121,7 +121,7 @@ export default function ResetPasswordPage() {
           )}
           {!checkingRecovery && !recoveryReady && !errorMessage && (
             <div className="lg-error">
-              Este enlace ya no es válido. Solicita otro desde «¿Olvidaste tu contraseña?».
+              Esta recuperación ya no es válida. Solicita otro enlace o código desde «¿Olvidaste tu contraseña?».
             </div>
           )}
           {successMessage && (

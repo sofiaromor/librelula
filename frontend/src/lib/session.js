@@ -1,4 +1,9 @@
 import { supabase } from "./supabase.js";
+import {
+  isValidVerificationCode,
+  normalizeAuthEmail,
+  normalizeVerificationCode,
+} from "./authUtils.js";
 
 export const EMPTY_SUPABASE_SESSION = {
   authenticated: false,
@@ -208,7 +213,7 @@ export async function signInSupabase({ email, password }) {
 }
 
 export async function signUpSupabase({ email, password, username }) {
-  const cleanEmail = String(email || "").trim().toLowerCase();
+  const cleanEmail = normalizeAuthEmail(email);
   const cleanUsername = String(username || "").trim();
 
   if (!cleanEmail) {
@@ -251,7 +256,7 @@ export async function signUpSupabase({ email, password, username }) {
 }
 
 export async function resendSignupConfirmation(email) {
-  const cleanEmail = String(email || "").trim().toLowerCase();
+  const cleanEmail = normalizeAuthEmail(email);
 
   if (!cleanEmail) {
     throw new Error("Escribe el correo electrónico de tu cuenta.");
@@ -271,28 +276,81 @@ export async function resendSignupConfirmation(email) {
 }
 
 export async function verifySignupCode(email, token) {
-  const cleanEmail = String(email || "").trim().toLowerCase();
-  const cleanToken = String(token || "").replace(/\s+/g, "");
+  const session = await verifyEmailOtp(email, token);
+  return session ? getSupabaseAppSession() : session;
+}
+
+export async function requestSignInCode(email) {
+  const cleanEmail = normalizeAuthEmail(email);
 
   if (!cleanEmail) {
     throw new Error("Escribe el correo electrónico de tu cuenta.");
   }
 
-  if (!/^\d{6}$/.test(cleanToken)) {
+  const { error } = await supabase.auth.signInWithOtp({
+    email: cleanEmail,
+    options: {
+      shouldCreateUser: false,
+      emailRedirectTo: getAuthRedirectUrl(),
+    },
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function verifySignInCode(email, token) {
+  clearSessionProfileCache({ persisted: true, home: true });
+  return verifyEmailOtp(email, token);
+}
+
+export async function requestPasswordRecovery(email) {
+  const cleanEmail = normalizeAuthEmail(email);
+
+  if (!cleanEmail) {
+    throw new Error("Escribe el correo electrónico de tu cuenta.");
+  }
+
+  const recoveryUrl = new URL(getAuthRedirectUrl());
+  recoveryUrl.searchParams.set("auth", "recovery");
+
+  const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+    redirectTo: recoveryUrl.toString(),
+  });
+
+  if (error) {
+    throw error;
+  }
+}
+
+export async function verifyPasswordRecoveryCode(email, token) {
+  return verifyEmailOtp(email, token, "recovery");
+}
+
+async function verifyEmailOtp(email, token, type = "email") {
+  const cleanEmail = normalizeAuthEmail(email);
+  const cleanToken = normalizeVerificationCode(token);
+
+  if (!cleanEmail) {
+    throw new Error("Escribe el correo electrónico de tu cuenta.");
+  }
+
+  if (!isValidVerificationCode(cleanToken)) {
     throw new Error("El código debe tener 6 cifras.");
   }
 
   const { data, error } = await supabase.auth.verifyOtp({
     email: cleanEmail,
     token: cleanToken,
-    type: "email",
+    type,
   });
 
   if (error) {
     throw error;
   }
 
-  return data?.session ? getSupabaseAppSession() : data?.session;
+  return data?.session || null;
 }
 
 export async function signOutSupabase() {

@@ -44,6 +44,7 @@ Ruta: **Authentication → Emails → Email Templates**.
 
 ### Recuperación
 - El CTA `Restablecer contraseña` abre el flujo `?auth=recovery`.
+- El usuario puede introducir el código de seis cifras en Librélula si el enlace no funciona o su correo lo previsualiza.
 - El usuario puede establecer la nueva contraseña y volver a iniciar sesión.
 - Si el usuario no solicitó el cambio, el email explica que puede ignorarlo.
 
@@ -51,6 +52,10 @@ Ruta: **Authentication → Emails → Email Templates**.
 - Las notificaciones de cambio de contraseña/email no contienen secretos.
 - No se muestran credenciales ni detalles internos de Supabase.
 - Las plantillas usan únicamente variables oficiales de Supabase (`ConfirmationURL`, `Token`, `Email`, `NewEmail`, `OldEmail`).
+
+### Acceso sin contraseña
+- `magic_link.html` muestra el enlace y el código de seis cifras.
+- Librélula solicita el acceso con `shouldCreateUser: false`, por lo que este flujo no crea cuentas nuevas accidentalmente.
 
 ## Fuente de verdad
 
