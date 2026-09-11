@@ -139,6 +139,41 @@
   margin-bottom: 1.5rem;
 }
 
+.lg-auth-methods {
+  display: flex;
+  gap: 6px;
+  margin: -0.35rem 0 1.1rem;
+  padding: 4px;
+  border: 1px solid #e8d9c4;
+  border-radius: 999px;
+  background: #faf7f2;
+}
+
+.lg-auth-method {
+  flex: 1;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #9a8570;
+  font-family: 'Crimson Pro', serif;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.lg-auth-method.active {
+  background: #f5ebe0;
+  color: #2c1f0e;
+  box-shadow: 0 1px 3px rgba(44, 31, 14, 0.08);
+}
+
+.lg-helper-text {
+  margin: -0.25rem 0 1.1rem;
+  color: #9a8570;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
 .lg-fields {
   display: flex;
   flex-direction: column;

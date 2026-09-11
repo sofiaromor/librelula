@@ -38,3 +38,13 @@ test("auth errors explain expired verification links in Spanish", () => {
     "El código o enlace no es válido o ya ha caducado. Solicita un correo nuevo e inténtalo otra vez.",
   );
 });
+
+test("auth errors explain verification rate limits without blaming email delivery", () => {
+  assert.equal(
+    friendlyAuthError(
+      { message: "Too many requests: email rate limit exceeded" },
+      "No pudimos enviar el código.",
+    ),
+    "Has solicitado varios códigos seguidos. Espera unos minutos antes de pedir otro e inténtalo de nuevo.",
+  );
+});

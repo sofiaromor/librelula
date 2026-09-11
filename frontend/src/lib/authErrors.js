@@ -22,6 +22,18 @@ export function friendlyAuthError(error, fallback, { hasSupabaseConfig = true } 
       : "Este preview no ha recibido la configuración de Supabase. Necesita un nuevo despliegue de Preview con las variables habilitadas.";
   }
 
+  if (/too many|rate limit|rate_limit/i.test(message)) {
+    return "Has solicitado varios códigos seguidos. Espera unos minutos antes de pedir otro e inténtalo de nuevo.";
+  }
+
+  if (/email not confirmed|not confirmed|email_not_confirmed/i.test(message)) {
+    return "Tu correo todavía no está confirmado. Revisa el mensaje de verificación y usa su código o enlace.";
+  }
+
+  if (/invalid login credentials|invalid credentials|user not found|email not found/i.test(message)) {
+    return "No encontramos una cuenta con esos datos. Comprueba el correo o regístrate en Librélula.";
+  }
+
   if (/expired|invalid|otp|token|verification code|código|caducado/i.test(message)) {
     return "El código o enlace no es válido o ya ha caducado. Solicita un correo nuevo e inténtalo otra vez.";
   }
