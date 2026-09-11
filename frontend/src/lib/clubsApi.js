@@ -717,21 +717,44 @@ export async function createClubPost({
   clubId,
   channel = "general",
   chapterNumber = null,
+  parentPostId = null,
   content = "",
   quoteText = "",
   imageFile = null,
   containsSpoilers = false,
 }) {
   const profile = await currentProfile();
-  const imagePath = imageFile ? await uploadClubPostImage(clubId, imageFile) : "";
+  const isChapter = channel === "chapter";
+  const cleanParentPostId = parentPostId ? Number.parseInt(parentPostId, 10) : null;
   const cleanContent = String(content || "").trim();
   const cleanQuote = String(quoteText || "").trim();
 
-  if (!cleanContent && !cleanQuote && !imagePath) {
+  if (!cleanContent && !cleanQuote && !imageFile) {
     throw new Error("Escribe algo, añade una cita o escoge una imagen.");
   }
 
-  const isChapter = channel === "chapter";
+  if (parentPostId && !Number.isInteger(cleanParentPostId)) {
+    throw new Error("No se ha podido identificar el mensaje al que respondes.");
+  }
+
+  if (cleanParentPostId) {
+    const { data: parentPost, error: parentError } = await supabase
+      .from("reading_club_posts")
+      .select("id, club_id, channel, chapter_number")
+      .eq("id", cleanParentPostId)
+      .maybeSingle();
+
+    if (parentError) throw parentError;
+    const sameConversation = parentPost
+      && String(parentPost.club_id) === String(clubId)
+      && parentPost.channel === (isChapter ? "chapter" : "general")
+      && (!isChapter || Number(parentPost.chapter_number) === Math.max(1, Number.parseInt(chapterNumber, 10) || 1));
+    if (!sameConversation) {
+      throw new Error("Ese mensaje ya no pertenece a esta conversación.");
+    }
+  }
+
+  const imagePath = imageFile ? await uploadClubPostImage(clubId, imageFile) : "";
   const { data, error } = await supabase
     .from("reading_club_posts")
     .insert({
@@ -739,6 +762,7 @@ export async function createClubPost({
       user_id: profile.id,
       channel: isChapter ? "chapter" : "general",
       chapter_number: isChapter ? Math.max(1, Number.parseInt(chapterNumber, 10) || 1) : null,
+      parent_post_id: cleanParentPostId,
       content: cleanContent,
       quote_text: cleanQuote,
       image_path: imagePath,
