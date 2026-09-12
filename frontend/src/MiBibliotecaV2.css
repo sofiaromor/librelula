@@ -321,6 +321,22 @@
   white-space: nowrap;
 }
 
+.library-v2-reader-button {
+  justify-self: start;
+  margin-top: 5px;
+  padding: 4px 9px;
+  border: 1px solid #d8bba4;
+  border-radius: 999px;
+  background: #fffaf5;
+  color: #805037;
+  font-size: .75rem;
+  font-weight: 700;
+}
+
+.library-v2-reader-button:hover {
+  background: #f4e8dc;
+}
+
 .library-v2-remove-book {
   margin-top: .45rem;
   padding: 0;
@@ -428,6 +444,34 @@
 
 .library-v2-visual-row .library-spine-remove-action {
   top: 63px;
+}
+
+.library-spine-reader-action {
+  position: absolute;
+  z-index: 4;
+  right: 4px;
+  bottom: 5px;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid rgba(255, 253, 249, .75);
+  border-radius: 50%;
+  background: rgba(58, 43, 32, .72);
+  color: #fffdf9;
+  font-size: .85rem;
+  opacity: .7;
+  transition: opacity .16s ease, transform .16s ease;
+}
+
+.library-spine-item:hover .library-spine-reader-action,
+.library-spine-reader-action:focus-visible {
+  opacity: 1;
+}
+
+.library-spine-reader-action:hover {
+  transform: scale(1.08);
 }
 
 .library-spine-item:hover .library-spine-edit-action,

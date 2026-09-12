@@ -28,6 +28,7 @@ const CatalogJsonImport = lazy(() => import("./CatalogJsonImport.jsx"));
 const ClubesLectura = lazy(() => import("./ClubesLectura.jsx"));
 const AutoresPage = lazy(() => import("./AutoresPage.jsx"));
 const PublicCollectionsPage = lazy(() => import("./PublicCollectionsPage.jsx"));
+const ReaderPage = lazy(() => import("./ReaderPage.jsx"));
 
 function getInitialRoute() {
   if (typeof window === "undefined") {
@@ -71,6 +72,7 @@ export default function App() {
   const [selectedAuthor, setSelectedAuthor] = useState("");
   const [authorBackPage, setAuthorBackPage] = useState("catalog");
   const [detailBackPage, setDetailBackPage] = useState("catalog");
+  const [readerBackPage, setReaderBackPage] = useState("detail");
   const [profileTab, setProfileTab] = useState(initialRoute.profileTab);
   const [profileUserId, setProfileUserId] = useState(initialRoute.profileUserId);
   const [publicCollectionsProfileId, setPublicCollectionsProfileId] = useState(initialRoute.publicCollectionsProfileId);
@@ -517,6 +519,18 @@ useEffect(() => {
     setPage("detail");
   }
 
+  function openReader(book, backPage = "detail") {
+    if (!isLoggedIn || !book?.id) {
+      if (!isLoggedIn) openLogin();
+      return;
+    }
+
+    closeNavigation();
+    setSelectedBook(book);
+    setReaderBackPage(backPage);
+    setPage("reader");
+  }
+
   function openAuthor(authorName, backPage = "catalog") {
     const cleanAuthor = String(authorName || "").trim();
     if (!cleanAuthor) return;
@@ -710,6 +724,25 @@ useEffect(() => {
     }
 
     openCatalog();
+  }
+
+  function backFromReader() {
+    if (readerBackPage === "library") {
+      setPage("library");
+      return;
+    }
+
+    if (readerBackPage === "home") {
+      setPage("home");
+      return;
+    }
+
+    if (readerBackPage === "clubs") {
+      setPage("clubs");
+      return;
+    }
+
+    setPage("detail");
   }
 
   function backFromAuthor() {
@@ -1180,6 +1213,7 @@ useEffect(() => {
             onOpenCatalog={openCatalog}
             onSelectBook={(book) => openBookDetail(book, "library")}
             onSelectAuthor={(author) => openAuthor(author, "library")}
+            onOpenReader={(book) => openReader(book, "library")}
           />
         )}
 
@@ -1225,7 +1259,25 @@ useEffect(() => {
             isLoggedIn={isLoggedIn}
             threadTarget={bookThreadTarget}
             openReviewOnLoad={bookReviewIntent}
+            onOpenReader={(book) => openReader(book, "detail")}
           />
+        )}
+
+        {!sessionLoading && page === "reader" && isLoggedIn && (
+          <Suspense
+            fallback={
+              <section className="lector-empty-state">
+                <h3>Abriendo el lector…</h3>
+                <p>Estamos preparando tus páginas y tus anotaciones.</p>
+              </section>
+            }
+          >
+            <ReaderPage
+              book={selectedBook}
+              isLoggedIn={isLoggedIn}
+              onBack={backFromReader}
+            />
+          </Suspense>
         )}
 
         {!sessionLoading && page === "edit" && isAdmin && (
