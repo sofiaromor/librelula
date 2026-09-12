@@ -164,7 +164,7 @@ function useShelfPageSize(viewMode) {
   return 6;
 }
 
-export function CoverBook({ item, onSelectBook, onSelectAuthor, onScoreChange, savingBookId }) {
+export function CoverBook({ item, onSelectBook, onSelectAuthor, onScoreChange, savingBookId, onOpenReader }) {
   const book = item.book || {};
   const cover = coverUrl(book.cover);
   const [statusLabel, statusClass] = getLibraryStatus(item.status);
@@ -217,6 +217,11 @@ export function CoverBook({ item, onSelectBook, onSelectAuthor, onScoreChange, s
             <span style={{ width: `${Math.max(0, Math.min(100, Number(item.progress || 0)))}%` }} />
           </div>
         ) : null}
+        {typeof onOpenReader === "function" && (
+          <button type="button" className="library-v2-reader-button" onClick={() => onOpenReader(book)}>
+            Abrir lector
+          </button>
+        )}
       </div>
     </article>
   );
@@ -229,6 +234,7 @@ function SpineBook({
   onEditCrop,
   onRemove,
   busy,
+  onOpenReader,
 }) {
   const fileInputRef = useRef(null);
   const book = item.book || {};
@@ -302,6 +308,11 @@ function SpineBook({
           <button type="button" className="library-spine-remove-action" onClick={() => onRemove(item)} aria-label={`Quitar lomo personal de ${book.title || "libro"}`}>×</button>
         </>
       ) : null}
+      {typeof onOpenReader === "function" ? (
+        <button type="button" className="library-spine-reader-action" onClick={() => onOpenReader(book)} aria-label={`Abrir lector de ${book.title || "libro"}`}>
+          ▷
+        </button>
+      ) : null}
     </article>
   );
 }
@@ -334,6 +345,7 @@ function ShelfSection({
   onEditCrop,
   onRemoveSpine,
   savingSpineBookId,
+  onOpenReader,
 }) {
   if (!items.length) return null;
 
@@ -367,6 +379,7 @@ function ShelfSection({
                 onSelectAuthor={onSelectAuthor}
                 onScoreChange={onScoreChange}
                 savingBookId={savingBookId}
+                onOpenReader={onOpenReader}
               />
             ))
           : visible.map((item) => (
@@ -378,6 +391,7 @@ function ShelfSection({
                 onEditCrop={onEditCrop}
                 onRemove={onRemoveSpine}
                 busy={savingSpineBookId === item.book_id}
+                onOpenReader={onOpenReader}
               />
             ))}
         <div className="library-v2-wood-rail" aria-hidden="true" />
@@ -388,7 +402,7 @@ function ShelfSection({
   );
 }
 
-export default function MiBiblioteca({ onOpenCatalog, onSelectBook, onSelectAuthor }) {
+export default function MiBiblioteca({ onOpenCatalog, onSelectBook, onSelectAuthor, onOpenReader }) {
   const [library, setLibrary] = useState({
     profile: null,
     items: [],
@@ -738,6 +752,7 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook, onSelectAuth
               onEditCrop={handleEditCrop}
               onRemoveSpine={handleRemovePersonalSpine}
               savingSpineBookId={savingSpineBookId}
+              onOpenReader={onOpenReader}
             />
           ))}
         </div>

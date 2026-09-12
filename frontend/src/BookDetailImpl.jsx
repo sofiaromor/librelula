@@ -579,7 +579,7 @@ function RatingStars({ score, label = true }) {
 }
 
 
-export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectAuthor, onOpenMyReviews, isAdmin, isLoggedIn, threadTarget = null, openReviewOnLoad = false }) {
+export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectAuthor, onOpenMyReviews, onOpenReader, isAdmin, isLoggedIn, threadTarget = null, openReviewOnLoad = false }) {
   const currentBook = book;
   const [coverFailed, setCoverFailed] = useState(false);
   const [editions, setEditions] = useState([]);
@@ -1577,6 +1577,16 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
           </div>
 
           <div className="book-detail-actions">
+            {isLoggedIn && typeof onOpenReader === "function" && (
+              <button
+                type="button"
+                className="detail-action detail-action-primary"
+                onClick={() => onOpenReader(currentBook)}
+              >
+                <EpubIcon /> Abrir lector
+              </button>
+            )}
+
             {isAdmin && (currentBook.pdf_file || currentBook.epub_file) && (
               <div className="book-detail-action-group" aria-label="Descargas">
                 {currentBook.pdf_file && (
