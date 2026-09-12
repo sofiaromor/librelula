@@ -2,7 +2,7 @@ begin;
 
 create extension if not exists pgtap with schema extensions;
 
-select plan(18);
+select plan(24);
 
 insert into auth.users (id, email)
 values
@@ -109,6 +109,22 @@ select is(
 select ok(
   has_table_privilege('authenticated', 'public.reader_documents', 'select'),
   'authenticated readers have metadata access'
+);
+
+select ok(
+  not has_function_privilege('authenticated', 'public.reader_touch_updated_at()', 'execute'),
+  'the internal timestamp trigger is not an authenticated RPC'
+);
+
+select is(
+  (
+    select count(*)
+    from pg_indexes
+    where schemaname = 'public'
+      and indexname in ('reader_book_progress_book_idx', 'reader_annotations_book_idx')
+  ),
+  2::bigint,
+  'reader book foreign keys have covering indexes'
 );
 
 select ok(
@@ -255,6 +271,64 @@ select is(
   'a reader sees only their own annotations'
 );
 
+select throws_ok(
+  $$insert into public.reader_documents (
+      owner_id, book_id, format, original_name, storage_path, mime_type, size_bytes
+    ) values (
+      '40000000-0000-0000-0000-000000000001',
+      '930000003',
+      'pdf',
+      'wrong-mime.pdf',
+      '40000000-0000-0000-0000-000000000001/930000003/wrong-mime.pdf',
+      'application/epub+zip',
+      1024
+    )$$,
+  '23514',
+  null,
+  'document format and mime type must agree'
+);
+
+select throws_ok(
+  $$insert into public.reader_documents (
+      owner_id, book_id, format, original_name, storage_path, mime_type, size_bytes
+    ) values (
+      '40000000-0000-0000-0000-000000000001',
+      '930000003',
+      'pdf',
+      'duplicate-path.pdf',
+      '40000000-0000-0000-0000-000000000001/930000001/reader-one.epub',
+      'application/pdf',
+      1024
+    )$$,
+  '23505',
+  null,
+  'a storage path can only belong to one document row'
+);
+
+select throws_ok(
+  $$insert into public.reader_annotations (
+      owner_id, book_id, kind, note
+    ) values (
+      '40000000-0000-0000-0000-000000000001',
+      '930000003',
+      'postit',
+      repeat('x', 1201)
+    )$$,
+  '23514',
+  null,
+  'annotation length limits are enforced by the database'
+);
+
+select throws_ok(
+  $$update public.reader_book_progress
+    set locator = '[]'::jsonb
+    where owner_id = '40000000-0000-0000-0000-000000000001'
+      and book_id = '930000001'$$,
+  '23514',
+  null,
+  'reader locators must be JSON objects'
+);
+
 reset role;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '40000000-0000-0000-0000-000000000002', true);
@@ -285,6 +359,6 @@ select is_empty(
 );
 
 reset role;
-select * from finish();
+select * from finish(true);
 
 rollback;

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import ePub from "epubjs";
-import { getDocument, GlobalWorkerOptions } from "pdfjs-dist";
+import { getDocument, GlobalWorkerOptions, TextLayer } from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 import "./ReaderPage.css";
@@ -223,14 +223,38 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
   );
 }
 
-function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, controlsRef, onPageChange }) {
+function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelected, controlsRef, onPageChange }) {
   const canvasRef = useRef(null);
+  const pageRef = useRef(null);
+  const textLayerRef = useRef(null);
+  const viewportRef = useRef(null);
   const pdfRef = useRef(null);
   const [pdf, setPdf] = useState(null);
   const [pageNumber, setPageNumber] = useState(Math.max(1, Number(initialProgress?.current_page || initialProgress?.locator?.page || 1)));
   const [totalPages, setTotalPages] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(760);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const element = viewportRef.current;
+    if (!element) return undefined;
+
+    const updateWidth = () => {
+      const width = Math.floor(element.clientWidth - 8);
+      if (width > 0) setViewportWidth(width);
+    };
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateWidth);
+      return () => window.removeEventListener("resize", updateWidth);
+    }
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     if (!sourceUrl) return undefined;
@@ -273,23 +297,46 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, controlsRef, 
   }, [sourceUrl]);
 
   useEffect(() => {
-    if (!pdf || !canvasRef.current) return undefined;
+    if (!pdf || !canvasRef.current || !pageRef.current || !textLayerRef.current) return undefined;
 
     let cancelled = false;
     let renderTask = null;
+    let textLayer = null;
 
     pdf.getPage(pageNumber)
-      .then((page) => {
-        if (cancelled || !canvasRef.current) return;
-        const viewport = page.getViewport({ scale: 1.15 * zoom });
+      .then(async (page) => {
+        if (cancelled || !canvasRef.current || !pageRef.current || !textLayerRef.current) return;
+        const baseViewport = page.getViewport({ scale: 1 });
+        const fitScale = Math.min(1.35, Math.max(0.35, viewportWidth / baseViewport.width));
+        const viewport = page.getViewport({ scale: fitScale * zoom });
         const canvas = canvasRef.current;
+        const pageElement = pageRef.current;
+        const textLayerElement = textLayerRef.current;
         const context = canvas.getContext("2d", { alpha: false });
-        canvas.width = Math.ceil(viewport.width);
-        canvas.height = Math.ceil(viewport.height);
+        const outputScale = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+
+        pageElement.style.width = `${Math.ceil(viewport.width)}px`;
+        pageElement.style.height = `${Math.ceil(viewport.height)}px`;
+        pageElement.style.setProperty("--reader-pdf-scale", String(viewport.scale));
+        canvas.width = Math.ceil(viewport.width * outputScale);
+        canvas.height = Math.ceil(viewport.height * outputScale);
         canvas.style.width = `${Math.ceil(viewport.width)}px`;
         canvas.style.height = `${Math.ceil(viewport.height)}px`;
-        renderTask = page.render({ canvasContext: context, viewport });
-        return renderTask.promise;
+        textLayerElement.replaceChildren();
+
+        renderTask = page.render({
+          canvasContext: context,
+          viewport,
+          transform: outputScale === 1 ? undefined : [outputScale, 0, 0, outputScale, 0, 0],
+        });
+        const textContent = await page.getTextContent({ includeMarkedContent: true });
+        if (cancelled) return;
+        textLayer = new TextLayer({
+          textContentSource: textContent,
+          container: textLayerElement,
+          viewport,
+        });
+        await Promise.all([renderTask.promise, textLayer.render()]);
       })
       .then(() => {
         if (cancelled) return;
@@ -311,8 +358,9 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, controlsRef, 
     return () => {
       cancelled = true;
       renderTask?.cancel?.();
+      textLayer?.cancel?.();
     };
-  }, [onPageChange, onProgress, pageNumber, pdf, totalPages, zoom]);
+  }, [onPageChange, onProgress, pageNumber, pdf, totalPages, viewportWidth, zoom]);
 
   const goToPage = useCallback((nextPage) => {
     setPageNumber((current) => Math.min(totalPages || 1, Math.max(1, nextPage ?? current)));
@@ -328,11 +376,38 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, controlsRef, 
     return () => { controlsRef.current = null; };
   }, [controlsRef, goToPage, pageNumber]);
 
+  const captureSelection = useCallback(() => {
+    window.setTimeout(() => {
+      const selection = window.getSelection?.();
+      const anchor = selection?.anchorNode;
+      const focus = selection?.focusNode;
+      const layer = textLayerRef.current;
+      const quote = selection?.toString?.().replace(/\s+/g, " ").trim() || "";
+
+      const selectionBelongsToPage = (anchor && layer?.contains(anchor)) || (focus && layer?.contains(focus));
+      if (!layer || !quote || !selectionBelongsToPage) return;
+      onQuoteSelected?.({
+        quote,
+        locator: { page: pageNumber },
+        page: pageNumber,
+      });
+    }, 80);
+  }, [onQuoteSelected, pageNumber]);
+
   return (
     <div className="reader-format-stage reader-pdf-stage">
       <div className="reader-pdf-page-label">Página {pageNumber} de {totalPages || "…"}</div>
-      <div className="reader-pdf-viewport" aria-label={`Página ${pageNumber} del PDF`}>
-        <canvas ref={canvasRef} />
+      <div ref={viewportRef} className="reader-pdf-viewport" aria-label={`Página ${pageNumber} del PDF`}>
+        <div ref={pageRef} className="reader-pdf-page">
+          <canvas ref={canvasRef} />
+          <div
+            ref={textLayerRef}
+            className="reader-pdf-text-layer"
+            onMouseUp={captureSelection}
+            onTouchEnd={captureSelection}
+            aria-label="Texto seleccionable del PDF"
+          />
+        </div>
       </div>
       {loading && <div className="reader-stage-overlay"><ReaderLoading text="Abriendo tu PDF…" /></div>}
       {error && (
@@ -348,28 +423,85 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, controlsRef, 
 }
 
 function AnnotationComposer({ draft, saving, onChange, onClose, onSubmit }) {
+  const dialogRef = useRef(null);
+  const noteRef = useRef(null);
+  const closeRef = useRef(onClose);
+  const savingRef = useRef(saving);
+
+  useEffect(() => {
+    closeRef.current = onClose;
+    savingRef.current = saving;
+  }, [onClose, saving]);
+
+  useEffect(() => {
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    const focusTimer = window.requestAnimationFrame(() => noteRef.current?.focus());
+    document.body.style.overflow = "hidden";
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape" && !savingRef.current) {
+        event.preventDefault();
+        closeRef.current?.();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+
+      const focusable = [...dialogRef.current.querySelectorAll(
+        'button:not([disabled]), textarea:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      )];
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable.at(-1);
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(focusTimer);
+      document.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocus?.focus?.();
+    };
+  }, []);
+
   return (
-    <div className="reader-composer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
-      <form className="reader-composer" onSubmit={onSubmit} onMouseDown={(event) => event.stopPropagation()}>
+    <div className="reader-composer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose(); }}>
+      <form
+        ref={dialogRef}
+        className="reader-composer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="reader-composer-title"
+        onSubmit={onSubmit}
+        onMouseDown={(event) => event.stopPropagation()}
+      >
         <header>
           <div>
             <span className="reader-eyebrow">Tu margen de lectura</span>
-            <h2>{draft.quote ? "Guardar selección" : "Nueva anotación"}</h2>
+            <h2 id="reader-composer-title">{draft.quote ? "Guardar selección" : "Nueva anotación"}</h2>
           </div>
-          <button type="button" className="reader-icon-button" onClick={onClose} aria-label="Cerrar anotación"><ReaderIcon name="close" /></button>
+          <button type="button" className="reader-icon-button" onClick={onClose} disabled={saving} aria-label="Cerrar anotación"><ReaderIcon name="close" /></button>
         </header>
 
         {draft.quote && <blockquote className="reader-selected-quote">“{draft.quote}”</blockquote>}
 
         <label className="reader-form-label" htmlFor="reader-annotation-note">Nota personal <span>(opcional)</span></label>
         <textarea
+          ref={noteRef}
           id="reader-annotation-note"
           value={draft.note}
           onChange={(event) => onChange({ note: event.target.value })}
           placeholder="¿Qué quieres recordar de este momento?"
           rows="4"
           maxLength="1200"
-          autoFocus={!draft.quote}
         />
 
         <div className="reader-composer-row">
@@ -400,7 +532,7 @@ function AnnotationComposer({ draft, saving, onChange, onClose, onSubmit }) {
         </label>
 
         <footer>
-          <button type="button" className="reader-secondary-button" onClick={onClose}>Cancelar</button>
+          <button type="button" className="reader-secondary-button" onClick={onClose} disabled={saving}>Cancelar</button>
           <button type="submit" className="reader-primary-button" disabled={saving || (!draft.quote.trim() && !draft.note.trim())}>
             {saving ? "Guardando…" : draft.share ? "Guardar y compartir" : "Guardar anotación"}
           </button>
@@ -416,7 +548,7 @@ function AnnotationList({ annotations, onOpen, onDelete }) {
       <div className="reader-notes-empty">
         <span aria-hidden="true">✧</span>
         <strong>Tus notas aparecerán aquí</strong>
-        <p>Selecciona una frase en el ePub o añade una nota desde la barra del lector.</p>
+        <p>Selecciona una frase en el ePub o PDF, o añade una nota desde la barra del lector.</p>
       </div>
     );
   }
@@ -460,9 +592,16 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const readerControlsRef = useRef(null);
   const latestProgressRef = useRef(null);
   const progressTimerRef = useRef(null);
+  const progressSaveQueueRef = useRef(Promise.resolve());
+  const progressSaveCountRef = useRef(0);
+  const mountedRef = useRef(true);
+  const flushProgressRef = useRef(null);
+  const touchStartRef = useRef(null);
   const readerStartedRef = useRef("");
 
   const bookId = String(book?.id || "").trim();
+  const bookEpubFile = book?.epub_file || "";
+  const bookPdfFile = book?.pdf_file || "";
 
   useEffect(() => {
     let cancelled = false;
@@ -488,8 +627,8 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       .then(([bookAssets, bookDocuments, state]) => {
         if (cancelled) return;
         const nextAssets = {
-          epub_file: bookAssets?.epub_file || book?.epub_file || "",
-          pdf_file: bookAssets?.pdf_file || book?.pdf_file || "",
+          epub_file: bookAssets?.epub_file || bookEpubFile,
+          pdf_file: bookAssets?.pdf_file || bookPdfFile,
         };
         setAssets(nextAssets);
         setDocuments(bookDocuments || []);
@@ -517,9 +656,8 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     return () => {
       cancelled = true;
       window.clearTimeout(resetTimer);
-      window.clearTimeout(progressTimerRef.current);
     };
-  }, [book, bookId, isLoggedIn]);
+  }, [bookEpubFile, bookId, bookPdfFile, isLoggedIn]);
 
   const selectedDocument = useMemo(
     () => documents.find((document) => String(document.id) === String(selectedDocumentId)) || null,
@@ -538,6 +676,52 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     [readerState.annotations],
   );
 
+  const persistProgress = useCallback((snapshot = latestProgressRef.current, { quiet = false } = {}) => {
+    window.clearTimeout(progressTimerRef.current);
+    if (!snapshot || !bookId) return Promise.resolve(null);
+
+    const pending = {
+      ...snapshot,
+      locator: { ...(snapshot.locator || {}) },
+    };
+    progressSaveCountRef.current += 1;
+    if (!quiet && mountedRef.current) setSavingProgress(true);
+
+    const operation = progressSaveQueueRef.current
+      .catch(() => null)
+      .then(() => saveReaderBookProgress({
+        bookId,
+        documentId: pending.documentId,
+        progress: pending.progress,
+        locator: pending.locator,
+        currentPage: pending.currentPage,
+        currentChapter: pending.currentChapter,
+      }));
+    progressSaveQueueRef.current = operation.catch(() => null);
+
+    return operation
+      .then((result) => {
+        if (mountedRef.current) {
+          setReaderState((current) => ({ ...current, progress: result.progress }));
+        }
+        return result;
+      })
+      .catch((saveError) => {
+        if (mountedRef.current && !quiet) {
+          setMessage({ type: "error", text: saveError?.message || "No se pudo guardar tu posición." });
+        }
+        return null;
+      })
+      .finally(() => {
+        progressSaveCountRef.current = Math.max(0, progressSaveCountRef.current - 1);
+        if (mountedRef.current && progressSaveCountRef.current === 0) setSavingProgress(false);
+      });
+  }, [bookId]);
+
+  useEffect(() => {
+    flushProgressRef.current = persistProgress;
+  }, [persistProgress]);
+
   const handleProgress = useCallback((details) => {
     const next = {
       ...details,
@@ -550,47 +734,74 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     if (next.currentChapter) setCurrentChapter(next.currentChapter);
 
     window.clearTimeout(progressTimerRef.current);
-    progressTimerRef.current = window.setTimeout(async () => {
-      const pending = latestProgressRef.current;
-      if (!pending || !bookId) return;
-      setSavingProgress(true);
-      try {
-        const result = await saveReaderBookProgress({
-          bookId,
-          documentId: pending.documentId,
-          progress: pending.progress,
-          locator: pending.locator,
-          currentPage: pending.currentPage,
-          currentChapter: pending.currentChapter,
-        });
-        setReaderState((current) => ({ ...current, progress: result.progress }));
-      } catch (saveError) {
-        setMessage({ type: "error", text: saveError?.message || "No se pudo guardar tu posición." });
-      } finally {
-        setSavingProgress(false);
-      }
+    progressTimerRef.current = window.setTimeout(() => {
+      void persistProgress(next);
     }, 650);
-  }, [bookId, selectedDocument?.id]);
+  }, [persistProgress, selectedDocument?.id]);
 
   useEffect(() => {
     if (!sourceUrl || !bookId || readerStartedRef.current === sourceKey || loading) return;
     readerStartedRef.current = sourceKey;
-    const startingProgress = clampReaderProgress(sourceProgress?.progress);
-    saveReaderBookProgress({
-      bookId,
+    const startingPosition = {
       documentId: selectedDocument?.id || null,
-      progress: startingProgress,
+      progress: clampReaderProgress(sourceProgress?.progress),
       locator: sourceProgress?.locator || {},
       currentPage: sourceProgress?.current_page || null,
       currentChapter: sourceProgress?.current_chapter || "",
-    })
-      .then((result) => setReaderState((current) => ({ ...current, progress: result.progress })))
-      .catch((startError) => setMessage({ type: "error", text: startError?.message || "No se pudo iniciar esta lectura." }));
-  }, [bookId, loading, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
+    };
+    latestProgressRef.current = startingPosition;
+    void persistProgress(startingPosition);
+  }, [bookId, loading, persistProgress, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
 
-  useEffect(() => () => window.clearTimeout(progressTimerRef.current), []);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      window.clearTimeout(progressTimerRef.current);
+      void flushProgressRef.current?.(latestProgressRef.current, { quiet: true });
+    };
+  }, []);
 
-  function selectSource(documentId, format = "") {
+  useEffect(() => {
+    const saveBeforeLeaving = () => {
+      if (document.visibilityState === "hidden") {
+        void persistProgress(latestProgressRef.current, { quiet: true });
+      }
+    };
+    const saveOnPageHide = () => void persistProgress(latestProgressRef.current, { quiet: true });
+
+    document.addEventListener("visibilitychange", saveBeforeLeaving);
+    window.addEventListener("pagehide", saveOnPageHide);
+    return () => {
+      document.removeEventListener("visibilitychange", saveBeforeLeaving);
+      window.removeEventListener("pagehide", saveOnPageHide);
+    };
+  }, [persistProgress]);
+
+  useEffect(() => {
+    if (!sourceUrl || annotationComposer) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+      const target = event.target;
+      if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target?.tagName || "")) return;
+
+      if (event.key === "ArrowLeft" || event.key === "PageUp") {
+        event.preventDefault();
+        readerControlsRef.current?.previous?.();
+      } else if (event.key === "ArrowRight" || event.key === "PageDown") {
+        event.preventDefault();
+        readerControlsRef.current?.next?.();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [annotationComposer, sourceUrl]);
+
+  async function selectSource(documentId, format = "") {
+    await persistProgress();
+    latestProgressRef.current = null;
     setSelectedDocumentId(documentId || "");
     if (format) setCatalogFormat(format);
     setMessage(null);
@@ -698,6 +909,31 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     setTextScale((current) => Math.max(80, Math.min(150, current + delta)));
   }
 
+  async function handleBack() {
+    await persistProgress();
+    onBack?.();
+  }
+
+  function handleReaderTouchStart(event) {
+    if (event.touches.length !== 1) return;
+    const touch = event.touches[0];
+    touchStartRef.current = { x: touch.clientX, y: touch.clientY };
+  }
+
+  function handleReaderTouchEnd(event) {
+    const start = touchStartRef.current;
+    touchStartRef.current = null;
+    const touch = event.changedTouches?.[0];
+    if (!start || !touch || annotationComposer || (selectedFormat === "pdf" && textScale > 100)) return;
+    if (window.getSelection?.()?.toString?.().trim()) return;
+
+    const distanceX = touch.clientX - start.x;
+    const distanceY = touch.clientY - start.y;
+    if (Math.abs(distanceX) < 72 || Math.abs(distanceY) > 55) return;
+    if (distanceX > 0) readerControlsRef.current?.previous?.();
+    else readerControlsRef.current?.next?.();
+  }
+
   if (!bookId || !isLoggedIn) {
     return (
       <main className="reader-page">
@@ -712,7 +948,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   return (
     <main className="reader-page">
       <header className="reader-header">
-        <button type="button" className="reader-back-button" onClick={onBack}>
+        <button type="button" className="reader-back-button" onClick={handleBack}>
           <ReaderIcon name="back" />
           <span>Volver</span>
         </button>
@@ -792,7 +1028,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
           <div>
             <h2>El lector necesita un paso previo</h2>
             <p>{error}</p>
-            <button type="button" className="reader-secondary-button" onClick={onBack}>Volver al libro</button>
+            <button type="button" className="reader-secondary-button" onClick={handleBack}>Volver al libro</button>
           </div>
         </section>
       ) : !sourceUrl ? (
@@ -810,7 +1046,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         </section>
       ) : (
         <div className="reader-layout">
-          <section className="reader-main-column">
+          <section className="reader-main-column" onTouchStart={handleReaderTouchStart} onTouchEnd={handleReaderTouchEnd}>
             {selectedFormat === "pdf" ? (
               <PdfReader
                 key={sourceKey}
@@ -818,6 +1054,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
                 initialProgress={sourceProgress}
                 zoom={textScale / 100}
                 onProgress={handleProgress}
+                onQuoteSelected={handleQuoteSelected}
                 controlsRef={readerControlsRef}
                 onPageChange={setCurrentChapter}
               />

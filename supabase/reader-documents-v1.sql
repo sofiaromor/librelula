@@ -52,7 +52,12 @@ create table if not exists public.reader_documents (
   size_bytes bigint not null check (size_bytes > 0 and size_bytes <= 104857600),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique (owner_id, book_id, format)
+  unique (owner_id, book_id, format),
+  unique (storage_path),
+  check (
+    (format = 'epub' and mime_type = 'application/epub+zip')
+    or (format = 'pdf' and mime_type = 'application/pdf')
+  )
 );
 
 create index if not exists reader_documents_book_idx
@@ -63,9 +68,9 @@ create table if not exists public.reader_book_progress (
   book_id text not null references public.books(id) on delete cascade,
   document_id uuid references public.reader_documents(id) on delete set null,
   progress integer not null default 0 check (progress between 0 and 100),
-  locator jsonb not null default '{}'::jsonb,
+  locator jsonb not null default '{}'::jsonb check (jsonb_typeof(locator) = 'object'),
   current_page integer check (current_page is null or current_page >= 1),
-  current_chapter text,
+  current_chapter text check (current_chapter is null or char_length(current_chapter) <= 240),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
   primary key (owner_id, book_id)
@@ -74,15 +79,18 @@ create table if not exists public.reader_book_progress (
 create index if not exists reader_book_progress_document_idx
   on public.reader_book_progress (document_id);
 
+create index if not exists reader_book_progress_book_idx
+  on public.reader_book_progress (book_id);
+
 create table if not exists public.reader_annotations (
   id uuid primary key default gen_random_uuid(),
   owner_id uuid not null references auth.users(id) on delete cascade,
   book_id text not null references public.books(id) on delete cascade,
   document_id uuid references public.reader_documents(id) on delete set null,
   kind text not null default 'postit' check (kind in ('highlight', 'note', 'postit', 'bookmark')),
-  quote text not null default '',
-  note text not null default '',
-  locator jsonb not null default '{}'::jsonb,
+  quote text not null default '' check (char_length(quote) <= 4000),
+  note text not null default '' check (char_length(note) <= 1200),
+  locator jsonb not null default '{}'::jsonb check (jsonb_typeof(locator) = 'object'),
   page integer check (page is null or page >= 1),
   color text not null default 'yellow' check (color in ('yellow', 'pink', 'blue', 'green', 'lilac')),
   spoiler boolean not null default false,
@@ -98,33 +106,52 @@ create index if not exists reader_annotations_owner_book_idx
 create index if not exists reader_annotations_document_idx
   on public.reader_annotations (document_id, created_at desc);
 
+create index if not exists reader_annotations_book_idx
+  on public.reader_annotations (book_id);
+
+create or replace function public.reader_touch_updated_at()
+returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  new.updated_at = pg_catalog.now();
+  return new;
+end;
+$$;
+
+revoke all on function public.reader_touch_updated_at() from public, anon, authenticated;
+
 do $$
 begin
   if not exists (
     select 1 from pg_trigger
     where tgname = 'reader_documents_touch_updated_at'
+      and tgrelid = 'public.reader_documents'::regclass
   ) then
     create trigger reader_documents_touch_updated_at
       before update on public.reader_documents
-      for each row execute function public.touch_updated_at();
+      for each row execute function public.reader_touch_updated_at();
   end if;
 
   if not exists (
     select 1 from pg_trigger
     where tgname = 'reader_book_progress_touch_updated_at'
+      and tgrelid = 'public.reader_book_progress'::regclass
   ) then
     create trigger reader_book_progress_touch_updated_at
       before update on public.reader_book_progress
-      for each row execute function public.touch_updated_at();
+      for each row execute function public.reader_touch_updated_at();
   end if;
 
   if not exists (
     select 1 from pg_trigger
     where tgname = 'reader_annotations_touch_updated_at'
+      and tgrelid = 'public.reader_annotations'::regclass
   ) then
     create trigger reader_annotations_touch_updated_at
       before update on public.reader_annotations
-      for each row execute function public.touch_updated_at();
+      for each row execute function public.reader_touch_updated_at();
   end if;
 end $$;
 

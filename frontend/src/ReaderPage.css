@@ -427,11 +427,63 @@
   overflow: auto;
 }
 
-.reader-pdf-viewport canvas {
+.reader-pdf-page {
+  --total-scale-factor: var(--reader-pdf-scale, 1);
+  --min-font-size: 1;
+  --text-scale-factor: calc(var(--total-scale-factor) * var(--min-font-size));
+  --min-font-size-inv: calc(1 / var(--min-font-size));
+  position: relative;
+  flex: 0 0 auto;
+  overflow: hidden;
+  background: white;
+  box-shadow: 0 10px 30px rgba(55, 39, 28, .16);
+}
+
+.reader-pdf-page canvas {
   display: block;
   max-width: none;
   background: white;
-  box-shadow: 0 10px 30px rgba(55, 39, 28, .16);
+}
+
+.reader-pdf-text-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: clip;
+  color: transparent;
+  line-height: 1;
+  letter-spacing: normal;
+  text-align: initial;
+  text-size-adjust: none;
+  transform-origin: 0 0;
+}
+
+.reader-pdf-text-layer :is(span, br) {
+  position: absolute;
+  color: transparent;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+  user-select: text;
+}
+
+.reader-pdf-text-layer > :not(.markedContent),
+.reader-pdf-text-layer .markedContent span:not(.markedContent) {
+  z-index: 1;
+  --font-height: 0;
+  --scale-x: 1;
+  --rotate: 0deg;
+  font-size: calc(var(--text-scale-factor) * var(--font-height));
+  transform: rotate(var(--rotate)) scaleX(var(--scale-x)) scale(var(--min-font-size-inv));
+}
+
+.reader-pdf-text-layer .markedContent {
+  display: contents;
+}
+
+.reader-pdf-text-layer ::selection {
+  background: rgba(180, 119, 87, .32);
+  color: transparent;
 }
 
 .reader-reader-footer {
@@ -979,4 +1031,3 @@
     padding-bottom: calc(18px + env(safe-area-inset-bottom));
   }
 }
-
