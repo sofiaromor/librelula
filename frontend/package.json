@@ -12,8 +12,11 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.110.0",
+    "@vibrant/core": "^4.0.4",
+    "@vibrant/generator-default": "^4.0.4",
+    "@vibrant/image-browser": "^4.0.4",
+    "@vibrant/quantizer-mmcq": "^4.0.4",
     "epubjs": "^0.3.93",
-    "node-vibrant": "^4.0.4",
     "pdfjs-dist": "^6.3.289",
     "react": "^19.2.6",
     "react-dom": "^19.2.6"
@@ -29,5 +32,8 @@
     "globals": "^17.6.0",
     "typescript": "^6.0.3",
     "vite": "^8.0.12"
+  },
+  "overrides": {
+    "@xmldom/xmldom": "0.8.15"
   }
 }

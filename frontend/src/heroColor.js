@@ -1,4 +1,21 @@
-import { Vibrant } from "node-vibrant/browser";
+import { BasicPipeline, Vibrant as VibrantCore } from "@vibrant/core";
+import { DefaultGenerator } from "@vibrant/generator-default";
+import { BrowserImage } from "@vibrant/image-browser";
+import { MMCQ } from "@vibrant/quantizer-mmcq";
+
+const vibrantPipeline = new BasicPipeline()
+  .filter.register(
+    "default",
+    (red, green, blue, alpha) => alpha >= 125 && !(red > 250 && green > 250 && blue > 250),
+  )
+  .quantizer.register("mmcq", MMCQ)
+  .generator.register("default", DefaultGenerator);
+
+VibrantCore.DefaultOpts.ImageClass = BrowserImage;
+VibrantCore.DefaultOpts.quantizer = "mmcq";
+VibrantCore.DefaultOpts.generators = ["default"];
+VibrantCore.DefaultOpts.filters = ["default"];
+VibrantCore["use"](vibrantPipeline);
 
 export const FALLBACK_HERO_COLOR = "#4A4A52";
 export const LUMINANCE_THRESHOLD = 140;
@@ -51,7 +68,7 @@ export async function extractHeroColor(imageSource) {
   }
 
   try {
-    const palette = await Vibrant.from(imageSource).getPalette();
+    const palette = await VibrantCore.from(imageSource).getPalette();
     const order = ["DarkVibrant", "DarkMuted", "Vibrant", "Muted"];
     const candidate = order
       .map((role) => palette[role])
