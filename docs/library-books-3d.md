@@ -8,9 +8,15 @@ La portada de la ficha del libro también es interactiva y abre el mismo inspect
 
 - Portada: portada de la edición, o cara visible rectificada de la foto original.
 - Canto de páginas: cara visible recortada de la foto de **esa edición/ISBN**, solo después de definir sus esquinas. No es el lomo.
-- Lomo: foto personal existente; en su ausencia, portada desenfocada con título y autora.
-- Contraportada: composición de paleta/portada desenfocada y sinopsis, no una fotografía de la contraportada real.
+- Lomo: foto personal existente; en su ausencia, fondo del color predominante de la portada, con título y autora.
+- Contraportada: composición del color predominante de la portada y sinopsis, no una fotografía de la contraportada real.
 - Canto sin foto: papel neutro recreado con líneas verticales. Caras superior e inferior: líneas horizontales, paralelas al ancho de la portada. Grosor aproximado según páginas, no dimensiones físicas verificadas.
+
+Cuando existe canto pintado, las caras superior e inferior reutilizan ese mismo dibujo girado, como continuación aproximada. No se presentan como fotografías ni extracción de las caras ocultas. El papel neutro y sus líneas horizontales siguen siendo el respaldo cuando no hay canto fotografiado.
+
+Las imágenes rectificadas mantienen sus dimensiones naturales durante la transformación, sin reducir primero toda la foto al tamaño de la cara. Para la foto verificada de Asistente del villano se prefiere la variante de mayor resolución incluso si el recorte guardado referencia su miniatura; las esquinas originales se conservan. No se inventan detalles ni se promete recuperar información perdida: una foto de producto de 552 px solo aporta unos 240 px útiles de portada y unos 28 px de canto. Hace falta una fuente realmente mayor para eliminar esa limitación en pantallas de alta densidad.
+
+La paleta 3D se calcula del grupo de píxeles más frecuente en la portada visible, no del fondo blanco de la foto, del canto ni del color genérico del hero. Se comparte una caché por fuente/recorte entre los lomos estáticos y el visor. El fondo calculado no queda oculto por otra portada desenfocada y el texto adapta su contraste a las portadas claras. Si la lectura de píxeles falla por CORS o carga, se conserva el color almacenado/respaldado sin romper la textura.
 
 Una foto no permite recuperar caras ocultas ni detalles perdidos por compresión. La rectificación corrige la perspectiva geométrica; no reconstruye ilustraciones. La extracción de portada/canto se confirma con el editor: **no hay detección automática de caras ni asignación de una imagen de galería a una cara oculta**.
 
@@ -30,7 +36,7 @@ El inspector identifica la edición mostrada por ISBN/principal y permite ver ot
 
 ## Datos y permisos
 
-`public.book_edition_visuals` tiene una fila por `book_editions.id`, con URL original, galería y coordenadas normalizadas. No se guarda otra copia de las fotos en Storage ni datos privados de la biblioteca. La visualización usa transformaciones proyectivas CSS sin canvas ni un proxy que descargue URLs arbitrarias; no depende de CORS para leer píxeles.
+`public.book_edition_visuals` tiene una fila por `book_editions.id`, con URL original, galería y coordenadas normalizadas. No se guarda otra copia de las fotos en Storage ni datos privados de la biblioteca. Las texturas se rectifican con transformaciones proyectivas CSS sin canvas ni un proxy que descargue URLs arbitrarias; no necesitan leer píxeles ni permisos CORS. Solo la paleta de color opcional usa un canvas reducido con carga CORS anónima, sin credenciales y con respaldo seguro.
 
 La lectura hereda la visibilidad RLS de `book_editions`: no expone ediciones pendientes ocultas. Solo administradoras pueden insertar/editar/eliminar texturas. La FK está indexada por la PK y elimina metadatos cuando se elimina su edición. Constraints rechazan fuentes no HTTPS y selecciones cruzadas, cóncavas, fuera de la foto o degeneradas.
 

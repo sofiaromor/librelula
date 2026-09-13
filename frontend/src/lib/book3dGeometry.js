@@ -63,11 +63,11 @@ export function faceHomography(quad) {
   return result.every(Number.isFinite) ? result : null;
 }
 
-export function faceCssMatrix(quad, width, height) {
+export function faceCssMatrix(quad, width, height, sourceWidth = width, sourceHeight = height) {
   const m = faceHomography(quad);
-  if (!m || !(width > 0) || !(height > 0)) return "none";
+  if (!m || !(width > 0) || !(height > 0) || !(sourceWidth > 0) || !(sourceHeight > 0)) return "none";
   const [a, b, c, d, e, f, g, h] = m;
-  return `matrix3d(${[a, d * height / width, 0, g / width, b * width / height, e, 0, h / height, 0, 0, 1, 0, c * width, f * height, 0, 1].join(",")})`;
+  return `matrix3d(${[a * width / sourceWidth, d * height / sourceWidth, 0, g / sourceWidth, b * width / sourceHeight, e * height / sourceHeight, 0, h / sourceHeight, 0, 0, 1, 0, c * width, f * height, 0, 1].join(",")})`;
 }
 
 export function safeProductImageUrl(value) {
@@ -81,6 +81,12 @@ export function bookImageUrl(value) {
   const text = String(value || "").trim();
   if (!text || /^(?:[a-z]+:|\/\/)/i.test(text) && !/^https?:\/\//i.test(text)) return "";
   return /^https?:\/\//i.test(text) ? text : `/${text.replace(/^\/+/, "")}`;
+}
+
+export function bestBookImageUrl(value) {
+  const url = bookImageUrl(value);
+  // Upgrade only the verified, geometrically identical product-photo variant.
+  return url === VILLAIN_ASSISTANT_THUMBNAIL ? VILLAIN_ASSISTANT_PHOTO : url;
 }
 
 export function normalizeBookVisual(value) {

@@ -72,7 +72,7 @@ export default function Book3DInspector({ item, isAdmin = false, onClose, onSele
     </div>
     <p className="book3d-drag-hint">Arrastra con el dedo o el cursor para girarlo</p>
     <div className="book3d-face-switcher" role="group" aria-label="Caras del libro">{FACES.map(([id, label, yaw]) => <button type="button" key={id} aria-pressed={activeFace === id} onClick={() => selectFace(id, yaw)}>{label}</button>)}</div>
-    <p className="book3d-texture-note">{exactEdge ? "Canto recortado de la foto de esta edición." : "Canto de papel recreado: todavía no hay una foto del canto de esta edición."} El lomo y la contraportada son una composición; el grosor es aproximado según sus páginas.</p>
+    <p className="book3d-texture-note">{exactEdge ? "Canto recortado de la foto de esta edición. El dibujo de arriba y abajo es una continuación aproximada de ese canto." : "Canto de papel recreado: todavía no hay una foto del canto de esta edición."} El lomo y la contraportada son una composición; el grosor es aproximado según sus páginas.</p>
     {book.synopsis ? <details className="book3d-synopsis"><summary>Leer sinopsis</summary><p>{String(book.synopsis).replace(/<[^>]*>/g, " ")}</p></details> : null}
     {isAdmin && edition?.id ? <button className="book3d-edit-textures" type="button" onClick={() => setEditing(true)}>Ajustar portada y canto de esta edición</button> : null}
     <footer className="book3d-inspector-footer">{onSelectBook ? <button type="button" onClick={() => navigate(onSelectBook)}>Abrir ficha</button> : null}{onOpenReader ? <button type="button" className="is-primary" onClick={() => navigate(onOpenReader)}>Abrir lector</button> : <button type="button" className="is-primary" onClick={onClose}>Volver</button>}</footer>

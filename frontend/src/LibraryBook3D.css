@@ -38,6 +38,7 @@
 
 .book3d-face.is-front,
 .book3d-face.is-back {
+  background: linear-gradient(135deg, #fff1, transparent 45%, #0001), var(--book-cloth);
   inset: 0;
 }
 
@@ -109,9 +110,13 @@
   object-fit: cover;
   transform-origin: 0 0;
   user-select: none;
+  image-rendering: auto;
 }
 
 .book-face-texture.is-rectified > img {
+  position: absolute;
+  top: 0;
+  left: 0;
   object-fit: fill;
 }
 
@@ -149,7 +154,7 @@
   flex-direction: column;
   align-items: center;
   gap: 8px;
-  color: #fff5df;
+  color: var(--book-ink, #fff5df);
   text-shadow: 0 1px 2px #0008;
   pointer-events: none;
 }
@@ -183,7 +188,7 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  color: #fff4df;
+  color: var(--book-ink, #fff4df);
   text-shadow: 0 1px 2px #0006;
   pointer-events: none;
 }
@@ -223,6 +228,20 @@
 .book3d-face.is-bottom > .book3d-paper-lines {
   background: repeating-linear-gradient(0deg, #e9dec8 0, #f5ecdc 1px, #c6b99f 2px, #f5ecdc 3px);
   box-shadow: inset 0 2px 5px #68563625;
+}
+
+/* Continue the visible painted edge; these caps are not hidden-face photos. */
+.book3d-painted-cap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--book-depth);
+  height: var(--book-width);
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+.book3d-face.is-bottom > .book3d-painted-cap {
+  transform: translate(-50%, -50%) rotate(90deg);
 }
 
 .book3d-interactive {
@@ -278,7 +297,7 @@
   display: block;
   overflow: hidden;
   border-radius: inherit;
-  background: #9e7654;
+  background: var(--book-cloth, #9e7654);
   pointer-events: none;
 }
 
@@ -301,11 +320,15 @@
   background: linear-gradient(90deg, rgba(255,255,255,.13), transparent 18%, transparent 78%, rgba(34,20,12,.2)), linear-gradient(180deg, transparent 58%, rgba(24,15,10,.48));
 }
 
+.library-spine-static.is-generated .library-spine-static-overlay {
+  background: linear-gradient(90deg, #fff2, transparent 20%, transparent 78%, #0002);
+}
+
 .library-spine-static-title,
 .library-spine-static-author {
   position: absolute;
   z-index: 2;
-  color: #fffaf3;
+  color: var(--book-ink, #fffaf3);
   font-family: 'Playfair Display', Georgia, serif;
   font-weight: 700;
   line-height: 1;

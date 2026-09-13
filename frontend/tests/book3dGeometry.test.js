@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { FULL_FACE, normalizeFaceQuad, faceHomography, projectPoint, faceCssMatrix, normalizeBookVisual, resolveBookVisual, pickVisualEdition, bookThicknessRatio, safeProductImageUrl, bookImageUrl } from "../src/lib/book3dGeometry.js";
+import { FULL_FACE, normalizeFaceQuad, faceHomography, projectPoint, faceCssMatrix, normalizeBookVisual, resolveBookVisual, pickVisualEdition, bookThicknessRatio, safeProductImageUrl, bookImageUrl, bestBookImageUrl } from "../src/lib/book3dGeometry.js";
 
 const photographedEdition = {
   isbn: "979-1-388108-11-2",
@@ -109,4 +109,24 @@ test("resolving a preset does not expose mutable shared texture coordinates", ()
   mutated.fore_edge_quad[0][0] = 0;
   mutated.image_gallery.length = 0;
   assert.deepEqual(resolveBookVisual(photographedEdition), before);
+});
+
+test("natural-resolution source corners still map exactly to each rendered face", () => {
+  const visual = resolveBookVisual(photographedEdition);
+  for (const [quad, width, height] of [[visual.front_quad, 194, 291], [visual.fore_edge_quad, 26, 291]]) {
+    const m = faceCssMatrix(quad, width, height, 552, 552).slice(9, -1).split(",").map(Number);
+    quad.forEach(([u, v], i) => {
+      const x = u * 552, y = v * 552;
+      const denominator = m[3] * x + m[7] * y + m[15];
+      assert.ok(Math.abs((m[0] * x + m[4] * y + m[12]) / denominator - FULL_FACE[i][0] * width) < 1e-7);
+      assert.ok(Math.abs((m[1] * x + m[5] * y + m[13]) / denominator - FULL_FACE[i][1] * height) < 1e-7);
+    });
+  }
+  assert.equal(faceCssMatrix(FULL_FACE, 120, 180, 0, 552), "none");
+});
+
+test("resolution upgrades use only the verified photograph and leave arbitrary sources unchanged", () => {
+  assert.equal(bestBookImageUrl(photographedEdition.cover), resolveBookVisual(photographedEdition).product_image_url);
+  assert.equal(bestBookImageUrl("https://images.example.test/low.jpg"), "https://images.example.test/low.jpg");
+  assert.equal(bestBookImageUrl("javascript:alert(1)"), "");
 });

@@ -67,3 +67,26 @@ test("3D faces, inspector note and face editor use the same effective edition vi
     assert.match(jsx, /resolveBookVisual\(/);
   }
 });
+
+test("painted caps continue the visible edge while unpainted caps retain horizontal paper", async () => {
+  const [jsx, inspector, css] = await Promise.all(["LibraryBook3D.jsx", "Book3DInspector.jsx", "LibraryBook3D.css"].map((name) => readFile(new URL(`../src/${name}`, import.meta.url), "utf8")));
+  assert.equal((jsx.match(/className="book3d-painted-cap"/g) || []).length, 2);
+  assert.match(jsx, /const painted = !compact && Boolean\(visual.fore_edge_quad\)/);
+  assert.match(jsx, /is-top[^\n]*quad=\{visual.fore_edge_quad\}[^\n]*book3d-paper-lines/);
+  assert.match(jsx, /is-bottom[^\n]*quad=\{visual.fore_edge_quad\}[^\n]*book3d-paper-lines/);
+  assert.match(css, /\.book3d-painted-cap \{[^}]*rotate\(-90deg\)/);
+  assert.match(inspector, /continuación aproximada/);
+});
+
+test("generated spines and backs expose the shared dominant color instead of blurred cover overlays", async () => {
+  for (const name of ["LibraryBook3D", "LibrarySpineStatic"]) {
+    const jsx = await readFile(new URL(`../src/${name}.jsx`, import.meta.url), "utf8");
+    assert.match(jsx, /useBook3DColor\(book,/);
+    assert.match(jsx, /"--book-cloth": cloth/);
+    assert.doesNotMatch(jsx, /blurred=/);
+  }
+  const texture = await readFile(new URL("../src/BookFaceTexture.jsx", import.meta.url), "utf8");
+  assert.match(texture, /width: natural.width/);
+  assert.match(texture, /naturalWidth/);
+  assert.match(texture, /naturalHeight/);
+});
