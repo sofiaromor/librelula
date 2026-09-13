@@ -515,6 +515,34 @@ button {
   box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
 }
 
+.book-detail-cover-3d {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  display: block;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  color: inherit;
+  cursor: grab;
+  font: inherit;
+  touch-action: none;
+}
+
+.book-detail-cover-3d:active {
+  cursor: grabbing;
+}
+
+.book-detail-cover-3d:focus-visible {
+  outline: 3px solid #fff7;
+  outline-offset: -5px;
+}
+
+.book-detail-cover-3d > .book3d-interactive {
+  width: 100%;
+  height: 100%;
+}
+
 .book-detail-cover,
 .book-detail-cover-placeholder {
   width: 100%;

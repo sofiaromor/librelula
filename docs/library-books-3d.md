@@ -1,6 +1,8 @@
 # Libros 3D en la biblioteca
 
-Se mantienen las dos vistas existentes: **Portadas** y **Lomos**. Las fichas y puntuaciones siguen en Portadas. En Lomos se puede sacar un libro para inspeccionar sus seis caras mediante arrastre con ratón/dedo, botones o flechas del teclado. `Home` restablece el giro. Los lomos personales y sus recortes se conservan.
+Se mantienen las dos vistas existentes: **Portadas** y **Lomos**. Las fichas y puntuaciones siguen en Portadas. En Portadas cada libro empieza de frente y se puede girar arrastrando con el ratón o el dedo para descubrir el canto pintado. Lomos es una vista estática y limpia; tocar un lomo abre el inspector 3D con sus seis caras, arrastre, botones y flechas del teclado. `Home` restablece el giro. Los lomos personales y sus recortes se conservan.
+
+La portada de la ficha del libro también es interactiva y abre el mismo inspector 3D. Así la ficha, Portadas y Lomos comparten la misma lectura visual sin convertir la estantería de lomos en una colección de objetos que giran solos.
 
 ## Qué es real y qué es una composición
 
@@ -8,7 +10,7 @@ Se mantienen las dos vistas existentes: **Portadas** y **Lomos**. Las fichas y p
 - Canto de páginas: cara visible recortada de la foto de **esa edición/ISBN**, solo después de definir sus esquinas. No es el lomo.
 - Lomo: foto personal existente; en su ausencia, portada desenfocada con título y autora.
 - Contraportada: composición de paleta/portada desenfocada y sinopsis, no una fotografía de la contraportada real.
-- Canto sin foto, superior e inferior: papel neutro recreado. Grosor aproximado según páginas, no dimensiones físicas verificadas.
+- Canto sin foto, superior e inferior: papel neutro recreado con líneas verticales. Grosor aproximado según páginas, no dimensiones físicas verificadas.
 
 Una foto no permite recuperar caras ocultas ni detalles perdidos por compresión. La rectificación corrige la perspectiva geométrica; no reconstruye ilustraciones. La extracción de portada/canto se confirma con el editor: **no hay detección automática de caras ni asignación de una imagen de galería a una cara oculta**.
 
@@ -19,6 +21,8 @@ El scraper conserva `imagen_portada`, `imagen_producto` e `imagenes_producto` (m
 En la revisión de una importación, **Preparar portada y canto 3D** permite elegir foto, mover cuatro esquinas de portada y activar el canto únicamente cuando es visible. Las esquinas se ordenan superior izquierda, superior derecha, inferior derecha e inferior izquierda. El preview muestra cada cara rectificada. Las flechas ajustan la esquina enfocada; `Shift` aumenta el paso.
 
 Para libros importados anteriormente, una administradora puede abrir el inspector desde Lomos y usar **Ajustar portada y canto de esta edición**, pegando otra foto original si hace falta.
+
+La migración `20260913040421_seed_asistente_del_villano_visual.sql` deja preparada una primera edición de prueba para **Asistente del villano (edición especial limitada)** (ISBN `9791388108112`). Usa la fotografía de producto importada y las esquinas que delimitan la portada y el canto pintado visible. Es una semilla puntual del catálogo, no una suposición que se aplique a todos los libros.
 
 El inspector identifica la edición mostrada por ISBN/principal y permite ver otras ediciones sin modificar el estado de lectura ni la edición del registro de biblioteca. No se reutiliza automáticamente el canto de una edición especial para otra edición.
 

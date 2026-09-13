@@ -25,22 +25,22 @@
 .book3d-back-copy strong { font-size: 15px; line-height: 1.15; }
 .book3d-back-copy > span { font-size: 10px; line-height: 1.55; overflow: hidden; flex: 1; white-space: pre-line; }
 .book3d-back-copy em { font-size: 9px; }
-.book3d-paper-lines { position: absolute; inset: 0; display: block; background: repeating-linear-gradient(0deg,#e9dec8 0px,#f5ecdc 1px,#c6b99f 2px,#f5ecdc 3px); box-shadow: inset 3px 0 6px #68563625; }
+.book3d-paper-lines { position: absolute; inset: 0; display: block; background: repeating-linear-gradient(90deg,#e9dec8 0px,#f5ecdc 1px,#c6b99f 2px,#f5ecdc 3px); box-shadow: inset 3px 0 6px #68563625; }
+.book3d-interactive { position: relative; display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; user-select: none; }
+.book3d-interactive:active { cursor: grabbing; }
+.book3d-interactive .book3d-stage { width: 100%; height: 100%; --book-width: 100%; --book-height: 100%; pointer-events: none; }
+.book3d-interactive .book3d-object { width: 100%; height: 100%; }
+.book3d-rotate-hint { position: absolute; right: 7px; bottom: 7px; z-index: 3; width: 24px; height: 24px; display: grid; place-items: center; border: 1px solid #fff9; border-radius: 50%; background: #30251a80; color: #fffaf0; font-size: 15px; line-height: 1; pointer-events: none; opacity: .78; }
+.library-spine-static { position: absolute; inset: 0; display: block; overflow: hidden; border-radius: inherit; background: #9e7654; pointer-events: none; }
+.library-spine-static .book-face-texture { position: absolute; inset: 0; }
+.library-spine-static .book-face-texture > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.library-spine-static-overlay { position: absolute; inset: 0; background: linear-gradient(90deg,rgba(255,255,255,.13),transparent 18%,transparent 78%,rgba(34,20,12,.2)),linear-gradient(180deg,transparent 58%,rgba(24,15,10,.48)); }
+.library-spine-static-title, .library-spine-static-author { position: absolute; z-index: 2; color: #fffaf3; font-family: 'Playfair Display', Georgia, serif; font-weight: 700; line-height: 1; text-shadow: 0 1px 4px rgba(25,15,9,.62); writing-mode: vertical-rl; transform: rotate(180deg); overflow: hidden; white-space: nowrap; }
+.library-spine-static-title { top: 10px; bottom: 11px; left: 50%; max-width: calc(100% - 12px); font-size: .74rem; transform: translateX(-50%) rotate(180deg); text-overflow: ellipsis; }
+.library-spine-static-author { right: 4px; bottom: 9px; max-height: 30%; color: rgba(255,250,243,.86); font-family: inherit; font-size: .43rem; font-weight: 600; }
 .book3d-stage.is-compact { --book-width: 132px; --book-yaw: 87deg; --book-pitch: 0deg; width: var(--book-depth); height: var(--book-height); perspective: 650px; }
 .is-compact .book3d-object { left: calc((var(--book-depth) - var(--book-width)) / 2); }
 .is-compact .book3d-spine-copy strong { font-size: 11px; }
 .is-compact .book3d-spine-copy small { font-size: 6px; }
 .is-compact .book3d-back-copy { display: none; }
-.library-spine.is-book3d { overflow: visible; background: transparent; box-shadow: none; border-radius: 0; display: grid; place-items: center; }
-.library-spine.is-book3d:hover .book3d-object, .library-spine.is-book3d:focus-visible .book3d-object { --book-yaw: 72deg; }
-.library-showcase-spine.is-book3d { overflow: visible; background: transparent; box-shadow: none; border: 0; display: grid; justify-items: center; align-items: end; }
-.library-showcase-spine.is-book3d .is-compact { --book-width: 106px; }
-.library-showcase-spine.is-book3d:hover .book3d-object { --book-yaw: 76deg; }
-.library-showcase-cover-visual > .book-face-texture { position: relative; inset: auto; width: 100%; aspect-ratio: 2 / 3; border-radius: 10px 10px 4px 4px; box-shadow: 0 11px 24px #432c1b2e; }
-.library-spine.is-book3d .is-compact { --book-width: calc((198px + var(--spine-variation, 0) * 5px) / 1.5); }
-.is-book3d .book-face-texture > img { position: static; width: 100%; height: 100%; left: auto; top: auto; object-fit: cover; }
-.is-book3d .book-face-texture.is-rectified > img { object-fit: fill; }
-.library-showcase-spine.is-book3d.is-horizontal { height: 30px; width: 160px; }
-.library-showcase-spine.is-book3d.is-horizontal { align-items: center; }
-.library-showcase-spine.is-book3d.is-horizontal .is-compact { --book-width: 106px; transform: rotate(90deg); }
 @media (prefers-reduced-motion: reduce) { .book3d-object { transition: none; } }

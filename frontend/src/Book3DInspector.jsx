@@ -75,7 +75,7 @@ export default function Book3DInspector({ item, isAdmin = false, onClose, onSele
     <p className="book3d-texture-note">{exactEdge ? "Canto recortado de la foto de esta edición." : "Canto de papel recreado: todavía no hay una foto del canto de esta edición."} El lomo y la contraportada son una composición; el grosor es aproximado según sus páginas.</p>
     {book.synopsis ? <details className="book3d-synopsis"><summary>Leer sinopsis</summary><p>{String(book.synopsis).replace(/<[^>]*>/g, " ")}</p></details> : null}
     {isAdmin && edition?.id ? <button className="book3d-edit-textures" type="button" onClick={() => setEditing(true)}>Ajustar portada y canto de esta edición</button> : null}
-    <footer className="book3d-inspector-footer"><button type="button" onClick={() => navigate(onSelectBook)}>Abrir ficha</button>{onOpenReader ? <button type="button" className="is-primary" onClick={() => navigate(onOpenReader)}>Abrir lector</button> : <button type="button" className="is-primary" onClick={onClose}>Volver a la estantería</button>}</footer>
+    <footer className="book3d-inspector-footer">{onSelectBook ? <button type="button" onClick={() => navigate(onSelectBook)}>Abrir ficha</button> : null}{onOpenReader ? <button type="button" className="is-primary" onClick={() => navigate(onOpenReader)}>Abrir lector</button> : <button type="button" className="is-primary" onClick={onClose}>Volver</button>}</footer>
     {editing ? <Suspense fallback={<p role="status">Abriendo el recorte…</p>}><BookProductFaceEditor edition={edition} onClose={() => setEditing(false)} onSaved={(visual) => { setEditions((rows) => rows.map((e) => e.id === edition.id ? { ...e, visual } : e)); onVisualSaved?.(edition.id, visual); setEditing(false); }} /></Suspense> : null}
   </dialog>;
 }

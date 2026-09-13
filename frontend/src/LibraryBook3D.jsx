@@ -3,7 +3,7 @@ import { bookClothColor, bookThicknessRatio, normalizeBookVisual, pickVisualEdit
 import { shouldShowSpineTitle } from "./lib/librarySpineMedia.js";
 import "./LibraryBook3D.css";
 
-export default function LibraryBook3D({ item, edition, compact = false, objectRef }) {
+export default function LibraryBook3D({ item, edition, compact = false, objectRef, initialYaw, initialPitch }) {
   const book = item.book || {};
   const selected = edition || item.visual_edition || pickVisualEdition(book, item.editions);
   const visual = normalizeBookVisual(selected?.visual);
@@ -13,6 +13,8 @@ export default function LibraryBook3D({ item, edition, compact = false, objectRe
   const style = {
     "--book-depth": `calc(var(--book-width) * ${bookThicknessRatio(selected?.pages || book.pages)})`,
     "--book-cloth": bookClothColor(book),
+    "--book-yaw": `${initialYaw ?? (compact ? 87 : -25)}deg`,
+    "--book-pitch": `${initialPitch ?? (compact ? 0 : -7)}deg`,
   };
   return <span className={`book3d-stage ${compact ? "is-compact" : ""}`} style={style} aria-hidden="true">
     <span className="book3d-object" ref={objectRef}>

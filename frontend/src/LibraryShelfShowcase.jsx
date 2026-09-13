@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import "./LibraryShelfShowcase.css";
 import "./LibraryShelfActions.css";
-import LibraryBook3D from "./LibraryBook3D.jsx";
-import BookFaceTexture from "./BookFaceTexture.jsx";
+import InteractiveLibraryBook3D from "./InteractiveLibraryBook3D.jsx";
+import LibrarySpineStatic from "./LibrarySpineStatic.jsx";
 import {
   filterShelfItems,
   formatShelfScore,
@@ -11,13 +11,6 @@ import {
   shelfStarFills,
   composeSpineRow,
 } from "./lib/libraryShelfSearch.js";
-
-function coverUrl(cover) {
-  const value = String(cover || "").trim();
-  if (!value) return "/images/librelula.png";
-  if (/^https?:\/\//i.test(value)) return value;
-  return `/${value.replace(/^\/+/, "")}`;
-}
 
 function spineVariation(value) {
   return [...String(value || "")].reduce(
@@ -82,15 +75,7 @@ function CoverTile({ item, photoMode, onSelectBook }) {
   const scoreLabel = formatShelfScore(item.score);
   const visual = (
     <span className="library-showcase-cover-visual">
-      {item.visual_edition?.visual?.front_quad ? <BookFaceTexture src={item.visual_edition.visual.product_image_url} quad={item.visual_edition.visual.front_quad} alt={`Portada de ${book.title || "libro"}`} /> : <img
-        src={coverUrl(book.cover)}
-        alt={`Portada de ${book.title || "libro"}`}
-        loading="lazy"
-        onError={(event) => {
-          event.currentTarget.onerror = null;
-          event.currentTarget.src = "/images/librelula.png";
-        }}
-      />}
+      <InteractiveLibraryBook3D item={item} />
       <PhotoScoreRail score={item.score} />
     </span>
   );
@@ -125,8 +110,8 @@ function SpineTile({ item, photoMode, onInspectItem, horizontal = false, leaning
   const scoreLabel = formatShelfScore(item.score);
 
   const variation = spineVariation(item.book_id);
-  const className = `library-showcase-spine is-book3d is-variation-${variation} ${horizontal ? "is-horizontal" : ""}`;
-  const body = <LibraryBook3D item={item} compact />;
+  const className = `library-showcase-spine is-variation-${variation} ${horizontal ? "is-horizontal" : ""}`;
+  const body = <LibrarySpineStatic item={item} />;
   const palette = ["#31534d", "#6c3f4d", "#314e6b", "#77522f", "#57476b"];
 
   return (

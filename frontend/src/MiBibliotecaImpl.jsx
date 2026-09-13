@@ -4,8 +4,8 @@ import "./MiBibliotecaSpines.css";
 import "./MiBibliotecaV2.css";
 import SpineCropEditor from "./SpineCropEditor.jsx";
 import LibraryShelfShowcase from "./LibraryShelfShowcase.jsx";
-import LibraryBook3D from "./LibraryBook3D.jsx";
-import BookFaceTexture from "./BookFaceTexture.jsx";
+import InteractiveLibraryBook3D from "./InteractiveLibraryBook3D.jsx";
+import LibrarySpineStatic from "./LibrarySpineStatic.jsx";
 import AuthorLink from "./AuthorLink.jsx";
 import { shelfStarFills, formatShelfScore } from "./lib/libraryShelfSearch.js";
 import {
@@ -56,13 +56,6 @@ const SYSTEM_SHELVES = [
     statuses: ["dropped"],
   },
 ];
-
-function coverUrl(cover) {
-  const value = String(cover || "").trim();
-  if (!value) return "";
-  if (/^https?:\/\//i.test(value)) return value;
-  return `/${value.replace(/^\/+/, "")}`;
-}
 
 function normalizeText(value) {
   return String(value || "")
@@ -169,7 +162,6 @@ function useShelfPageSize(viewMode) {
 
 export function CoverBook({ item, onSelectBook, onSelectAuthor, onScoreChange, savingBookId, onOpenReader }) {
   const book = item.book || {};
-  const cover = coverUrl(book.cover);
   const [statusLabel, statusClass] = getLibraryStatus(item.status);
 
   return (
@@ -181,19 +173,7 @@ export function CoverBook({ item, onSelectBook, onSelectAuthor, onScoreChange, s
           onClick={() => onSelectBook?.(book)}
           aria-label={`Abrir ficha de ${book.title || "este libro"}`}
         >
-          {item.visual_edition?.visual?.front_quad ? <BookFaceTexture src={item.visual_edition.visual.product_image_url} quad={item.visual_edition.visual.front_quad} alt={`Portada de ${book.title || "libro"}`} /> : cover ? (
-            <img
-              src={cover}
-              alt={`Portada de ${book.title || "libro"}`}
-              loading="lazy"
-              onError={(event) => {
-                event.currentTarget.onerror = null;
-                event.currentTarget.src = "/images/librelula.png";
-              }}
-            />
-          ) : (
-            <img className="is-fallback" src="/images/librelula.png" alt="Portada no disponible" />
-          )}
+          <InteractiveLibraryBook3D item={item} />
           <span className={`status-pill ${statusClass}`}>{statusLabel}</span>
         </button>
 
@@ -250,12 +230,12 @@ function SpineBook({
     >
       <button
         type="button"
-        className="library-spine is-book3d"
+        className="library-spine"
         onClick={() => onInspectItem?.(item)}
-        title={`${book.title || "Libro"} · ${book.author || ""}`}
-        aria-label={`Sacar y girar ${book.title || "este libro"} en 3D`}
+        title={`${book.title || "Libro"} · Abrir vista 3D`}
+        aria-label={`Abrir ${book.title || "este libro"} en la vista 3D`}
       >
-        <LibraryBook3D item={item} compact />
+        <LibrarySpineStatic item={item} />
         {personalUrl ? <span className="library-spine-personal-badge">Personal</span> : null}
       </button>
 
