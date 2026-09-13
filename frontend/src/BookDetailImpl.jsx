@@ -1490,14 +1490,13 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
 
       <article className="book-detail-hero" style={{ backgroundColor: heroColor }}>
         <div className="book-detail-cover-wrap">
-          <button
-            type="button"
-            className="book-detail-cover-3d"
-            onClick={() => setBook3dOpen(true)}
-            aria-label={`Abrir la vista 3D de ${currentBook.title || "este libro"}`}
-          >
-            <InteractiveLibraryBook3D item={book3dPreviewItem} />
-          </button>
+          <div className="book-detail-cover-3d">
+            <InteractiveLibraryBook3D item={book3dPreviewItem}
+              key={currentBook.id}
+              onOpen={() => setBook3dOpen(true)}
+              openLabel={`Abrir la vista 3D de ${currentBook.title || "este libro"}`}
+            />
+          </div>
         </div>
 
         <div className="book-detail-hero-copy">

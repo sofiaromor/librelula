@@ -6,6 +6,8 @@ La portada de la ficha del libro también es interactiva y abre el mismo inspect
 
 En la ficha, el libro gira sobre un contenedor transparente, sin fondo ni sombra rectangular y sin recorte exterior. El margen alrededor reserva espacio para las caras que sobresalen al girar, también en móvil. Se conserva el indicador de foco del botón y el recorte interno de las texturas de cada cara.
 
+El indicador de giro de Portadas y de la ficha es ahora un botón **2D**: restablece los ángulos a cero, desactiva la perspectiva/profundidad y muestra solo la portada plana, sin abrir el inspector ni navegar. Un nuevo arrastre vuelve al giro 3D. El control 2D y la superficie que abre la ficha/visor son botones hermanos, no botones anidados; ambos admiten foco/teclado. Lomos sigue estático y el inspector conserva sus controles de caras.
+
 ## Qué es real y qué es una composición
 
 - Portada: portada de la edición, o cara visible rectificada de la foto original.

@@ -75,7 +75,10 @@ function CoverTile({ item, photoMode, onSelectBook }) {
   const scoreLabel = formatShelfScore(item.score);
   const visual = (
     <span className="library-showcase-cover-visual">
-      <InteractiveLibraryBook3D item={item} />
+      <InteractiveLibraryBook3D item={item}
+        onOpen={photoMode ? undefined : () => onSelectBook?.(book)}
+        openLabel={`Abrir ficha de ${book.title || "este libro"}. Tu puntuación: ${scoreLabel}`}
+      />
       <PhotoScoreRail score={item.score} />
     </span>
   );
@@ -89,18 +92,16 @@ function CoverTile({ item, photoMode, onSelectBook }) {
   }
 
   return (
-    <button
-      type="button"
-      className="library-showcase-cover-card"
-      onClick={() => onSelectBook?.(book)}
-      aria-label={`Abrir ficha de ${book.title || "este libro"}. Tu puntuación: ${scoreLabel}`}
-    >
+    <div className="library-showcase-cover-card">
       {visual}
-      <span className="library-showcase-cover-copy">
+      <button type="button" className="library-showcase-cover-copy"
+        onClick={() => onSelectBook?.(book)}
+        aria-label={`Abrir ficha de ${book.title || "este libro"}. Tu puntuación: ${scoreLabel}`}
+      >
         <strong>{book.title || "Libro sin título"}</strong>
         <small>{book.author || "Autor desconocido"}</small>
-      </span>
-    </button>
+      </button>
+    </div>
   );
 }
 

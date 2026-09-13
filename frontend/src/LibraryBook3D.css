@@ -255,8 +255,28 @@
   user-select: none;
 }
 
-.book3d-interactive:active {
+.book3d-drag-surface {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  touch-action: none;
+  cursor: grab;
+}
+
+.book3d-drag-surface:active {
   cursor: grabbing;
+}
+
+.book3d-drag-surface:focus-visible {
+  outline: 3px solid #fffaf0;
+  outline-offset: -3px;
 }
 
 .book3d-interactive .book3d-stage {
@@ -272,23 +292,56 @@
   height: 100%;
 }
 
-.book3d-rotate-hint {
+.book3d-interactive.is-flat .book3d-stage {
+  perspective: none;
+}
+
+.book3d-interactive.is-flat .book3d-object {
+  transform: none;
+}
+
+.book3d-interactive.is-flat .book3d-face:not(.is-front) {
+  display: none;
+}
+
+.book3d-interactive.is-flat .book3d-face.is-front {
+  transform: none;
+  box-shadow: none;
+}
+
+.book3d-reset-2d {
   position: absolute;
   right: 7px;
   bottom: 7px;
   z-index: 3;
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
+  padding: 0;
   display: grid;
   place-items: center;
   border: 1px solid #fff9;
   border-radius: 50%;
   background: #30251a80;
   color: #fffaf0;
-  font-size: 15px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
   line-height: 1;
-  pointer-events: none;
+  cursor: pointer;
+  touch-action: manipulation;
   opacity: .78;
+}
+
+.book3d-reset-2d::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+.book3d-reset-2d:focus-visible {
+  outline: 3px solid #fffaf0;
+  outline-offset: 3px;
+  opacity: 1;
 }
 
 .library-spine-static {

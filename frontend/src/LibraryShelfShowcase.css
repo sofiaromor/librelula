@@ -311,19 +311,27 @@
 }
 
 .library-showcase-cover-card:not(.is-photo):hover .library-showcase-cover-visual > img,
-.library-showcase-cover-card:not(.is-photo):focus-visible .library-showcase-cover-visual > img {
+.library-showcase-cover-card:not(.is-photo):focus-within .library-showcase-cover-visual > img {
   transform: translateY(-6px);
   box-shadow: 0 16px 30px rgba(67, 44, 27, .22);
 }
 
 .library-showcase-cover-card:not(.is-photo):hover .library-showcase-cover-visual > .book3d-interactive,
-.library-showcase-cover-card:not(.is-photo):focus-visible .library-showcase-cover-visual > .book3d-interactive {
+.library-showcase-cover-card:not(.is-photo):focus-within .library-showcase-cover-visual > .book3d-interactive {
   transform: translateY(-6px);
   box-shadow: 0 16px 30px rgba(67, 44, 27, .22);
 }
 
 .library-showcase-cover-copy {
   min-width: 0;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   display: grid;
   gap: 2px;
 }

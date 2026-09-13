@@ -167,15 +167,14 @@ export function CoverBook({ item, onSelectBook, onSelectAuthor, onScoreChange, s
   return (
     <article className="library-v2-cover-card">
       <div className="library-v2-cover-visual">
-        <button
-          type="button"
-          className="library-v2-cover-image"
-          onClick={() => onSelectBook?.(book)}
-          aria-label={`Abrir ficha de ${book.title || "este libro"}`}
-        >
-          <InteractiveLibraryBook3D item={item} />
-          <span className={`status-pill ${statusClass}`}>{statusLabel}</span>
-        </button>
+        <div className="library-v2-cover-image">
+          <InteractiveLibraryBook3D item={item}
+            onOpen={() => onSelectBook?.(book)}
+            openLabel={`Abrir ficha de ${book.title || "este libro"}`}
+          >
+            <span className={`status-pill ${statusClass}`}>{statusLabel}</span>
+          </InteractiveLibraryBook3D>
+        </div>
 
         <div className="library-v2-score" role="group" aria-label={`Tu puntuación de ${book.title || "libro"}: ${formatShelfScore(item.score)}`}>
           {shelfStarFills(item.score).map((fill, index) => (

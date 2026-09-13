@@ -75,7 +75,7 @@ test("the detail preview has no rectangular frame or clipping and reserves room 
     assert.doesNotMatch(rule, /(?:background|box-shadow):\s*(?!transparent\s*;|none\s*;)\S/);
   }
   assert.match(css, /\.book-detail-cover-3d\s*\{[^}]*overflow:\s*visible;/);
-  assert.match(css, /\.book-detail-cover-3d:focus-visible\s*\{[^}]*outline:\s*3px solid/);
+  assert.match(css, /\.book-detail-cover-3d \.book3d-drag-surface:focus-visible\s*\{[^}]*outline:\s*3px solid/);
   // Face-level clipping is still needed to discard the product photo outside each quad.
   const faces = await readFile(new URL("../src/LibraryBook3D.css", import.meta.url), "utf8");
   assert.match(faces, /\.book-face-texture\s*\{[^}]*overflow:\s*hidden;/);
@@ -109,4 +109,47 @@ test("generated spines and backs expose the shared dominant color instead of blu
   assert.match(texture, /width: natural.width/);
   assert.match(texture, /naturalWidth/);
   assert.match(texture, /naturalHeight/);
+});
+
+test("2D is a native sibling action that resets both angles without opening the book", async () => {
+  const jsx = await readFile(new URL("../src/InteractiveLibraryBook3D.jsx", import.meta.url), "utf8");
+  const reset = jsx.match(/function resetTo2D\(event\) \{([\s\S]*?)\n  \}/)?.[1];
+  assert.ok(reset);
+  assert.match(reset, /event.preventDefault\(\)/);
+  assert.match(reset, /event.stopPropagation\(\)/);
+  assert.match(reset, /gestureRef.current = null/);
+  assert.match(reset, /releasePointerCapture\(pointerId\)/);
+  assert.match(reset, /draggedRef.current = false/);
+  assert.match(reset, /applyRotation\(0, 0\)/);
+  assert.match(reset, /setIsFlat\(true\)/);
+  assert.doesNotMatch(reset, /onOpen/);
+  assert.match(jsx, /<\/Surface>\s*<button\s*type="button"\s*className="book3d-reset-2d"\s*onClick=\{resetTo2D\}/);
+  assert.match(jsx, /Volver al modo 2D/);
+  assert.doesNotMatch(jsx, /book3d-rotate-hint/);
+});
+
+test("2D really removes perspective and hidden faces; a new drag restores 3D", async () => {
+  const [jsx, css] = await Promise.all([
+    readFile(new URL("../src/InteractiveLibraryBook3D.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/LibraryBook3D.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(jsx, /isFlat \? "is-flat" : ""/);
+  assert.match(jsx, /Math.hypot\(deltaX, deltaY\) < DRAG_THRESHOLD\) return;\s*if \(!draggedRef.current\) setIsFlat\(false\)/);
+  assert.match(css, /\.book3d-interactive\.is-flat \.book3d-stage\s*\{\s*perspective: none;/);
+  assert.match(css, /\.book3d-interactive\.is-flat \.book3d-object\s*\{\s*transform: none;/);
+  assert.match(css, /\.book3d-interactive\.is-flat \.book3d-face:not\(\.is-front\)\s*\{\s*display: none;/);
+  assert.match(css, /\.book3d-interactive\.is-flat \.book3d-face\.is-front\s*\{\s*transform: none;/);
+  assert.match(css, /\.book3d-reset-2d:focus-visible\s*\{[^}]*outline:/);
+});
+
+test("all cover entry points delegate opening to the drag surface without nesting buttons", async () => {
+  const [detail, library, showcase] = await Promise.all([
+    "BookDetailImpl.jsx", "MiBibliotecaImpl.jsx", "LibraryShelfShowcase.jsx",
+  ].map((name) => readFile(new URL(`../src/${name}`, import.meta.url), "utf8")));
+  assert.match(detail, /<div className="book-detail-cover-3d">\s*<InteractiveLibraryBook3D[^>]*onOpen=\{\(\) => setBook3dOpen\(true\)\}/);
+  assert.match(detail, /key=\{currentBook.id\}/);
+  assert.match(library, /<div className="library-v2-cover-image">\s*<InteractiveLibraryBook3D[^>]*onOpen=\{\(\) => onSelectBook\?\.\(book\)\}/);
+  assert.match(showcase, /onOpen=\{photoMode \? undefined : \(\) => onSelectBook\?\.\(book\)\}/);
+  assert.match(showcase, /<div className="library-showcase-cover-card">\s*\{visual\}/);
+  assert.match(showcase, /<button type="button" className="library-showcase-cover-copy"/);
 });

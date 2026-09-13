@@ -531,11 +531,11 @@ button {
   touch-action: none;
 }
 
-.book-detail-cover-3d:active {
+.book-detail-cover-3d .book3d-drag-surface:active {
   cursor: grabbing;
 }
 
-.book-detail-cover-3d:focus-visible {
+.book-detail-cover-3d .book3d-drag-surface:focus-visible {
   outline: 3px solid #fff7;
   outline-offset: 6px;
 }
