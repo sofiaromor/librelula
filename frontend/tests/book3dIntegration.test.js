@@ -153,3 +153,33 @@ test("all cover entry points delegate opening to the drag surface without nestin
   assert.match(showcase, /<div className="library-showcase-cover-card">\s*\{visual\}/);
   assert.match(showcase, /<button type="button" className="library-showcase-cover-copy"/);
 });
+
+test("2D displays the original edition cover, not the rectified 3D front", async () => {
+  const [jsx, css] = await Promise.all([
+    readFile(new URL("../src/InteractiveLibraryBook3D.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/LibraryBook3D.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(jsx, /edition \|\| item.visual_edition \|\| pickVisualEdition\(book, item.editions\)/);
+  assert.match(jsx, /originalCover = bookImageUrl\(selected\?\.cover \|\| book.cover\)/);
+  assert.match(jsx, /isFlat && hasOriginalCover \? <img/);
+  const originalImage = jsx.match(/className="book3d-original-cover"([\s\S]*?)\/>/)?.[1];
+  assert.ok(originalImage);
+  assert.match(originalImage, /src=\{originalCover\}/);
+  assert.match(originalImage, /draggable="false"/);
+  assert.doesNotMatch(originalImage, /quad|faceCssMatrix|crop/);
+  assert.match(css, /\.book3d-original-cover\s*\{[^}]*object-fit: contain;/);
+});
+
+test("the 3D model is retained until the original cover loads or if it fails", async () => {
+  const [jsx, css] = await Promise.all([
+    readFile(new URL("../src/InteractiveLibraryBook3D.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/LibraryBook3D.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(jsx, /failedCover !== originalCover/);
+  assert.match(jsx, /originalReady = hasOriginalCover && loadedCover === originalCover/);
+  assert.match(jsx, /onLoad=\{\(\) => setLoadedCover\(originalCover\)\}/);
+  assert.match(jsx, /onError=\{\(\) => setFailedCover\(originalCover\)\}/);
+  // Group opacity also hides rectified descendants whose inline visibility is explicitly visible.
+  assert.match(css, /\.book3d-interactive\.is-flat\.has-original-cover \.book3d-stage\s*\{\s*opacity: 0;/);
+  assert.match(css, /\.book3d-interactive\.is-flat\.has-original-cover \.book3d-original-cover\s*\{\s*opacity: 1;/);
+});

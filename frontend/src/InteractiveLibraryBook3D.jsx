@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
 import LibraryBook3D from "./LibraryBook3D.jsx";
+import { bookImageUrl, pickVisualEdition } from "./lib/book3dGeometry.js";
 
 const DRAG_THRESHOLD = 4;
 const YAW_PER_PIXEL = 0.7;
@@ -10,12 +11,19 @@ function clampPitch(value) {
 }
 
 export default function InteractiveLibraryBook3D({ item, edition, initialYaw = -12, initialPitch = -3, onOpen, openLabel, children }) {
+  const book = item.book || {};
+  const selected = edition || item.visual_edition || pickVisualEdition(book, item.editions);
+  const originalCover = bookImageUrl(selected?.cover || book.cover);
   const objectRef = useRef(null);
   const surfaceRef = useRef(null);
   const gestureRef = useRef(null);
   const rotationRef = useRef({ yaw: initialYaw, pitch: initialPitch });
   const draggedRef = useRef(false);
   const [isFlat, setIsFlat] = useState(false);
+  const [loadedCover, setLoadedCover] = useState("");
+  const [failedCover, setFailedCover] = useState("");
+  const hasOriginalCover = Boolean(originalCover && failedCover !== originalCover);
+  const originalReady = hasOriginalCover && loadedCover === originalCover;
   const Surface = typeof onOpen === "function" ? "button" : "span";
 
   function applyRotation(yaw, pitch) {
@@ -87,7 +95,7 @@ export default function InteractiveLibraryBook3D({ item, edition, initialYaw = -
   }
 
   return (
-    <span className={`book3d-interactive ${isFlat ? "is-flat" : ""}`}>
+    <span className={`book3d-interactive ${isFlat ? "is-flat" : ""} ${originalReady ? "has-original-cover" : ""}`}>
       <Surface
         ref={surfaceRef}
         className="book3d-drag-surface"
@@ -107,6 +115,16 @@ export default function InteractiveLibraryBook3D({ item, edition, initialYaw = -
           initialYaw={initialYaw}
           initialPitch={initialPitch}
         />
+        {isFlat && hasOriginalCover ? <img
+          className="book3d-original-cover"
+          src={originalCover}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          draggable="false"
+          onLoad={() => setLoadedCover(originalCover)}
+          onError={() => setFailedCover(originalCover)}
+        /> : null}
         {children}
       </Surface>
       <button
