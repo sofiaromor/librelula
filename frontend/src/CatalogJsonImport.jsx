@@ -78,7 +78,7 @@ function normalizedItem(value, index) {
     matchedBookTitle: "",
     title,
     titleBase,
-    edition: cleanText(item.edition || item.edicion),
+    edition: cleanText(item.edition || item.edicion || item.special_binding || item.encuadernacion_especial),
     author: cleanText(item.author || item.autora),
     synopsis: cleanText(item.synopsis || item.sinopsis),
     genre,
@@ -102,6 +102,7 @@ function normalizedItem(value, index) {
     sourceId,
     sourceUrl: cleanText(item.source_url || item.url),
     binding: cleanText(item.binding || item.encuadernacion || item.formato),
+    specialBinding: cleanText(item.special_binding || item.encuadernacion_especial),
     heroColor: cleanText(item.hero_color || item.heroColor),
     publicationDate: cleanText(
       item.publication_date || item.fecha_publicacion,
@@ -150,7 +151,7 @@ function itemWarnings(item) {
   if (!item.publisher) warnings.push("Falta la editorial");
   if (!item.year) warnings.push("Falta el año");
   if (!item.sourceUrl) warnings.push("Falta la URL de procedencia");
-  if (!item.edition && !item.binding) warnings.push("Falta indicar la edición o el formato");
+  if (!item.edition && !item.binding && !item.specialBinding) warnings.push("Falta indicar la edición o el formato");
   if (item.sourceGenre && !item.genre) {
     warnings.push(`Revisar el género de origen: «${item.sourceGenre}»`);
   }
@@ -191,7 +192,7 @@ function importPayload(item) {
     row_id: item.rowId,
     title: item.title,
     title_base: item.titleBase || deriveBaseTitle(item.title),
-    edition: item.edition || null,
+    edition: item.edition || item.specialBinding || null,
     binding: item.binding || null,
     author: item.author,
     synopsis: item.synopsis || null,

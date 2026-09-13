@@ -2,9 +2,9 @@
 
 ## Resultado de esta revisión (2026-09-13)
 
-La búsqueda de metadatos del catálogo aprobado, hecha en modo lectura, devolvió 117 registros amplios (incluye duplicados obra/edición y falsos positivos) y 30 ISBN distintos con menciones explícitas de cantos especiales. Se revisaron también las fotografías de ediciones especiales aunque sus títulos no mencionasen el canto. Estos números no significan que todos los candidatos tengan cantos confirmados.
+La búsqueda de metadatos del catálogo aprobado, hecha en modo lectura, devolvió 117 registros amplios (incluye duplicados obra/edición y falsos positivos) y 30 ISBN distintos con menciones explícitas de cantos especiales. Se revisaron también las fotografías de ediciones especiales aunque sus títulos no mencionasen el canto. Además, el scraper conserva el campo técnico «Encuadernación especial», que es donde aparecen casos como Alas de ensueño y Coronada de estrellas. Estos números no significan que todos los candidatos tengan cantos confirmados.
 
-**41 ISBN tienen ahora un recorte individual de portada y canto delantero visible**, incluido Asistente del villano. La activación ocurre en el frontend de la rama de preview, sin escrituras en la base de datos, reimportaciones ni migraciones en producción. No se ha fusionado main.
+**43 ISBN tienen ahora un recorte individual de portada y canto delantero visible**, incluidos Asistente del villano, Alas de ensueño y Coronada de estrellas. La activación ocurre en el frontend de la rama de preview, sin escrituras en la base de datos, reimportaciones ni migraciones en producción. No se ha fusionado main.
 
 El registro está en `frontend/src/lib/paintedEdgePresets.js`. Cada recorte usa sus propias coordenadas y la fotografía original de 552 px de ancho. Se comprobaron visualmente las caras y se compararon las variantes s5/s7 a igual tamaño; no se infieren coordenadas por el aspecto de otro libro. Las fotos públicas pueden cambiar: si cambia su composición, hay que revisar/eliminar el preset.
 
@@ -26,6 +26,8 @@ Los nuevos JSON pueden llevar originales/galerías sin esquinas. Un preset solo 
 
 | ISBN | Edición | Fuentes públicas |
 | --- | --- | --- |
+| 9791387901813 | Disney. Alas de ensueño | [Foto original](https://imagessl3.casadellibro.com/a/l/s7/13/9791387901813.webp) · [Ficha](https://www.casadellibro.com/libro-disney-alas-de-ensueno/9791387901813/18275512) |
+| 9788410399341 | Coronada de estrellas | [Foto original](https://imagessl1.casadellibro.com/a/l/s7/41/9788410399341.webp) · [Ficha](https://www.casadellibro.com/libro-coronada-de-estrellas/9788410399341/18049955) |
 | 9788401034367 | Oscura (El Bosque Voraz, #2) | [Foto original](https://imagessl7.casadellibro.com/a/l/s7/67/9788401034367.webp) |
 | 9788401038280 | Anatema (Primera edición limitada) (El Bosque Voraz, #1) | [Foto original](https://imagessl0.casadellibro.com/a/l/s7/80/9788401038280.webp) · [Ficha](https://www.casadellibro.com/libro-anatema-el-bosque-voraz-1/9788401038280/17031866) |
 | 9788408285298 | Una corte de rosas y espinas. Edición especial | [Foto original](https://imagessl8.casadellibro.com/a/l/s7/98/9788408285298.webp) · [Ficha](https://www.casadellibro.com/libro-una-corte-de-rosas-y-espinas-edicion-especial/9788408285298/14508004) |
@@ -101,4 +103,3 @@ python -m unittest discover -s tools/scraping_libros/tests
 Para añadir otro ISBN: obtener la fotografía publicada de esa edición, comprobar que el lateral es el canto de páginas (no el lomo), verificar resolución/composición y ausencia de marcas provisionales, delimitar cada cara y ejecutar las pruebas. No repetir coordenadas de otro ISBN por tener una maqueta parecida. Alternativamente, una administradora puede guardar las esquinas en el editor cuando esté autorizada y activada la migración opcional de texturas.
 
 La validación geométrica y las pruebas de integración de código no sustituyen la QA táctil/visual en navegador móvil. La publicación de la rama proporciona el preview para esa comprobación; no modifica producción.
-

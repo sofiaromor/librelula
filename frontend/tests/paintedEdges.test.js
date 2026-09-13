@@ -16,7 +16,7 @@ for (const c of cases) test(`painted candidate: ${c.name}`, () => {
 
 test("all verified faces are valid, isolated by ISBN and rectified independently", () => {
   assert.equal(new Set(VERIFIED_PAINTED_EDGE_PRESETS.map((p) => p.isbn)).size, VERIFIED_PAINTED_EDGE_PRESETS.length);
-  assert.equal(VERIFIED_PAINTED_EDGE_PRESETS.length, 41);
+  assert.equal(VERIFIED_PAINTED_EDGE_PRESETS.length, 43);
   for (const p of VERIFIED_PAINTED_EDGE_PRESETS) {
     for (const cover of p.cover_urls) {
       const v = resolveBookVisual({ isbn: p.isbn, cover });
@@ -36,6 +36,18 @@ test("all verified faces are valid, isolated by ISBN and rectified independently
       v.fore_edge_quad[0][0] = 0;
       assert.notEqual(resolveBookVisual({ isbn: p.isbn, cover }).fore_edge_quad[0][0], 0);
     }
+  }
+});
+
+test("technical special-binding metadata finds the two missed editions", () => {
+  for (const [isbn, cover] of [
+    ["9791387901813", "https://imagessl3.casadellibro.com/a/l/s5/13/9791387901813.webp"],
+    ["9788410399341", "https://imagessl1.casadellibro.com/a/l/s5/41/9788410399341.webp"],
+  ]) {
+    const visual = resolveBookVisual({ isbn, cover });
+    assert.ok(visual.front_quad, isbn);
+    assert.ok(visual.fore_edge_quad, isbn);
+    assert.notDeepEqual(visual.front_quad, visual.fore_edge_quad);
   }
 });
 

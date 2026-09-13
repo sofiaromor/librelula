@@ -322,6 +322,9 @@ class LibroSpider(scrapy.Spider):
             anio = int(coincidencia_anio.group(0)) if coincidencia_anio else None
 
         encuadernacion = extraer_campo("Encuadernación", "Encuadernacion")
+        encuadernacion_especial = extraer_campo(
+            "Encuadernación especial", "Encuadernacion especial"
+        )
         saga = texto_fuente_limpio(
             extraer_campo("Serie/Saga", "Saga", "Serie")
         ) or None
@@ -457,12 +460,13 @@ class LibroSpider(scrapy.Spider):
             fecha_publicacion=fecha_publicacion,
             anio=anio,
             encuadernacion=encuadernacion,
+            encuadernacion_especial=encuadernacion_especial,
             saga=saga,
             saga_numero=saga_numero,
             imagen_portada=imagen_portada,
             imagen_producto=imagenes_producto[0] if imagenes_producto else None,
             imagenes_producto=imagenes_producto,
-            painted_edges=detect_painted_edges({"title": titulo_original, "edition": edicion, "synopsis": sinopsis, "isbn": isbn, "cover": imagen_portada}),
+            painted_edges=detect_painted_edges({"title": titulo_original, "edition": edicion, "special_binding": encuadernacion_especial, "synopsis": sinopsis, "isbn": isbn, "cover": imagen_portada}),
             provider="casa_del_libro",
             source_id=source_id,
             url=url_original,

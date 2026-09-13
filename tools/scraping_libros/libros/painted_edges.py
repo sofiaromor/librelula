@@ -31,7 +31,7 @@ def valid_isbn(value):
 
 
 def detect_painted_edges(item):
-    title = text(" ".join(str(v) for v in [item.get("title") or item.get("titulo"), item.get("edition_label") or item.get("edition") or item.get("edicion")] if v))
+    title = text(" ".join(str(v) for v in [item.get("title") or item.get("titulo"), item.get("edition_label") or item.get("edition") or item.get("edicion"), item.get("special_binding") or item.get("encuadernacion_especial")] if v))
     synopsis = text(item.get("synopsis") or item.get("sinopsis"))
     fields = [title, synopsis]
     all_text = " ".join(fields)

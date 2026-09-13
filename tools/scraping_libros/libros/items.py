@@ -16,6 +16,7 @@ class LibroItem(scrapy.Item):
     fecha_publicacion = scrapy.Field()
     anio = scrapy.Field()
     encuadernacion = scrapy.Field()
+    encuadernacion_especial = scrapy.Field()
     saga = scrapy.Field()
     saga_numero = scrapy.Field()
     imagen_portada = scrapy.Field()

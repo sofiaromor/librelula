@@ -321,6 +321,10 @@ def transformar(registro: dict, posicion: int) -> dict:
     # Se recalcula para no conservar el sufijo antiguo '(Saga 3)' del JSON raw.
     title_base = detected_title_base
     edition = texto(registro.get("edicion")) or detected_edition
+    special_binding = texto(
+        registro.get("encuadernacion_especial")
+        or registro.get("special_binding")
+    )
     author = texto(registro.get("autora"))
     synopsis = texto(registro.get("sinopsis"))
     normalized_isbn = isbn(registro.get("isbn"))
@@ -389,7 +393,7 @@ def transformar(registro: dict, posicion: int) -> dict:
         "saga_name": saga_name,
         "saga_number": saga_number,
         "cover": cover,
-        "painted_edges": detect_painted_edges({"title": title, "edition": edition, "synopsis": synopsis, "isbn": normalized_isbn, "cover": cover}),
+        "painted_edges": detect_painted_edges({"title": title, "edition": edition, "special_binding": special_binding, "synopsis": synopsis, "isbn": normalized_isbn, "cover": cover}),
         "product_image_url": url_https(registro.get("imagen_producto")) or cover,
         "image_gallery": list(dict.fromkeys(
             url_https(image) for image in (registro.get("imagenes_producto") or [])
@@ -400,6 +404,7 @@ def transformar(registro: dict, posicion: int) -> dict:
         "source_id": texto(registro.get("source_id")) or normalized_isbn or source_url,
         "source_url": source_url,
         "binding": texto(registro.get("encuadernacion")),
+        "special_binding": special_binding,
         "publication_date": texto(registro.get("fecha_publicacion")),
         "warnings": list(dict.fromkeys(warnings)),
         "errors": errors,

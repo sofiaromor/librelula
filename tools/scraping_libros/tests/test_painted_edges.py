@@ -33,6 +33,16 @@ class PaintedEdgesTests(unittest.TestCase):
         self.assertNotIn("fore_edge_quad", result)
         self.assertFalse(result["selected"])
 
+    def test_technical_special_binding_is_used(self):
+        for isbn in ("9791387901813", "9788410399341"):
+            result = detect_painted_edges({
+                "title": "Libro normal",
+                "encuadernacion_especial": "Cantos tintados",
+                "isbn": isbn,
+            })
+            self.assertEqual(result["status"], "explicit")
+            self.assertEqual(result["reason"], "edition_label")
+
 
 if __name__ == "__main__":
     unittest.main()

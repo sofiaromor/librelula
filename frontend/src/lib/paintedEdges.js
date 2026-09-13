@@ -19,7 +19,7 @@ function validIsbn(isbn) {
 }
 
 export function detectPaintedEdges(item = {}) {
-  const title = text([item.title || item.titulo, item.edition_label || item.edition || item.edicion].filter(Boolean).join(" "));
+  const title = text([item.title || item.titulo, item.edition_label || item.edition || item.edicion, item.special_binding || item.specialBinding || item.encuadernacion_especial].filter(Boolean).join(" "));
   const synopsis = text(item.synopsis || item.sinopsis);
   const fields = [title, synopsis];
   const all = fields.join(" ");

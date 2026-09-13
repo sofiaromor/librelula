@@ -19,4 +19,6 @@
   {"name":"raw scraper aliases", "item":{"titulo":"Odisea","edicion":"Cantos tintados","isbn":"978-84-9105-809-0"},"status":"explicit","reason":"edition_label"},
   {"name":"HTML and accents", "item":{"title":"<b>EDICIÓN CON CANTOS TINTADOS</b>","isbn":"9788491058090"},"status":"explicit","reason":"edition_label"},
   {"name":"untrusted boolean is not proof", "item":{"title":"Libro normal","painted_edges":true,"isbn":"9788491058090"},"status":"none","reason":"no_signal"}
+  ,{"name":"technical special binding", "item":{"title":"Disney. Alas de ensueño","special_binding":"Cantos tintados","isbn":"9791387901813"},"status":"explicit","reason":"edition_label"}
+  ,{"name":"technical binding alias", "item":{"title":"Coronada de estrellas","encuadernacion_especial":"Cantos tintados","isbn":"9788410399341"},"status":"explicit","reason":"edition_label"}
 ]

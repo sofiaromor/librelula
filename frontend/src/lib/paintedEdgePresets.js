@@ -75,6 +75,27 @@ VERIFIED_PAINTED_EDGE_PRESETS.push({
   fore_edge_quad: [[.700,.148],[.750,.148],[.750,.855],[.700,.856]],
 });
 
+// Estas dos fichas se identificaron por el campo técnico «Encuadernación
+// especial» de Casa del Libro, no por el título ni la sinopsis. Las esquinas
+// separan la cubierta del lateral pintado y dejan fuera el fondo blanco.
+VERIFIED_PAINTED_EDGE_PRESETS.push({
+  isbn: "9791387901813",
+  cover_urls: photoUrls("9791387901813"),
+  product_image_url: photoUrls("9791387901813")[1],
+  image_gallery: photoUrls("9791387901813"),
+  front_quad: [[.1884,.1506],[.77899,.0833],[.77899,.8947],[.1884,.8830]],
+  fore_edge_quad: [[.7862,.0994],[.8822,.0994],[.8822,.9254],[.7862,.9327]],
+});
+
+VERIFIED_PAINTED_EDGE_PRESETS.push({
+  isbn: "9788410399341",
+  cover_urls: photoUrls("9788410399341"),
+  product_image_url: photoUrls("9788410399341")[1],
+  image_gallery: photoUrls("9788410399341"),
+  front_quad: [[.1377,.0862],[.78986,.0374],[.78986,.9497],[.1377,.9095]],
+  fore_edge_quad: [[.7989,.0675],[.8478,.0761],[.8478,.9310],[.7989,.9425]],
+});
+
 const byIsbn = new Map(VERIFIED_PAINTED_EDGE_PRESETS.map((preset) => [preset.isbn, preset]));
 const byCover = new Map(VERIFIED_PAINTED_EDGE_PRESETS.flatMap((preset) => preset.cover_urls.map((url) => [url, preset])));
 
