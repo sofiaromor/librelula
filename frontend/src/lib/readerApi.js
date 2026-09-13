@@ -117,9 +117,6 @@ export async function getReaderBookAssets(bookId) {
 
 export async function getReaderDocuments(bookId) {
   const cleanId = cleanBookId(bookId);
-  const { error: userError } = await supabase.auth.getUser();
-  if (userError) throw apiError(userError.message || "No se pudo comprobar la sesión.");
-
   const { data, error } = await supabase
     .from("reader_documents")
     .select("id, book_id, format, original_name, storage_path, mime_type, size_bytes, created_at, updated_at")

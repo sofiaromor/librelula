@@ -1,7 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ePub from "epubjs";
-import { getDocument, GlobalWorkerOptions, TextLayer } from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 import "./ReaderPage.css";
 import { publicUrl } from "./api.js";
@@ -21,7 +18,24 @@ import {
   readerProgressFromPdf,
 } from "./lib/readerUtils.js";
 
-GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
+let epubModulePromise;
+let pdfModulePromise;
+
+function loadEpubModule() {
+  epubModulePromise ||= import("epubjs").then((module) => module.default || module);
+  return epubModulePromise;
+}
+
+function loadPdfModule() {
+  pdfModulePromise ||= Promise.all([
+    import("pdfjs-dist"),
+    import("pdfjs-dist/build/pdf.worker.min.mjs?url"),
+  ]).then(([module, worker]) => {
+    module.GlobalWorkerOptions.workerSrc = worker.default;
+    return module;
+  });
+  return pdfModulePromise;
+}
 
 const NOTE_COLORS = [
   ["yellow", "Amarillo"],
@@ -89,78 +103,91 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
     let cancelled = false;
     let book = null;
     let rendition = null;
+    let locationTimer = null;
+    let idleCallback = null;
     setLoading(true);
     setError("");
     setToc([]);
 
-    try {
-      book = ePub(sourceUrl);
-      bookRef.current = book;
-      rendition = book.renderTo(containerRef.current, {
-        width: "100%",
-        height: "100%",
-        spread: "none",
-        flow: "paginated",
-      });
-      renditionRef.current = rendition;
-
-      const handleRelocated = (location) => {
-        if (cancelled || !location?.start) return;
-        const cfi = location.start.cfi || "";
-        const percentage = book.locations?.length
-          ? book.locations.percentageFromCfi(cfi)
-          : Number(location.start.percentage || 0);
-        const chapter = location.start.href?.split("#")[0]?.split("/").pop() || "Lectura";
-        onChapterChange?.(chapter);
-        onProgress?.({
-          progress: readerProgressFromEpub(percentage),
-          locator: { cfi },
-          currentPage: null,
-          currentChapter: chapter,
+    const scheduleLocations = () => {
+      const generateLocations = () => {
+        if (cancelled || !book?.locations?.generate) return;
+        void Promise.resolve(book.locations.generate(1600)).catch(() => {
+          // El lector sigue funcionando aunque no se pueda generar el mapa de posiciones.
         });
       };
 
-      rendition.on("relocated", handleRelocated);
-      rendition.on("selected", (cfiRange, contents) => {
-        const quote = contents?.window?.getSelection?.()?.toString?.().trim() || "";
-        if (quote) {
-          onQuoteSelected?.({ quote, locator: { cfi: cfiRange } });
-        }
-      });
+      if (typeof window.requestIdleCallback === "function") {
+        idleCallback = window.requestIdleCallback(generateLocations, { timeout: 3000 });
+      } else {
+        locationTimer = window.setTimeout(generateLocations, 1200);
+      }
+    };
 
-      book.ready
-        .then(async () => {
-          if (cancelled) return;
-          try {
-            await book.locations.generate(1600);
-          } catch {
-            // El lector sigue funcionando aunque no se pueda generar el mapa de posiciones.
-          }
+    loadEpubModule()
+      .then((ePub) => {
+        if (cancelled) return null;
 
-          const navigation = await book.loaded.navigation;
-          if (!cancelled) {
-            setToc(Array.isArray(navigation?.toc) ? navigation.toc : []);
-          }
+        book = ePub(sourceUrl);
+        bookRef.current = book;
+        rendition = book.renderTo(containerRef.current, {
+          width: "100%",
+          height: "100%",
+          spread: "none",
+          flow: "paginated",
+        });
+        renditionRef.current = rendition;
 
-          const cfi = initialCfiRef.current || undefined;
-          await rendition.display(cfi);
-          if (!cancelled) setLoading(false);
-        })
-        .catch((loadError) => {
-          if (!cancelled) {
-            setError(loadError?.message || "No se pudo abrir este ePub.");
-            setLoading(false);
+        const handleRelocated = (location) => {
+          if (cancelled || !location?.start) return;
+          const cfi = location.start.cfi || "";
+          const percentage = book.locations?.length
+            ? book.locations.percentageFromCfi(cfi)
+            : Number(location.start.percentage || 0);
+          const chapter = location.start.href?.split("#")[0]?.split("/").pop() || "Lectura";
+          onChapterChange?.(chapter);
+          onProgress?.({
+            progress: readerProgressFromEpub(percentage),
+            locator: { cfi },
+            currentPage: null,
+            currentChapter: chapter,
+          });
+        };
+
+        rendition.on("relocated", handleRelocated);
+        rendition.on("selected", (cfiRange, contents) => {
+          const quote = contents?.window?.getSelection?.()?.toString?.().trim() || "";
+          if (quote) {
+            onQuoteSelected?.({ quote, locator: { cfi: cfiRange } });
           }
         });
-    } catch (loadError) {
-      const errorMessage = loadError?.message || "No se pudo preparar el lector ePub.";
-      window.setTimeout(() => {
+
+        return book.ready;
+      })
+      .then(async () => {
+        if (cancelled || !book || !rendition) return;
+
+        const cfi = initialCfiRef.current || undefined;
+        await rendition.display(cfi);
+        if (cancelled) return;
+
+        setLoading(false);
+        scheduleLocations();
+
+        void book.loaded.navigation
+          .then((navigation) => {
+            if (!cancelled) {
+              setToc(Array.isArray(navigation?.toc) ? navigation.toc : []);
+            }
+          })
+          .catch(() => {});
+      })
+      .catch((loadError) => {
         if (!cancelled) {
-          setError(errorMessage);
+          setError(loadError?.message || "No se pudo abrir este ePub.");
           setLoading(false);
         }
-      }, 0);
-    }
+      });
 
     if (controlsRef) {
       controlsRef.current = {
@@ -173,6 +200,8 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
     return () => {
       cancelled = true;
       if (controlsRef) controlsRef.current = null;
+      if (locationTimer !== null) window.clearTimeout(locationTimer);
+      if (idleCallback !== null) window.cancelIdleCallback?.(idleCallback);
       rendition?.destroy?.();
       book?.destroy?.();
       bookRef.current = null;
@@ -237,24 +266,50 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const element = viewportRef.current;
-    if (!element) return undefined;
+    if (!sourceUrl) return undefined;
 
-    const updateWidth = () => {
-      const width = Math.floor(element.clientWidth - 8);
-      if (width > 0) setViewportWidth(width);
+    let cancelled = false;
+    let loadingTask = null;
+    const resetTimer = window.setTimeout(() => {
+      if (!cancelled) {
+        setLoading(true);
+        setError("");
+        setPdf(null);
+      }
+    }, 0);
+
+    loadPdfModule()
+      .then(({ getDocument }) => {
+        if (cancelled) return null;
+        loadingTask = getDocument({ url: sourceUrl });
+        return loadingTask.promise;
+      })
+      .then((loadedPdf) => {
+        if (!loadedPdf) return;
+        if (cancelled) {
+          loadedPdf.destroy();
+          return;
+        }
+        pdfRef.current = loadedPdf;
+        setPdf(loadedPdf);
+        setTotalPages(loadedPdf.numPages);
+        setPageNumber((current) => Math.min(loadedPdf.numPages, Math.max(1, current)));
+      })
+      .catch((loadError) => {
+        if (!cancelled) setError(loadError?.message || "No se pudo abrir este PDF.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(resetTimer);
+      loadingTask?.destroy?.();
+      pdfRef.current?.destroy?.();
+      pdfRef.current = null;
     };
-    updateWidth();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateWidth);
-      return () => window.removeEventListener("resize", updateWidth);
-    }
-
-    const observer = new ResizeObserver(updateWidth);
-    observer.observe(element);
-    return () => observer.disconnect();
-  }, []);
+  }, [sourceUrl]);
 
   useEffect(() => {
     if (!sourceUrl) return undefined;
@@ -619,8 +674,12 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
 
     readerStartedRef.current = "";
 
+    const assetsPromise = bookEpubFile || bookPdfFile
+      ? Promise.resolve({ epub_file: bookEpubFile, pdf_file: bookPdfFile })
+      : getReaderBookAssets(bookId);
+
     Promise.all([
-      getReaderBookAssets(bookId),
+      assetsPromise,
       getReaderDocuments(bookId),
       getReaderBookState(bookId),
     ])
