@@ -258,6 +258,7 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
   const textLayerRef = useRef(null);
   const viewportRef = useRef(null);
   const pdfRef = useRef(null);
+  const textLayerClassRef = useRef(null);
   const [pdf, setPdf] = useState(null);
   const [pageNumber, setPageNumber] = useState(Math.max(1, Number(initialProgress?.current_page || initialProgress?.locator?.page || 1)));
   const [totalPages, setTotalPages] = useState(0);
@@ -299,9 +300,10 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
     }, 0);
 
     loadPdfModule()
-      .then(({ getDocument }) => {
+      .then((pdfModule) => {
         if (cancelled) return null;
-        loadingTask = getDocument({ url: sourceUrl });
+        textLayerClassRef.current = pdfModule.TextLayer;
+        loadingTask = pdfModule.getDocument({ url: sourceUrl });
         return loadingTask.promise;
       })
       .then((loadedPdf) => {
@@ -328,11 +330,12 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
       loadingTask?.destroy?.();
       pdfRef.current?.destroy?.();
       pdfRef.current = null;
+      textLayerClassRef.current = null;
     };
   }, [sourceUrl]);
 
   useEffect(() => {
-    if (!pdf || !canvasRef.current || !pageRef.current || !textLayerRef.current) return undefined;
+    if (!pdf || !textLayerClassRef.current || !canvasRef.current || !pageRef.current || !textLayerRef.current) return undefined;
 
     let cancelled = false;
     let renderTask = null;
@@ -347,6 +350,7 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
         const canvas = canvasRef.current;
         const pageElement = pageRef.current;
         const textLayerElement = textLayerRef.current;
+        const TextLayer = textLayerClassRef.current;
         const context = canvas.getContext("2d", { alpha: false });
         const outputScale = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
 
