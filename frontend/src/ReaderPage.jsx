@@ -266,6 +266,26 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
   const [error, setError] = useState("");
 
   useEffect(() => {
+    const element = viewportRef.current;
+    if (!element) return undefined;
+
+    const updateWidth = () => {
+      const width = Math.floor(element.clientWidth - 8);
+      if (width > 0) setViewportWidth(width);
+    };
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateWidth);
+      return () => window.removeEventListener("resize", updateWidth);
+    }
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     if (!sourceUrl) return undefined;
 
     let cancelled = false;
@@ -306,46 +326,6 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
       cancelled = true;
       window.clearTimeout(resetTimer);
       loadingTask?.destroy?.();
-      pdfRef.current?.destroy?.();
-      pdfRef.current = null;
-    };
-  }, [sourceUrl]);
-
-  useEffect(() => {
-    if (!sourceUrl) return undefined;
-
-    let cancelled = false;
-    const resetTimer = window.setTimeout(() => {
-      if (!cancelled) {
-        setLoading(true);
-        setError("");
-        setPdf(null);
-      }
-    }, 0);
-    const loadingTask = getDocument({ url: sourceUrl });
-
-    loadingTask.promise
-      .then((loadedPdf) => {
-        if (cancelled) {
-          loadedPdf.destroy();
-          return;
-        }
-        pdfRef.current = loadedPdf;
-        setPdf(loadedPdf);
-        setTotalPages(loadedPdf.numPages);
-        setPageNumber((current) => Math.min(loadedPdf.numPages, Math.max(1, current)));
-      })
-      .catch((loadError) => {
-        if (!cancelled) setError(loadError?.message || "No se pudo abrir este PDF.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(resetTimer);
-      loadingTask.destroy();
       pdfRef.current?.destroy?.();
       pdfRef.current = null;
     };
