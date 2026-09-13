@@ -7,6 +7,7 @@ from urllib.parse import urlsplit, urlunsplit
 import scrapy
 
 from libros.items import LibroItem
+from libros.product_images import best_srcset_image, product_image_gallery
 
 
 ESPACIOS = re.compile(r"\s+")
@@ -330,11 +331,22 @@ class LibroSpider(scrapy.Spider):
         )
 
         imagen_portada = (
-            response.css('img[style*="--p-ficha-"]::attr(src)').get()
+            best_srcset_image(response.css('img[style*="--p-ficha-"]::attr(srcset)').get())
+            or response.css('img[style*="--p-ficha-"]::attr(src)').get()
             or response.css('meta[property="og:image"]::attr(content)').get()
         )
         imagen_portada = (
             response.urljoin(imagen_portada) if imagen_portada else None
+        )
+        imagenes_producto = product_image_gallery(
+            response.url,
+            [imagen_portada] + response.css(
+                'img[style*="--p-ficha-"]::attr(data-src), '
+                'img[style*="--p-ficha-"]::attr(src), '
+                '[class*="p-ficha"] a[href$=".jpg"]::attr(href), '
+                '[class*="p-ficha"] a[href$=".webp"]::attr(href)'
+            ).getall(),
+            response.css('script[type="application/ld+json"]::text').getall(),
         )
 
         ficha_incompleta = (
@@ -447,6 +459,8 @@ class LibroSpider(scrapy.Spider):
             saga=saga,
             saga_numero=saga_numero,
             imagen_portada=imagen_portada,
+            imagen_producto=imagenes_producto[0] if imagenes_producto else None,
+            imagenes_producto=imagenes_producto,
             provider="casa_del_libro",
             source_id=source_id,
             url=url_original,

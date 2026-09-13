@@ -386,6 +386,11 @@ def transformar(registro: dict, posicion: int) -> dict:
         "saga_name": saga_name,
         "saga_number": saga_number,
         "cover": cover,
+        "product_image_url": url_https(registro.get("imagen_producto")) or cover,
+        "image_gallery": list(dict.fromkeys(
+            url_https(image) for image in (registro.get("imagenes_producto") or [])
+            if isinstance(image, str) and url_https(image)
+        ))[:8] if isinstance(registro.get("imagenes_producto"), list) else [],
         "hero_color": texto(registro.get("hero_color")),
         "provider": "casa_del_libro",
         "source_id": texto(registro.get("source_id")) or normalized_isbn or source_url,
@@ -454,4 +459,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

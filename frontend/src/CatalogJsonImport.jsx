@@ -1,14 +1,16 @@
-import { useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useMemo, useRef, useState } from "react";
 import "./CatalogJsonImport.css";
 import { apiFetch, readJsonResponse } from "./api.js";
 import { BOOK_GENRES, normalizeBookGenre } from "./bookGenres.js";
 import { inferTaxonomyFromSubjects } from "./bookTaxonomy.js";
 import { deriveBaseTitle } from "./lib/bookIdentity.js";
+import { normalizeBookVisual } from "./lib/book3dGeometry.js";
 import { extractHeroColor, FALLBACK_HERO_COLOR } from "./heroColor.js";
 
 const MAX_FILE_SIZE = 3 * 1024 * 1024;
 const IMPORTABLE_STATUSES = ["new_work", "new_edition"];
 const IMPORTED_STATUSES = ["imported_work", "imported_edition"];
+const BookProductFaceEditor = lazy(() => import("./BookProductFaceEditor.jsx"));
 
 function cleanText(value) {
   return String(value ?? "").replace(/\s+/gu, " ").trim();
@@ -94,6 +96,10 @@ function normalizedItem(value, index) {
     sagaName: cleanText(item.saga_name || item.saga),
     sagaNumber: cleanInteger(item.saga_number || item.sagaNumber),
     cover: cleanText(item.cover || item.imagen_portada),
+    visual: normalizeBookVisual(item.visual || {
+      product_image_url: item.product_image_url || item.imagen_producto,
+      image_gallery: item.image_gallery || item.imagenes_producto,
+    }),
     provider: cleanText(item.provider || "casa_del_libro"),
     sourceId,
     sourceUrl: cleanText(item.source_url || item.url),
@@ -200,6 +206,7 @@ function importPayload(item) {
     saga_name: item.sagaName || null,
     saga_number: item.sagaNumber || null,
     cover: item.cover || null,
+    visual: item.visual,
     provider: item.provider || "casa_del_libro",
     source_id: item.sourceId || null,
     source_url: item.sourceUrl || null,
@@ -224,6 +231,7 @@ export default function CatalogJsonImport({ onCancel }) {
   const [notice, setNotice] = useState("");
   const [importing, setImporting] = useState(false);
   const [checking, setChecking] = useState(false);
+  const [visualEditorItem, setVisualEditorItem] = useState(null);
 
   const preparedItems = useMemo(
     () =>
@@ -776,6 +784,9 @@ export default function CatalogJsonImport({ onCancel }) {
 
                     {item.expanded && (
                       <div className="json-import-editor">
+                        <button type="button" disabled={importing || checking || imported} onClick={() => setVisualEditorItem(item)}>
+                          {item.visual.front_quad ? "Ajustar caras del libro 3D" : "Preparar portada y canto 3D"}
+                        </button>
                         <label>
                           <span>Título de esta edición *</span>
                           <input
@@ -978,7 +989,11 @@ export default function CatalogJsonImport({ onCancel }) {
           </section>
         </>
       )}
+      {visualEditorItem ? <Suspense fallback={<p role="status">Abriendo recorte…</p>}><BookProductFaceEditor
+        edition={{ title: visualEditorItem.title, cover: visualEditorItem.cover, isbn: visualEditorItem.isbn, edition_label: visualEditorItem.edition, visual: visualEditorItem.visual }}
+        onClose={() => setVisualEditorItem(null)}
+        onConfirm={(visual) => { editItem(visualEditorItem.rowId, { visual }); setVisualEditorItem(null); }}
+      /></Suspense> : null}
     </main>
   );
 }
-

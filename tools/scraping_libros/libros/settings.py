@@ -49,6 +49,8 @@ FEED_EXPORT_FIELDS = [
     "saga",
     "saga_numero",
     "imagen_portada",
+    "imagen_producto",
+    "imagenes_producto",
     "provider",
     "source_id",
     "url",
