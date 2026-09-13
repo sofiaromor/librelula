@@ -1,6 +1,7 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import LibraryBook3D from "./LibraryBook3D.jsx";
 import { resolveBookVisual } from "./lib/book3dGeometry.js";
+import { detectPaintedEdges, paintedEdgeReviewMessage } from "./lib/paintedEdges.js";
 import "./Book3DInspector.css";
 
 const BookProductFaceEditor = lazy(() => import("./BookProductFaceEditor.jsx"));
@@ -18,6 +19,8 @@ export default function Book3DInspector({ item, isAdmin = false, onClose, onSele
   const [editing, setEditing] = useState(false);
   const edition = editions.find((e) => e.id === editionId) || item.visual_edition;
   const exactEdge = Boolean(resolveBookVisual(book, edition).fore_edge_quad);
+  // A different selected edition must not inherit the work's marketing text.
+  const paintedCandidate = detectPaintedEdges(edition || book);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -74,6 +77,7 @@ export default function Book3DInspector({ item, isAdmin = false, onClose, onSele
     <div className="book3d-face-switcher" role="group" aria-label="Caras del libro">{FACES.map(([id, label, yaw]) => <button type="button" key={id} aria-pressed={activeFace === id} onClick={() => selectFace(id, yaw)}>{label}</button>)}</div>
     <p className="book3d-texture-note">{exactEdge ? "Canto recortado de la foto de esta edición. El dibujo de arriba y abajo es una continuación aproximada de ese canto." : "Canto de papel recreado: todavía no hay una foto del canto de esta edición."} El lomo y la contraportada son una composición; el grosor es aproximado según sus páginas.</p>
     {book.synopsis ? <details className="book3d-synopsis"><summary>Leer sinopsis</summary><p>{String(book.synopsis).replace(/<[^>]*>/g, " ")}</p></details> : null}
+    {isAdmin && !exactEdge && paintedCandidate.status !== "none" ? <p className="book3d-texture-note">{paintedEdgeReviewMessage(paintedCandidate)}</p> : null}
     {isAdmin && edition?.id ? <button className="book3d-edit-textures" type="button" onClick={() => setEditing(true)}>Ajustar portada y canto de esta edición</button> : null}
     <footer className="book3d-inspector-footer">{onSelectBook ? <button type="button" onClick={() => navigate(onSelectBook)}>Abrir ficha</button> : null}{onOpenReader ? <button type="button" className="is-primary" onClick={() => navigate(onOpenReader)}>Abrir lector</button> : <button type="button" className="is-primary" onClick={onClose}>Volver</button>}</footer>
     {editing ? <Suspense fallback={<p role="status">Abriendo el recorte…</p>}><BookProductFaceEditor edition={edition} onClose={() => setEditing(false)} onSaved={(visual) => { setEditions((rows) => rows.some((e) => e.id === edition.id) ? rows.map((e) => e.id === edition.id ? { ...e, visual } : e) : [...rows, { ...edition, visual }]); onVisualSaved?.(edition.id, visual); setEditing(false); }} /></Suspense> : null}

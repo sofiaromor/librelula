@@ -4,7 +4,8 @@ import { apiFetch, readJsonResponse } from "./api.js";
 import { BOOK_GENRES, normalizeBookGenre } from "./bookGenres.js";
 import { inferTaxonomyFromSubjects } from "./bookTaxonomy.js";
 import { deriveBaseTitle } from "./lib/bookIdentity.js";
-import { normalizeBookVisual } from "./lib/book3dGeometry.js";
+import { normalizeBookVisual, resolveImportedBookVisual } from "./lib/book3dGeometry.js";
+import { detectPaintedEdges, paintedEdgeReviewMessage, discardStaleFaceSelection } from "./lib/paintedEdges.js";
 import { extractHeroColor, FALLBACK_HERO_COLOR } from "./heroColor.js";
 
 const MAX_FILE_SIZE = 3 * 1024 * 1024;
@@ -96,10 +97,7 @@ function normalizedItem(value, index) {
     sagaName: cleanText(item.saga_name || item.saga),
     sagaNumber: cleanInteger(item.saga_number || item.sagaNumber),
     cover: cleanText(item.cover || item.imagen_portada),
-    visual: normalizeBookVisual(item.visual || {
-      product_image_url: item.product_image_url || item.imagen_producto,
-      image_gallery: item.image_gallery || item.imagenes_producto,
-    }),
+    visual: resolveImportedBookVisual(item),
     provider: cleanText(item.provider || "casa_del_libro"),
     sourceId,
     sourceUrl: cleanText(item.source_url || item.url),
@@ -232,6 +230,7 @@ export default function CatalogJsonImport({ onCancel }) {
   const [importing, setImporting] = useState(false);
   const [checking, setChecking] = useState(false);
   const [visualEditorItem, setVisualEditorItem] = useState(null);
+  const [onlyPaintedCandidates, setOnlyPaintedCandidates] = useState(false);
 
   const preparedItems = useMemo(
     () =>
@@ -239,9 +238,17 @@ export default function CatalogJsonImport({ onCancel }) {
         item,
         errors: itemErrors(item, items),
         warnings: itemWarnings(item),
+        paintedEdges: detectPaintedEdges(item),
       })),
     [items],
   );
+
+  const isPaintedCandidate = ({ item, paintedEdges }) => paintedEdges.status !== "excluded"
+    && (Boolean(item.visual.fore_edge_quad) || paintedEdges.status !== "none");
+  const paintedCandidateCount = preparedItems.filter(isPaintedCandidate).length;
+  const visibleItems = onlyPaintedCandidates
+    ? preparedItems.filter(isPaintedCandidate)
+    : preparedItems;
 
   const selectedItems = preparedItems.filter(
     ({ item, errors }) => item.selected && isImportable(item, errors),
@@ -271,8 +278,12 @@ export default function CatalogJsonImport({ onCancel }) {
   }
 
   function editItem(rowId, changes) {
+    const currentItem = items.find((item) => item.rowId === rowId);
+    if (!currentItem) return;
+    const safeChanges = discardStaleFaceSelection(currentItem, changes);
     updateItem(rowId, {
-      ...changes,
+      ...safeChanges,
+      ...(safeChanges.visual === null ? { visual: normalizeBookVisual({}) } : {}),
       selected: false,
       status: "pending_check",
       matchedBookId: "",
@@ -411,6 +422,7 @@ export default function CatalogJsonImport({ onCancel }) {
       }
 
       const normalizedItems = records.map(normalizedItem);
+      setOnlyPaintedCandidates(false);
       setItems(normalizedItems);
       setFileName(file.name);
       await checkCatalog(normalizedItems);
@@ -434,7 +446,7 @@ export default function CatalogJsonImport({ onCancel }) {
   function selectAllReady() {
     if (importing || checking) return;
 
-    const selectableIds = preparedItems
+    const selectableIds = visibleItems
       .filter(({ item, errors }) => isImportable(item, errors))
       .map(({ item }) => item.rowId);
 
@@ -638,6 +650,9 @@ export default function CatalogJsonImport({ onCancel }) {
               </div>
             </div>
             <div className="json-import-toolbar-actions">
+              <button type="button" aria-pressed={onlyPaintedCandidates} onClick={() => setOnlyPaintedCandidates((value) => !value)}>
+                {onlyPaintedCandidates ? "Mostrar todos" : `Revisar posibles cantos (${paintedCandidateCount})`}
+              </button>
               <button
                 type="button"
                 onClick={() => checkCatalog()}
@@ -650,7 +665,7 @@ export default function CatalogJsonImport({ onCancel }) {
                 onClick={selectAllReady}
                 disabled={importing || checking}
               >
-                Seleccionar todos los nuevos
+                {onlyPaintedCandidates ? "Seleccionar candidatos nuevos" : "Seleccionar todos los nuevos"}
               </button>
               <button
                 type="button"
@@ -663,7 +678,7 @@ export default function CatalogJsonImport({ onCancel }) {
           </section>
 
           <div className="json-import-list">
-            {preparedItems.map(({ item, errors, warnings }) => {
+            {visibleItems.map(({ item, errors, warnings, paintedEdges }) => {
               const imported = IMPORTED_STATUSES.includes(item.status);
               const selectable = isImportable(item, errors);
               const checkboxDisabled =
@@ -739,6 +754,11 @@ export default function CatalogJsonImport({ onCancel }) {
                         <dd>{item.matchedBookTitle || "Nueva obra"}</dd>
                       </div>
                     </dl>
+
+                    {item.visual.fore_edge_quad || paintedEdges.status !== "none" ? <p className="json-import-result">
+                      {item.visual.fore_edge_quad ? "Canto preparado desde una foto verificada de este ISBN." : paintedEdgeReviewMessage(paintedEdges)}
+                      {!item.visual.fore_edge_quad && paintedEdges.status !== "excluded" ? <button type="button" disabled={importing || checking || imported} onClick={() => setVisualEditorItem(item)}>Revisar foto del canto</button> : null}
+                    </p> : null}
 
                     {errors.length > 0 && (
                       <ul className="json-import-issues is-error">

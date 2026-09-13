@@ -8,6 +8,7 @@ import scrapy
 
 from libros.items import LibroItem
 from libros.product_images import best_srcset_image, product_image_gallery
+from libros.painted_edges import detect_painted_edges
 
 
 ESPACIOS = re.compile(r"\s+")
@@ -18,7 +19,7 @@ TERMINOS_EDICION = re.compile(
     r"\b(?:"
     r"ed\.?|edici[oó]n|tapa\s+dura|tapa\s+blanda|encuadernaci[oó]n|"
     r"formato\s+bolsillo|libro\s+de\s+bolsillo|coleccionista|"
-    r"especial|limitada|ilustrada|cantos?\s+(?:tintados?|pintados?)"
+    r"especial|limitada|ilustrada|cantos?\s+(?:tintados?|pintados?|decorados?|metalizados?|teñidos?)"
     r")\b",
     re.IGNORECASE,
 )
@@ -461,6 +462,7 @@ class LibroSpider(scrapy.Spider):
             imagen_portada=imagen_portada,
             imagen_producto=imagenes_producto[0] if imagenes_producto else None,
             imagenes_producto=imagenes_producto,
+            painted_edges=detect_painted_edges({"title": titulo_original, "edition": edicion, "synopsis": sinopsis, "isbn": isbn, "cover": imagen_portada}),
             provider="casa_del_libro",
             source_id=source_id,
             url=url_original,

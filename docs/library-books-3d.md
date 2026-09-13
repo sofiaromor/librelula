@@ -1,5 +1,7 @@
 # Libros 3D en la biblioteca
 
+La detección de candidatos y el registro de recortes por ISBN se amplían en [Cantos pintados](painted-edges.md). El respaldo inicial de Asistente del villano se conserva y ahora hay presets verificados para otras ediciones.
+
 Se mantienen las dos vistas existentes: **Portadas** y **Lomos**. Las fichas y puntuaciones siguen en Portadas. En Portadas cada libro empieza de frente y se puede girar arrastrando con el ratón o el dedo para descubrir el canto pintado. Lomos es una vista estática y limpia; tocar un lomo abre el inspector 3D con sus seis caras, arrastre, botones y flechas del teclado. `Home` restablece el giro. Los lomos personales y sus recortes se conservan.
 
 La portada de la ficha del libro también es interactiva y abre el mismo inspector 3D. Así la ficha, Portadas y Lomos comparten la misma lectura visual sin convertir la estantería de lomos en una colección de objetos que giran solos.

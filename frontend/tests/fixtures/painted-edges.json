@@ -1,0 +1,22 @@
+[
+  {"name":"explicit Spanish title", "item":{"title":"Odisea (edición con cantos tintados)","isbn":"9788491058090"},"status":"explicit","reason":"edition_label"},
+  {"name":"decorated edition label", "item":{"title":"Alas de Hierro","edition_label":"Edición limitada con cantos decorados","isbn":"9788408326472"},"status":"explicit","reason":"edition_label"},
+  {"name":"metadata synonyms", "item":{"title":"Cantos teñidos","isbn":"9788491058090"},"status":"explicit","reason":"edition_label"},
+  {"name":"metallic pages", "item":{"title":"Cantos de páginas metalizados","isbn":"9788491058090"},"status":"explicit","reason":"edition_label"},
+  {"name":"English stencilled edges", "item":{"title":"Collector's edition with stencilled edges","isbn":"9788491058090"},"status":"explicit","reason":"edition_label"},
+  {"name":"gilded edges", "item":{"title":"Gilded edges","isbn":"9788491058090"},"status":"explicit","reason":"edition_label"},
+  {"name":"synopsis is not edition proof", "item":{"title":"Alas de sangre","synopsis":"Esta novela incluye cantos tintados.","isbn":"9786073901802"},"status":"review","reason":"synopsis_only"},
+  {"name":"first printing condition", "item":{"title":"Alas de sangre","synopsis":"Solo la primera edición lleva cantos tintados; hasta agotar existencias.","isbn":"9786073901802"},"status":"review","reason":"first_printing"},
+  {"name":"provisional artwork", "item":{"title":"Edición especial con cantos pintados","synopsis":"Diseño de canto provisional","isbn":"9788491058090"},"status":"review","reason":"provisional"},
+  {"name":"missing ISBN", "item":{"title":"Cantos pintados"},"status":"review","reason":"isbn_required"},
+  {"name":"invalid checksum", "item":{"title":"Cantos pintados","isbn":"9788491058091"},"status":"review","reason":"isbn_required"},
+  {"name":"wrong cover ISBN", "item":{"title":"Cantos pintados","isbn":"9788401035623","cover":"https://imagessl1.casadellibro.com/a/l/t5/98/9788401037498.jpg"},"status":"review","reason":"cover_mismatch"},
+  {"name":"box is not one volume", "item":{"title":"Estuche Ilíada y Odisea con cantos decorados","isbn":"9788408322610"},"status":"excluded","reason":"box_set"},
+  {"name":"special edition alone is uncertain", "item":{"title":"Edición especial ilustrada","isbn":"9788491058090"},"status":"possible","reason":"special_edition"},
+  {"name":"encanto plot false positive", "item":{"title":"El encanto","synopsis":"El villano pinta un cuadro y escucha el canto de las aves.","isbn":"9788491058090"},"status":"none","reason":"no_signal"},
+  {"name":"explicitly no painted edges", "item":{"title":"Libro","synopsis":"Esta edición no incluye cantos pintados.","isbn":"9788491058090"},"status":"none","reason":"no_signal"},
+  {"name":"without painted edges", "item":{"title":"Libro sin cantos pintados","isbn":"9788491058090"},"status":"none","reason":"no_signal"},
+  {"name":"raw scraper aliases", "item":{"titulo":"Odisea","edicion":"Cantos tintados","isbn":"978-84-9105-809-0"},"status":"explicit","reason":"edition_label"},
+  {"name":"HTML and accents", "item":{"title":"<b>EDICIÓN CON CANTOS TINTADOS</b>","isbn":"9788491058090"},"status":"explicit","reason":"edition_label"},
+  {"name":"untrusted boolean is not proof", "item":{"title":"Libro normal","painted_edges":true,"isbn":"9788491058090"},"status":"none","reason":"no_signal"}
+]

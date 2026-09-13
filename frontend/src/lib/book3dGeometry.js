@@ -1,18 +1,8 @@
+import { verifiedPaintedEdgePreset, verifiedOriginalImage } from "./paintedEdgePresets.js";
+
 // Texture coordinates are normalized to the ORIGINAL product photograph.
 // Order: top-left, top-right, bottom-right, bottom-left of the visible face.
 export const FULL_FACE = [[0, 0], [1, 0], [1, 1], [0, 1]];
-
-// Manually verified against this edition's ORIGINAL photograph, not its title.
-// The catalog thumbnail and largest published srcset share these coordinates.
-const VILLAIN_ASSISTANT_ISBN = "9791388108112";
-const VILLAIN_ASSISTANT_THUMBNAIL = "https://imagessl2.casadellibro.com/a/l/s5/12/9791388108112.webp";
-const VILLAIN_ASSISTANT_PHOTO = "https://imagessl2.casadellibro.com/a/l/s7/12/9791388108112.webp";
-const VILLAIN_ASSISTANT_FACES = {
-  product_image_url: VILLAIN_ASSISTANT_PHOTO,
-  image_gallery: [VILLAIN_ASSISTANT_THUMBNAIL, VILLAIN_ASSISTANT_PHOTO],
-  front_quad: [[0.252, 0.148], [0.685, 0.129], [0.686, 0.874], [0.252, 0.846]],
-  fore_edge_quad: [[0.700, 0.148], [0.750, 0.148], [0.750, 0.855], [0.700, 0.856]],
-};
 
 export function normalizeFaceQuad(value) {
   if (!Array.isArray(value) || value.length !== 4) return null;
@@ -86,7 +76,7 @@ export function bookImageUrl(value) {
 export function bestBookImageUrl(value) {
   const url = bookImageUrl(value);
   // Upgrade only the verified, geometrically identical product-photo variant.
-  return url === VILLAIN_ASSISTANT_THUMBNAIL ? VILLAIN_ASSISTANT_PHOTO : url;
+  return verifiedOriginalImage(url);
 }
 
 export function normalizeBookVisual(value) {
@@ -109,12 +99,12 @@ export function resolveBookVisual(book, edition) {
   // With a selected edition, never borrow the work's ISBN for an unknown one.
   const isbn = String(edition ? edition.isbn || "" : book?.isbn || "").replace(/[^0-9X]/gi, "");
   const cover = safeProductImageUrl(edition?.cover || book?.cover);
-  if (isbn !== VILLAIN_ASSISTANT_ISBN
-    || ![VILLAIN_ASSISTANT_THUMBNAIL, VILLAIN_ASSISTANT_PHOTO].includes(cover)) return stored;
+  const preset = verifiedPaintedEdgePreset(isbn, cover);
+  if (!preset) return stored;
 
   // This public-photo fallback also works before the optional visual seed is
   // activated. It is not face detection and performs no database writes.
-  return normalizeBookVisual(VILLAIN_ASSISTANT_FACES);
+  return normalizeBookVisual(preset);
 }
 
 export function pickVisualEdition(book, editions = []) {
@@ -122,6 +112,19 @@ export function pickVisualEdition(book, editions = []) {
   // Do not borrow a special edition's painted edge for another ISBN.
   return editions.find((e) => isbn && String(e.isbn || "").replace(/[^0-9X]/gi, "") === isbn)
     || editions.find((e) => e.is_primary) || null;
+}
+
+export function resolveImportedBookVisual(item = {}) {
+  const visual = normalizeBookVisual(item.visual || {
+    product_image_url: item.product_image_url || item.imagen_producto,
+    image_gallery: item.image_gallery || item.imagenes_producto,
+  });
+  const preset = resolveBookVisual({ isbn: item.isbn, cover: item.cover || item.imagen_portada });
+  // Bare scraped URLs aren't saved crop choices. Never transfer the preset
+  // to a different imported photograph or overwrite an existing face choice.
+  const usePreset = !visual.front_quad && !visual.fore_edge_quad && preset.fore_edge_quad
+    && (!visual.product_image_url || preset.image_gallery.includes(visual.product_image_url));
+  return usePreset ? preset : visual;
 }
 
 export function bookThicknessRatio(pages) {

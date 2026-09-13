@@ -3,9 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from libros.painted_edges import detect_painted_edges
 
 MAPA_GENEROS = {
     "narrativa fantastica": "Fantasía",
@@ -28,7 +31,7 @@ TERMINOS_EDICION = re.compile(
     r"\b(?:"
     r"ed\.?|edici[oó]n|tapa\s+dura|tapa\s+blanda|encuadernaci[oó]n|"
     r"formato\s+bolsillo|libro\s+de\s+bolsillo|coleccionista|"
-    r"especial|limitada|ilustrada|cantos?\s+(?:tintados?|pintados?)"
+    r"especial|limitada|ilustrada|cantos?\s+(?:tintados?|pintados?|decorados?|metalizados?|teñidos?)"
     r")\b",
     re.IGNORECASE,
 )
@@ -386,6 +389,7 @@ def transformar(registro: dict, posicion: int) -> dict:
         "saga_name": saga_name,
         "saga_number": saga_number,
         "cover": cover,
+        "painted_edges": detect_painted_edges({"title": title, "edition": edition, "synopsis": synopsis, "isbn": normalized_isbn, "cover": cover}),
         "product_image_url": url_https(registro.get("imagen_producto")) or cover,
         "image_gallery": list(dict.fromkeys(
             url_https(image) for image in (registro.get("imagenes_producto") or [])

@@ -21,6 +21,7 @@ class LibroItem(scrapy.Item):
     imagen_portada = scrapy.Field()
     imagen_producto = scrapy.Field()
     imagenes_producto = scrapy.Field()
+    painted_edges = scrapy.Field()
     provider = scrapy.Field()
     source_id = scrapy.Field()
     url = scrapy.Field()
