@@ -61,6 +61,26 @@ test("the book detail uses the same draggable preview and inspector entry point"
   assert.match(detail, /<Book3DInspector/);
 });
 
+test("the detail preview has no rectangular frame or clipping and reserves room for rotation", async () => {
+  const css = await readFile(new URL("../src/index.css", import.meta.url), "utf8");
+  const rules = [...css.matchAll(/\.book-detail-cover-wrap\s*\{([^}]*)\}/g)].map(([, declarations]) => declarations);
+  assert.ok(rules.length > 0);
+  assert.match(rules[0], /margin:\s*24px 12px;/);
+  assert.match(rules[0], /overflow:\s*visible;/);
+  assert.match(rules[0], /background:\s*transparent;/);
+  assert.match(rules[0], /box-shadow:\s*none;/);
+  assert.match(rules[0], /aspect-ratio:\s*2 \/ 3;/);
+  for (const rule of rules) {
+    assert.doesNotMatch(rule, /overflow(?:-x|-y)?:\s*(?:hidden|clip|auto|scroll)/);
+    assert.doesNotMatch(rule, /(?:background|box-shadow):\s*(?!transparent\s*;|none\s*;)\S/);
+  }
+  assert.match(css, /\.book-detail-cover-3d\s*\{[^}]*overflow:\s*visible;/);
+  assert.match(css, /\.book-detail-cover-3d:focus-visible\s*\{[^}]*outline:\s*3px solid/);
+  // Face-level clipping is still needed to discard the product photo outside each quad.
+  const faces = await readFile(new URL("../src/LibraryBook3D.css", import.meta.url), "utf8");
+  assert.match(faces, /\.book-face-texture\s*\{[^}]*overflow:\s*hidden;/);
+});
+
 test("3D faces, inspector note and face editor use the same effective edition visual", async () => {
   for (const name of ["LibraryBook3D", "Book3DInspector", "BookProductFaceEditor"]) {
     const jsx = await readFile(new URL(`../src/${name}.jsx`, import.meta.url), "utf8");

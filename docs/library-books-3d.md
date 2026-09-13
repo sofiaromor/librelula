@@ -4,6 +4,8 @@ Se mantienen las dos vistas existentes: **Portadas** y **Lomos**. Las fichas y p
 
 La portada de la ficha del libro también es interactiva y abre el mismo inspector 3D. Así la ficha, Portadas y Lomos comparten la misma lectura visual sin convertir la estantería de lomos en una colección de objetos que giran solos.
 
+En la ficha, el libro gira sobre un contenedor transparente, sin fondo ni sombra rectangular y sin recorte exterior. El margen alrededor reserva espacio para las caras que sobresalen al girar, también en móvil. Se conserva el indicador de foco del botón y el recorte interno de las texturas de cada cara.
+
 ## Qué es real y qué es una composición
 
 - Portada: portada de la edición, o cara visible rectificada de la foto original.

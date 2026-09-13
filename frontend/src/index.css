@@ -509,10 +509,11 @@ button {
   flex: 0 0 156px;
   width: 156px;
   aspect-ratio: 2 / 3;
-  overflow: hidden;
-  border-radius: 6px;
-  background: rgba(255, 255, 255, .08);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .18);
+  margin: 24px 12px;
+  overflow: visible;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
 }
 
 .book-detail-cover-3d {
@@ -520,6 +521,7 @@ button {
   height: 100%;
   padding: 0;
   display: block;
+  overflow: visible;
   border: 0;
   border-radius: inherit;
   background: transparent;
@@ -535,7 +537,7 @@ button {
 
 .book-detail-cover-3d:focus-visible {
   outline: 3px solid #fff7;
-  outline-offset: -5px;
+  outline-offset: 6px;
 }
 
 .book-detail-cover-3d > .book3d-interactive {
