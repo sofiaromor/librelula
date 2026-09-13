@@ -1,9 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import "./MiBiblioteca.css";
 import "./MiBibliotecaSpines.css";
 import "./MiBibliotecaV2.css";
 import SpineCropEditor from "./SpineCropEditor.jsx";
 import LibraryShelfShowcase from "./LibraryShelfShowcase.jsx";
+import InteractiveLibraryBook3D from "./InteractiveLibraryBook3D.jsx";
+import LibrarySpineStatic from "./LibrarySpineStatic.jsx";
 import AuthorLink from "./AuthorLink.jsx";
 import { shelfStarFills, formatShelfScore } from "./lib/libraryShelfSearch.js";
 import {
@@ -18,8 +20,9 @@ import {
 import {
   LIBRARY_SPINE_VIEW_STORAGE_KEY,
   normalizeLibraryViewMode,
-  shouldShowSpineTitle,
 } from "./lib/librarySpineMedia.js";
+
+const Book3DInspector = lazy(() => import("./Book3DInspector.jsx"));
 
 const SYSTEM_SHELVES = [
   {
@@ -53,13 +56,6 @@ const SYSTEM_SHELVES = [
     statuses: ["dropped"],
   },
 ];
-
-function coverUrl(cover) {
-  const value = String(cover || "").trim();
-  if (!value) return "";
-  if (/^https?:\/\//i.test(value)) return value;
-  return `/${value.replace(/^\/+/, "")}`;
-}
 
 function normalizeText(value) {
   return String(value || "")
@@ -166,33 +162,19 @@ function useShelfPageSize(viewMode) {
 
 export function CoverBook({ item, onSelectBook, onSelectAuthor, onScoreChange, savingBookId, onOpenReader }) {
   const book = item.book || {};
-  const cover = coverUrl(book.cover);
   const [statusLabel, statusClass] = getLibraryStatus(item.status);
 
   return (
     <article className="library-v2-cover-card">
       <div className="library-v2-cover-visual">
-        <button
-          type="button"
-          className="library-v2-cover-image"
-          onClick={() => onSelectBook?.(book)}
-          aria-label={`Abrir ficha de ${book.title || "este libro"}`}
-        >
-          {cover ? (
-            <img
-              src={cover}
-              alt={`Portada de ${book.title || "libro"}`}
-              loading="lazy"
-              onError={(event) => {
-                event.currentTarget.onerror = null;
-                event.currentTarget.src = "/images/librelula.png";
-              }}
-            />
-          ) : (
-            <img className="is-fallback" src="/images/librelula.png" alt="Portada no disponible" />
-          )}
-          <span className={`status-pill ${statusClass}`}>{statusLabel}</span>
-        </button>
+        <div className="library-v2-cover-image">
+          <InteractiveLibraryBook3D item={item}
+            onOpen={() => onSelectBook?.(book)}
+            openLabel={`Abrir ficha de ${book.title || "este libro"}`}
+          >
+            <span className={`status-pill ${statusClass}`}>{statusLabel}</span>
+          </InteractiveLibraryBook3D>
+        </div>
 
         <div className="library-v2-score" role="group" aria-label={`Tu puntuación de ${book.title || "libro"}: ${formatShelfScore(item.score)}`}>
           {shelfStarFills(item.score).map((fill, index) => (
@@ -229,7 +211,7 @@ export function CoverBook({ item, onSelectBook, onSelectAuthor, onScoreChange, s
 
 function SpineBook({
   item,
-  onSelectBook,
+  onInspectItem,
   onChooseFile,
   onEditCrop,
   onRemove,
@@ -238,13 +220,7 @@ function SpineBook({
 }) {
   const fileInputRef = useRef(null);
   const book = item.book || {};
-  const generatedCover = coverUrl(book.cover);
   const personalUrl = String(item.personal_spine_url || "").trim();
-  const crop = item.personal_spine_crop || { x: 50, y: 50, zoom: 1 };
-  const showTitle = shouldShowSpineTitle({
-    hasPersonalSpine: Boolean(personalUrl),
-    showText: item.personal_spine_show_text,
-  });
 
   return (
     <article
@@ -253,29 +229,12 @@ function SpineBook({
     >
       <button
         type="button"
-        className={`library-spine ${personalUrl ? "is-personal" : "is-generated"}`}
-        onClick={() => onSelectBook?.(book)}
-        title={`${book.title || "Libro"} · ${book.author || ""}`}
+        className="library-spine"
+        onClick={() => onInspectItem?.(item)}
+        title={`${book.title || "Libro"} · Abrir vista 3D`}
+        aria-label={`Abrir ${book.title || "este libro"} en la vista 3D`}
       >
-        {personalUrl ? (
-          <img
-            src={personalUrl}
-            alt={`Lomo personal de ${book.title || "libro"}`}
-            loading="lazy"
-            style={{
-              objectPosition: `${crop.x}% ${crop.y}%`,
-              transform: `scale(${crop.zoom})`,
-            }}
-          />
-        ) : generatedCover ? (
-          <img src={generatedCover} alt="" loading="lazy" />
-        ) : (
-          <span className="library-spine-fallback">
-            <img src="/images/librelula.png" alt="" />
-          </span>
-        )}
-        <span className="library-spine-overlay" />
-        {showTitle ? <span className="library-spine-title">{book.title || "Libro"}</span> : null}
+        <LibrarySpineStatic item={item} />
         {personalUrl ? <span className="library-spine-personal-badge">Personal</span> : null}
       </button>
 
@@ -338,6 +297,7 @@ function ShelfSection({
   onPage,
   onShowAll,
   onSelectBook,
+  onInspectItem,
   onSelectAuthor,
   onScoreChange,
   savingBookId,
@@ -386,7 +346,7 @@ function ShelfSection({
               <SpineBook
                 key={`${shelf.id}-${item.book_id}`}
                 item={item}
-                onSelectBook={onSelectBook}
+                onInspectItem={onInspectItem}
                 onChooseFile={onChooseFile}
                 onEditCrop={onEditCrop}
                 onRemove={onRemoveSpine}
@@ -429,6 +389,7 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook, onSelectAuth
   const [savingBookId, setSavingBookId] = useState("");
   const [savingSpineBookId, setSavingSpineBookId] = useState("");
   const [cropEditor, setCropEditor] = useState(null);
+  const [inspectedItem, setInspectedItem] = useState(null);
   const [message, setMessage] = useState(null);
   const pageSize = useShelfPageSize(viewMode);
 
@@ -440,7 +401,10 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook, onSelectAuth
       setMessage(null);
       try {
         const data = await getMyLibrary();
-        if (!cancelled) setLibrary(data);
+        if (!cancelled) {
+          setLibrary(data);
+          if (data.visualsWarning) setMessage({ type: "error", text: data.visualsWarning });
+        }
       } catch (error) {
         if (!cancelled) setMessage({ type: "error", text: error.message || "No se pudo cargar tu biblioteca." });
       } finally {
@@ -746,6 +710,7 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook, onSelectAuth
               onShowAll={!isSearchMode ? () => setShowcaseShelfId(shelf.id) : null}
               onSelectBook={onSelectBook}
               onSelectAuthor={onSelectAuthor}
+              onInspectItem={setInspectedItem}
               onScoreChange={handleScoreChange}
               savingBookId={savingBookId}
               onChooseFile={handleSpineFileSelected}
@@ -765,6 +730,7 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook, onSelectAuth
           initialViewMode={viewMode}
           onClose={() => setShowcaseShelfId("")}
           onSelectBook={onSelectBook}
+          onInspectItem={setInspectedItem}
         />
       ) : null}
 
@@ -829,6 +795,25 @@ export default function MiBiblioteca({ onOpenCatalog, onSelectBook, onSelectAuth
           </section>
         </div>
       ) : null}
+
+      {inspectedItem ? <Suspense fallback={<p role="status">Sacando el libro…</p>}>
+        <Book3DInspector
+          key={inspectedItem.book_id}
+          item={inspectedItem}
+          isAdmin={Boolean(library.profile?.is_admin)}
+          onClose={() => setInspectedItem(null)}
+          onSelectBook={onSelectBook}
+          onOpenReader={onOpenReader}
+          onVisualSaved={(editionId, visual) => setLibrary((current) => ({
+            ...current,
+            items: current.items.map((item) => ({
+              ...item,
+              editions: item.editions?.map((e) => e.id === editionId ? { ...e, visual } : e),
+              visual_edition: item.visual_edition?.id === editionId ? { ...item.visual_edition, visual } : item.visual_edition,
+            })),
+          }))}
+        />
+      </Suspense> : null}
 
       {cropEditor ? (
         <SpineCropEditor

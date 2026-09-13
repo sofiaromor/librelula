@@ -3,9 +3,12 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from urllib.parse import urlparse
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from libros.painted_edges import detect_painted_edges
 
 MAPA_GENEROS = {
     "narrativa fantastica": "Fantasía",
@@ -28,7 +31,7 @@ TERMINOS_EDICION = re.compile(
     r"\b(?:"
     r"ed\.?|edici[oó]n|tapa\s+dura|tapa\s+blanda|encuadernaci[oó]n|"
     r"formato\s+bolsillo|libro\s+de\s+bolsillo|coleccionista|"
-    r"especial|limitada|ilustrada|cantos?\s+(?:tintados?|pintados?)"
+    r"especial|limitada|ilustrada|cantos?\s+(?:tintados?|pintados?|decorados?|metalizados?|teñidos?)"
     r")\b",
     re.IGNORECASE,
 )
@@ -318,6 +321,10 @@ def transformar(registro: dict, posicion: int) -> dict:
     # Se recalcula para no conservar el sufijo antiguo '(Saga 3)' del JSON raw.
     title_base = detected_title_base
     edition = texto(registro.get("edicion")) or detected_edition
+    special_binding = texto(
+        registro.get("encuadernacion_especial")
+        or registro.get("special_binding")
+    )
     author = texto(registro.get("autora"))
     synopsis = texto(registro.get("sinopsis"))
     normalized_isbn = isbn(registro.get("isbn"))
@@ -386,11 +393,18 @@ def transformar(registro: dict, posicion: int) -> dict:
         "saga_name": saga_name,
         "saga_number": saga_number,
         "cover": cover,
+        "painted_edges": detect_painted_edges({"title": title, "edition": edition, "special_binding": special_binding, "synopsis": synopsis, "isbn": normalized_isbn, "cover": cover}),
+        "product_image_url": url_https(registro.get("imagen_producto")) or cover,
+        "image_gallery": list(dict.fromkeys(
+            url_https(image) for image in (registro.get("imagenes_producto") or [])
+            if isinstance(image, str) and url_https(image)
+        ))[:8] if isinstance(registro.get("imagenes_producto"), list) else [],
         "hero_color": texto(registro.get("hero_color")),
         "provider": "casa_del_libro",
         "source_id": texto(registro.get("source_id")) or normalized_isbn or source_url,
         "source_url": source_url,
         "binding": texto(registro.get("encuadernacion")),
+        "special_binding": special_binding,
         "publication_date": texto(registro.get("fecha_publicacion")),
         "warnings": list(dict.fromkeys(warnings)),
         "errors": errors,
@@ -454,4 +468,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

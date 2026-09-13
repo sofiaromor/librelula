@@ -1,4 +1,5 @@
 ﻿import { supabase } from "./supabase.js";
+import { attachLibraryVisuals } from "./bookVisualsApi.js";
 import {
   buildSpineStoragePath,
   LIBRARY_SPINE_BUCKET,
@@ -164,6 +165,10 @@ export async function getMyLibrary() {
         title,
         author,
         cover,
+        synopsis,
+        pages,
+        isbn,
+        hero_color,
         genre,
         year
       )
@@ -177,12 +182,17 @@ export async function getMyLibrary() {
     ...item,
     book: item.books,
   }));
-  const items = await attachPersonalSpines(baseItems);
+  const [personal, visuals] = await Promise.all([
+    attachPersonalSpines(baseItems),
+    attachLibraryVisuals(baseItems),
+  ]);
+  const items = personal.map((item, i) => ({ ...visuals.items[i], ...item, editions: visuals.items[i].editions, visual_edition: visuals.items[i].visual_edition }));
 
   return {
     profile,
     items,
     counts: buildLibraryCounts(items),
+    visualsWarning: visuals.warning,
   };
 }
 

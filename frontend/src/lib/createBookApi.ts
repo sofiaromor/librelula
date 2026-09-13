@@ -8,6 +8,8 @@ import {
   workIdentityKey,
 } from "./bookIdentity.js";
 import { canonicalSagaIdentity } from "./sagaIdentity.js";
+import { normalizeBookVisual } from "./book3dGeometry.js";
+import { attachEditionVisuals, saveEditionVisual } from "./bookVisualsApi.js";
 import { extractHeroColor, FALLBACK_HERO_COLOR } from "../heroColor.js";
 
 const BOOK_SELECT = `
@@ -500,6 +502,20 @@ async function insertEdition(input: BookInput, bookId: string, isPrimary = false
     throw editionTableError(error);
   }
 
+  const visual = normalizeBookVisual(getValue(input, "visual") || {
+    product_image_url: getValue(input, "product_image_url"),
+    image_gallery: getValue(input, "image_gallery"),
+  });
+  if (visual.product_image_url) {
+    try {
+      await saveEditionVisual(data.id, visual);
+    } catch (visualError) {
+      // Only undo the edition created by this operation, not an existing edition.
+      await supabase.from("book_editions").delete().eq("id", data.id);
+      throw visualError;
+    }
+  }
+
   return data;
 }
 
@@ -934,9 +950,11 @@ export async function getCatalogBookEditions(bookIdValue: unknown) {
 
   if (error) throw editionTableError(error);
 
+  const attached = await attachEditionVisuals(data || []);
   return {
     ok: true,
-    editions: data || [],
+    editions: attached.editions,
+    visuals_warning: attached.warning,
   };
 }
 

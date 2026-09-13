@@ -1,0 +1,466 @@
+.book3d-stage {
+  --book-width: 194px;
+  --book-height: 291px;
+  --book-depth: 26px;
+  --book-width-half: 97px;
+  --book-height-half: 145.5px;
+  --book-depth-half: 13px;
+  --book-side-offset: 84px;
+  --book-top-offset: 132.5px;
+  position: relative;
+  display: block;
+  width: var(--book-width);
+  height: var(--book-height);
+  perspective: 1050px;
+  perspective-origin: 50% 48%;
+}
+
+.book3d-object {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-style: preserve-3d;
+  transform-origin: 50% 50%;
+  transform: rotateX(var(--book-pitch)) rotateY(var(--book-yaw));
+  transition: transform .45s cubic-bezier(.22, .7, .3, 1);
+}
+
+.book3d-face {
+  position: absolute;
+  display: block;
+  background: var(--book-cloth, #31534d);
+  backface-visibility: hidden;
+  overflow: hidden;
+  transform-style: preserve-3d;
+}
+
+.book3d-face.is-front,
+.book3d-face.is-back {
+  background: linear-gradient(135deg, #fff1, transparent 45%, #0001), var(--book-cloth);
+  inset: 0;
+}
+
+.book3d-face.is-front {
+  z-index: 2;
+  border-radius: 2px 5px 5px 2px;
+  box-shadow: inset 5px 0 8px #0003, inset -2px 0 3px #fff2;
+  transform: translateZ(var(--book-depth-half));
+}
+
+.book3d-face.is-back {
+  border-radius: 5px 2px 2px 5px;
+  transform: rotateY(180deg) translateZ(var(--book-depth-half));
+}
+
+.book3d-face.is-spine,
+.book3d-face.is-edge {
+  top: 0;
+  left: var(--book-side-offset);
+  width: var(--book-depth);
+  height: 100%;
+}
+
+.book3d-face.is-spine {
+  transform: rotateY(-90deg) translateZ(var(--book-width-half));
+}
+
+.book3d-face.is-edge {
+  background: #e8dbc3;
+  border-top: 3px solid var(--book-cloth);
+  border-bottom: 3px solid var(--book-cloth);
+  box-sizing: border-box;
+  transform: rotateY(90deg) translateZ(var(--book-width-half));
+}
+
+.book3d-face.is-top,
+.book3d-face.is-bottom {
+  top: var(--book-top-offset);
+  left: 0;
+  width: 100%;
+  height: var(--book-depth);
+  background: #e8dbc3;
+  border: 2px solid var(--book-cloth);
+  box-sizing: border-box;
+}
+
+.book3d-face.is-top {
+  transform: rotateX(90deg) translateZ(var(--book-height-half));
+}
+
+.book3d-face.is-bottom {
+  transform: rotateX(-90deg) translateZ(var(--book-height-half));
+}
+
+.book-face-texture {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  background: var(--book-cloth, #31534d);
+  pointer-events: none;
+}
+
+.book-face-texture > img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  object-fit: cover;
+  transform-origin: 0 0;
+  user-select: none;
+  image-rendering: auto;
+}
+
+.book-face-texture.is-rectified > img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  object-fit: fill;
+}
+
+.book-face-texture.is-blurred > img {
+  filter: blur(8px) brightness(.55) saturate(.8);
+  transform: scale(1.2);
+  transform-origin: center;
+}
+
+.book-face-empty {
+  height: 100%;
+  display: grid;
+  place-items: center;
+  color: #f4e4c2;
+}
+
+.book3d-cover-gloss {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #0004, transparent 4%, #fff3 6%, transparent 9%, transparent 88%, #fff2);
+  pointer-events: none;
+}
+
+.book3d-spine-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, #0004, #fff2 18%, transparent 45%, #0004);
+  pointer-events: none;
+}
+
+.book3d-spine-copy {
+  position: absolute;
+  inset: 10px 3px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  color: var(--book-ink, #fff5df);
+  text-shadow: 0 1px 2px #0008;
+  pointer-events: none;
+}
+
+.book3d-spine-copy strong {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 12px;
+  line-height: 1.1;
+  max-height: 76%;
+  overflow: hidden;
+}
+
+.book3d-spine-copy small {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 7px;
+  overflow: hidden;
+  max-height: 20%;
+}
+
+.book3d-spine-copy em {
+  margin-top: auto;
+  font-style: normal;
+  font-size: 10px;
+}
+
+.book3d-back-copy {
+  position: absolute;
+  inset: 9%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--book-ink, #fff4df);
+  text-shadow: 0 1px 2px #0006;
+  pointer-events: none;
+}
+
+.book3d-back-copy small {
+  font-size: 8px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+
+.book3d-back-copy strong {
+  font-size: 15px;
+  line-height: 1.15;
+}
+
+.book3d-back-copy > span {
+  flex: 1;
+  overflow: hidden;
+  font-size: 10px;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.book3d-back-copy em {
+  font-size: 9px;
+}
+
+.book3d-paper-lines {
+  position: absolute;
+  inset: 0;
+  display: block;
+  background: repeating-linear-gradient(90deg, #e9dec8 0, #f5ecdc 1px, #c6b99f 2px, #f5ecdc 3px);
+  box-shadow: inset 3px 0 6px #68563625;
+}
+
+.book3d-face.is-top > .book3d-paper-lines,
+.book3d-face.is-bottom > .book3d-paper-lines {
+  background: repeating-linear-gradient(0deg, #e9dec8 0, #f5ecdc 1px, #c6b99f 2px, #f5ecdc 3px);
+  box-shadow: inset 0 2px 5px #68563625;
+}
+
+/* Continue the visible painted edge; these caps are not hidden-face photos. */
+.book3d-painted-cap {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: var(--book-depth);
+  height: var(--book-width);
+  transform: translate(-50%, -50%) rotate(-90deg);
+}
+
+.book3d-face.is-bottom > .book3d-painted-cap {
+  transform: translate(-50%, -50%) rotate(90deg);
+}
+
+.book3d-interactive {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+
+.book3d-drag-surface {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  overflow: visible;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  touch-action: none;
+  cursor: grab;
+}
+
+.book3d-drag-surface:active {
+  cursor: grabbing;
+}
+
+.book3d-drag-surface:focus-visible {
+  outline: 3px solid #fffaf0;
+  outline-offset: -3px;
+}
+
+.book3d-interactive .book3d-stage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.book3d-interactive .book3d-object {
+  width: 100%;
+  height: 100%;
+}
+
+.book3d-interactive.is-flat .book3d-stage {
+  perspective: none;
+}
+
+.book3d-interactive.is-flat .book3d-object {
+  transform: none;
+}
+
+.book3d-interactive.is-flat .book3d-face:not(.is-front) {
+  display: none;
+}
+
+.book3d-interactive.is-flat .book3d-face.is-front {
+  transform: none;
+  box-shadow: none;
+}
+
+.book3d-original-cover {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.book3d-interactive.is-flat.has-original-cover .book3d-original-cover {
+  opacity: 1;
+}
+
+.book3d-interactive.is-flat.has-original-cover .book3d-stage {
+  opacity: 0;
+}
+
+.book3d-reset-2d {
+  position: absolute;
+  right: 7px;
+  bottom: 7px;
+  z-index: 3;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 1px solid #fff9;
+  border-radius: 50%;
+  background: #30251a80;
+  color: #fffaf0;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  opacity: .78;
+}
+
+.book3d-reset-2d::before {
+  content: "";
+  position: absolute;
+  inset: -6px;
+}
+
+.book3d-reset-2d:focus-visible {
+  outline: 3px solid #fffaf0;
+  outline-offset: 3px;
+  opacity: 1;
+}
+
+.library-spine-static {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--book-cloth, #9e7654);
+  pointer-events: none;
+}
+
+.library-spine-static .book-face-texture {
+  position: absolute;
+  inset: 0;
+}
+
+.library-spine-static .book-face-texture > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.library-spine-static-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(255,255,255,.13), transparent 18%, transparent 78%, rgba(34,20,12,.2)), linear-gradient(180deg, transparent 58%, rgba(24,15,10,.48));
+}
+
+.library-spine-static.is-generated .library-spine-static-overlay {
+  background: linear-gradient(90deg, #fff2, transparent 20%, transparent 78%, #0002);
+}
+
+.library-spine-static-title,
+.library-spine-static-author {
+  position: absolute;
+  z-index: 2;
+  color: var(--book-ink, #fffaf3);
+  font-family: 'Playfair Display', Georgia, serif;
+  font-weight: 700;
+  line-height: 1;
+  text-shadow: 0 1px 4px rgba(25,15,9,.62);
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.library-spine-static-title {
+  top: 10px;
+  bottom: 11px;
+  left: 50%;
+  max-width: calc(100% - 12px);
+  font-size: .74rem;
+  transform: translateX(-50%) rotate(180deg);
+  text-overflow: ellipsis;
+}
+
+.library-spine-static-author {
+  right: 4px;
+  bottom: 9px;
+  max-height: 30%;
+  color: rgba(255,250,243,.86);
+  font-family: inherit;
+  font-size: .43rem;
+  font-weight: 600;
+}
+
+.book3d-stage.is-compact {
+  --book-width: 132px;
+  --book-height: 198px;
+  --book-depth: 18px;
+  --book-width-half: 66px;
+  --book-height-half: 99px;
+  --book-depth-half: 9px;
+  --book-side-offset: 57px;
+  --book-top-offset: 90px;
+  --book-yaw: 87deg;
+  --book-pitch: 0deg;
+  width: var(--book-width);
+  height: var(--book-height);
+  perspective: 650px;
+}
+
+.is-compact .book3d-spine-copy strong {
+  font-size: 11px;
+}
+
+.is-compact .book3d-spine-copy small {
+  font-size: 6px;
+}
+
+.is-compact .book3d-back-copy {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book3d-object {
+    transition: none;
+  }
+}

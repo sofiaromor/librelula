@@ -7,6 +7,8 @@ from urllib.parse import urlsplit, urlunsplit
 import scrapy
 
 from libros.items import LibroItem
+from libros.product_images import best_srcset_image, product_image_gallery
+from libros.painted_edges import detect_painted_edges
 
 
 ESPACIOS = re.compile(r"\s+")
@@ -17,7 +19,7 @@ TERMINOS_EDICION = re.compile(
     r"\b(?:"
     r"ed\.?|edici[oó]n|tapa\s+dura|tapa\s+blanda|encuadernaci[oó]n|"
     r"formato\s+bolsillo|libro\s+de\s+bolsillo|coleccionista|"
-    r"especial|limitada|ilustrada|cantos?\s+(?:tintados?|pintados?)"
+    r"especial|limitada|ilustrada|cantos?\s+(?:tintados?|pintados?|decorados?|metalizados?|teñidos?)"
     r")\b",
     re.IGNORECASE,
 )
@@ -320,6 +322,9 @@ class LibroSpider(scrapy.Spider):
             anio = int(coincidencia_anio.group(0)) if coincidencia_anio else None
 
         encuadernacion = extraer_campo("Encuadernación", "Encuadernacion")
+        encuadernacion_especial = extraer_campo(
+            "Encuadernación especial", "Encuadernacion especial"
+        )
         saga = texto_fuente_limpio(
             extraer_campo("Serie/Saga", "Saga", "Serie")
         ) or None
@@ -330,11 +335,22 @@ class LibroSpider(scrapy.Spider):
         )
 
         imagen_portada = (
-            response.css('img[style*="--p-ficha-"]::attr(src)').get()
+            best_srcset_image(response.css('img[style*="--p-ficha-"]::attr(srcset)').get())
+            or response.css('img[style*="--p-ficha-"]::attr(src)').get()
             or response.css('meta[property="og:image"]::attr(content)').get()
         )
         imagen_portada = (
             response.urljoin(imagen_portada) if imagen_portada else None
+        )
+        imagenes_producto = product_image_gallery(
+            response.url,
+            [imagen_portada] + response.css(
+                'img[style*="--p-ficha-"]::attr(data-src), '
+                'img[style*="--p-ficha-"]::attr(src), '
+                '[class*="p-ficha"] a[href$=".jpg"]::attr(href), '
+                '[class*="p-ficha"] a[href$=".webp"]::attr(href)'
+            ).getall(),
+            response.css('script[type="application/ld+json"]::text').getall(),
         )
 
         ficha_incompleta = (
@@ -444,9 +460,13 @@ class LibroSpider(scrapy.Spider):
             fecha_publicacion=fecha_publicacion,
             anio=anio,
             encuadernacion=encuadernacion,
+            encuadernacion_especial=encuadernacion_especial,
             saga=saga,
             saga_numero=saga_numero,
             imagen_portada=imagen_portada,
+            imagen_producto=imagenes_producto[0] if imagenes_producto else None,
+            imagenes_producto=imagenes_producto,
+            painted_edges=detect_painted_edges({"title": titulo_original, "edition": edicion, "special_binding": encuadernacion_especial, "synopsis": sinopsis, "isbn": isbn, "cover": imagen_portada}),
             provider="casa_del_libro",
             source_id=source_id,
             url=url_original,

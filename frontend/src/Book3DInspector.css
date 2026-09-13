@@ -1,0 +1,30 @@
+.book3d-inspector { width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); box-sizing: border-box; padding: 22px 22px 0; border: 1px solid #d9cebe; border-radius: 24px; background: #fffaf3; color: #372b21; overflow-y: auto; overscroll-behavior: contain; box-shadow: 0 22px 80px #291e1845; }
+.book3d-inspector::backdrop { background: #211c17b0; }
+.book3d-inspector-header { display: flex; align-items: flex-start; gap: 15px; justify-content: space-between; }
+.book3d-inspector-header small { color: #9e5735; letter-spacing: .12em; text-transform: uppercase; font-size: 10px; }
+.book3d-inspector-header h2 { margin: 8px 0 4px; font-size: 25px; line-height: 1.15; }
+.book3d-inspector-header > div { min-width: 0; overflow-wrap: anywhere; }
+.book3d-inspector-header p { margin: 0; color: #766655; }
+.book3d-inspector-header > button { flex-shrink: 0; width: 40px; height: 40px; font-size: 25px; }
+.book3d-inspector button { border: 1px solid #d9cebe; border-radius: 20px; background: #fffdf8; color: #594536; cursor: pointer; font: inherit; min-height: 42px; padding: 8px 15px; }
+.book3d-inspector button:focus-visible, .book3d-inspector-scene:focus-visible { outline: 3px solid #b7774d; outline-offset: 3px; }
+.book3d-edition-picker { display: grid; gap: 5px; margin: 15px 0 0; font-size: 12px; }
+.book3d-edition-picker select { max-width: 100%; min-width: 0; width: 100%; border: 1px solid #d9cebe; border-radius: 12px; background: #fffdf8; padding: 10px; color: inherit; font: inherit; }
+.book3d-edition-caption { margin: 14px 0 0; font-size: 11px; color: #766655; }
+.book3d-inspector-scene { position: relative; min-height: 350px; display: grid; place-items: center; padding: 20px 35px; box-sizing: border-box; touch-action: none; cursor: grab; border-radius: 20px; margin-top: 8px; background: radial-gradient(ellipse,#e4d9bc60,transparent 70%); }
+.book3d-inspector-scene:active { cursor: grabbing; }
+.book3d-inspector-scene .book3d-stage { z-index: 1; pointer-events: none; }
+.book3d-scene-shadow { position: absolute; bottom: 18px; width: 160px; height: 20px; border-radius: 50%; background: #30251a30; filter: blur(9px); }
+.book3d-drag-hint { margin: 0 0 12px; text-align: center; font-size: 12px; color: #766655; }
+.book3d-face-switcher { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; }
+.book3d-face-switcher button { font-size: 12px; padding: 8px 12px; }
+.book3d-face-switcher button[aria-pressed="true"] { color: #fffaf3; background: #31534d; border-color: #31534d; }
+.book3d-texture-note { font-size: 11px; line-height: 1.6; color: #857462; margin: 15px 0; }
+.book3d-synopsis { border-top: 1px dashed #d9cebe; padding-top: 12px; }
+.book3d-synopsis summary { cursor: pointer; font-weight: 700; }
+.book3d-synopsis p { font-size: 14px; line-height: 1.7; white-space: pre-line; }
+.book3d-edit-textures { width: 100%; margin-top: 15px; font-size: 12px !important; }
+.book3d-inspector-footer { position: sticky; bottom: 0; display: flex; gap: 10px; justify-content: flex-end; margin: 18px -22px 0; padding: 14px 22px max(16px, env(safe-area-inset-bottom)); background: #fffaf3; border-top: 1px solid #d9cebe; z-index: 2; }
+.book3d-inspector-footer .is-primary { color: #fffaf3; background: #31534d; border-color: #31534d; }
+.book3d-inspector-footer > button { flex: 1; min-width: 0; }
+@media (max-width: 420px) { .book3d-inspector { padding: 17px 16px 0; } .book3d-inspector-header h2 { font-size: 22px; } .book3d-inspector-scene { min-height: 315px; padding: 12px 22px; } .book3d-inspector-scene .book3d-stage { --book-width: 174px; --book-height: 261px; } .book3d-inspector-footer { margin-left: -16px; margin-right: -16px; padding-left: 16px; padding-right: 16px; } .book3d-inspector-footer button { font-size: 13px; } }

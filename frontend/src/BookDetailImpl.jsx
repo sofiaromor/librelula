@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
 import { apiFetch, appUrl, publicUrl, readJsonResponse } from "./api.js";
@@ -9,12 +9,16 @@ import { getBookProgressThread } from "./lib/homeDashboardApi.js";
 import { removeCatalogUserBook, saveCatalogUserBookProgress } from "./lib/catalogApi.js";
 import { READING_STATUS_BY_VALUE } from "./readingStatuses.js";
 import AuthorLink from "./AuthorLink.jsx";
+import InteractiveLibraryBook3D from "./InteractiveLibraryBook3D.jsx";
+import { attachLibraryVisuals } from "./lib/bookVisualsApi.js";
 import {
   FALLBACK_HERO_COLOR,
   lighten,
   normalizeHeroColor,
 } from "./heroColor.js";
 import { canonicalSagaIdentity } from "./lib/sagaIdentity.js";
+
+const Book3DInspector = lazy(() => import("./Book3DInspector.jsx"));
 
 function isMissing(value) {
   return (
@@ -581,7 +585,8 @@ function RatingStars({ score, label = true }) {
 
 export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectAuthor, onOpenMyReviews, onOpenReader, isAdmin, isLoggedIn, threadTarget = null, openReviewOnLoad = false }) {
   const currentBook = book;
-  const [coverFailed, setCoverFailed] = useState(false);
+  const [book3dItem, setBook3dItem] = useState(null);
+  const [book3dOpen, setBook3dOpen] = useState(false);
   const [editions, setEditions] = useState([]);
   const [editionsLoading, setEditionsLoading] = useState(true);
   const [editionsError, setEditionsError] = useState("");
@@ -633,6 +638,29 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
   const postitComposerRef = useRef(null);
   const ratingPromptAnchorRef = useRef(null);
   const canWriteReview = readingStatusIsFinished(readingStatusItem, currentBook);
+
+  useEffect(() => {
+    if (!currentBook?.id) return undefined;
+
+    let cancelled = false;
+    const fallback = {
+      book_id: currentBook.id,
+      book: currentBook,
+      editions: [],
+      visual_edition: null,
+    };
+    async function loadBookVisuals() {
+      try {
+        const attached = await attachLibraryVisuals([fallback]);
+        if (!cancelled && attached.items?.[0]) setBook3dItem(attached.items[0]);
+      } catch {
+        // The 3D view still works with the work-level cover and generated faces.
+      }
+    }
+
+    loadBookVisuals();
+    return () => { cancelled = true; };
+  }, [currentBook]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1360,9 +1388,7 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
     );
   }
 
-  const heroColor = coverFailed
-    ? FALLBACK_HERO_COLOR
-    : normalizeHeroColor(currentBook.hero_color || currentBook.heroColor);
+  const heroColor = normalizeHeroColor(currentBook.hero_color || currentBook.heroColor) || FALLBACK_HERO_COLOR;
   const sagaColor = lighten(heroColor, 0.55);
   const genres = parseGenres(currentBook.genre);
   const themes = parseTaxonomyItems(currentBook.themes, 12);
@@ -1391,6 +1417,12 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
       || reviewData?.my_review?.vibes?.length
       || reviewData?.my_review?.atmosphere,
   );
+  const book3dPreviewItem = book3dItem?.book_id === currentBook.id ? book3dItem : {
+    book_id: currentBook.id,
+    book: currentBook,
+    editions: [],
+    visual_edition: null,
+  };
 
   const ratingPromptPortal = ratingPromptOpen && typeof document !== "undefined"
     ? createPortal(
@@ -1458,18 +1490,13 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
 
       <article className="book-detail-hero" style={{ backgroundColor: heroColor }}>
         <div className="book-detail-cover-wrap">
-          {currentBook.cover && !coverFailed ? (
-            <img
-              className="book-detail-cover"
-              src={publicUrl(currentBook.cover)}
-              alt={`Portada de ${currentBook.title}`}
-              onError={() => setCoverFailed(true)}
+          <div className="book-detail-cover-3d">
+            <InteractiveLibraryBook3D item={book3dPreviewItem}
+              key={currentBook.id}
+              onOpen={() => setBook3dOpen(true)}
+              openLabel={`Abrir la vista 3D de ${currentBook.title || "este libro"}`}
             />
-          ) : (
-            <div className="book-detail-cover-placeholder">
-              <span>{bookTitleWithoutSaga(currentBook)}</span>
-            </div>
-          )}
+          </div>
         </div>
 
         <div className="book-detail-hero-copy">
@@ -2574,6 +2601,22 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
         </div>
       )}
       {ratingPromptPortal}
+      {book3dOpen ? (
+        <Suspense fallback={<p role="status">Sacando el libro…</p>}>
+          <Book3DInspector
+            key={book3dPreviewItem.book_id}
+            item={book3dPreviewItem}
+            isAdmin={isAdmin}
+            onClose={() => setBook3dOpen(false)}
+            onOpenReader={onOpenReader}
+            onVisualSaved={(editionId, visual) => setBook3dItem((current) => current ? {
+              ...current,
+              editions: current.editions?.map((edition) => edition.id === editionId ? { ...edition, visual } : edition),
+              visual_edition: current.visual_edition?.id === editionId ? { ...current.visual_edition, visual } : current.visual_edition,
+            } : current)}
+          />
+        </Suspense>
+      ) : null}
     </main>
   );
 }

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import "./LibraryShelfShowcase.css";
 import "./LibraryShelfActions.css";
-import { shouldShowSpineTitle } from "./lib/librarySpineMedia.js";
+import InteractiveLibraryBook3D from "./InteractiveLibraryBook3D.jsx";
+import LibrarySpineStatic from "./LibrarySpineStatic.jsx";
 import {
   filterShelfItems,
   formatShelfScore,
@@ -10,13 +11,6 @@ import {
   shelfStarFills,
   composeSpineRow,
 } from "./lib/libraryShelfSearch.js";
-
-function coverUrl(cover) {
-  const value = String(cover || "").trim();
-  if (!value) return "/images/librelula.png";
-  if (/^https?:\/\//i.test(value)) return value;
-  return `/${value.replace(/^\/+/, "")}`;
-}
 
 function spineVariation(value) {
   return [...String(value || "")].reduce(
@@ -81,14 +75,9 @@ function CoverTile({ item, photoMode, onSelectBook }) {
   const scoreLabel = formatShelfScore(item.score);
   const visual = (
     <span className="library-showcase-cover-visual">
-      <img
-        src={coverUrl(book.cover)}
-        alt={`Portada de ${book.title || "libro"}`}
-        loading="lazy"
-        onError={(event) => {
-          event.currentTarget.onerror = null;
-          event.currentTarget.src = "/images/librelula.png";
-        }}
+      <InteractiveLibraryBook3D item={item}
+        onOpen={photoMode ? undefined : () => onSelectBook?.(book)}
+        openLabel={`Abrir ficha de ${book.title || "este libro"}. Tu puntuación: ${scoreLabel}`}
       />
       <PhotoScoreRail score={item.score} />
     </span>
@@ -103,55 +92,27 @@ function CoverTile({ item, photoMode, onSelectBook }) {
   }
 
   return (
-    <button
-      type="button"
-      className="library-showcase-cover-card"
-      onClick={() => onSelectBook?.(book)}
-      aria-label={`Abrir ficha de ${book.title || "este libro"}. Tu puntuación: ${scoreLabel}`}
-    >
+    <div className="library-showcase-cover-card">
       {visual}
-      <span className="library-showcase-cover-copy">
+      <button type="button" className="library-showcase-cover-copy"
+        onClick={() => onSelectBook?.(book)}
+        aria-label={`Abrir ficha de ${book.title || "este libro"}. Tu puntuación: ${scoreLabel}`}
+      >
         <strong>{book.title || "Libro sin título"}</strong>
         <small>{book.author || "Autor desconocido"}</small>
-      </span>
-    </button>
+      </button>
+    </div>
   );
 }
 
-function SpineTile({ item, photoMode, onSelectBook, horizontal = false, leaning = false }) {
+function SpineTile({ item, photoMode, onInspectItem, horizontal = false, leaning = false }) {
   const book = item.book || {};
-  const personalUrl = String(item.personal_spine_url || "").trim();
-  const crop = item.personal_spine_crop || { x: 50, y: 50, zoom: 1 };
-  const showTitle = shouldShowSpineTitle({
-    hasPersonalSpine: Boolean(personalUrl),
-    showText: item.personal_spine_show_text,
-  });
   const score = normalizeShelfScore(item.score);
   const scoreLabel = formatShelfScore(item.score);
 
   const variation = spineVariation(item.book_id);
-  const className = `library-showcase-spine is-variation-${variation} ${personalUrl ? "is-personal" : "is-generated"} ${horizontal ? "is-horizontal" : ""}`;
-  const body = (
-    <span className="library-showcase-spine-face">
-      {personalUrl ? (
-        <img
-          src={personalUrl}
-          alt=""
-          loading="lazy"
-          onError={(event) => {
-            event.currentTarget.onerror = null;
-            event.currentTarget.src = "/images/librelula.png";
-          }}
-          style={{
-            objectPosition: `${crop.x}% ${crop.y}%`,
-            transform: `scale(${crop.zoom})`,
-          }}
-        />
-      ) : null}
-      <span className="library-showcase-spine-shade" aria-hidden="true" />
-      {showTitle ? <span className="library-showcase-spine-title">{book.title || "Libro"}</span> : null}
-    </span>
-  );
+  const className = `library-showcase-spine is-variation-${variation} ${horizontal ? "is-horizontal" : ""}`;
+  const body = <LibrarySpineStatic item={item} />;
   const palette = ["#31534d", "#6c3f4d", "#314e6b", "#77522f", "#57476b"];
 
   return (
@@ -164,8 +125,8 @@ function SpineTile({ item, photoMode, onSelectBook, horizontal = false, leaning 
         <button
           type="button"
           className={className}
-          onClick={() => onSelectBook?.(book)}
-          aria-label={`Abrir ficha de ${book.title || "este libro"}. Tu puntuación: ${scoreLabel}`}
+          onClick={() => onInspectItem?.(item)}
+          aria-label={`Sacar y girar ${book.title || "este libro"} en 3D. Tu puntuación: ${scoreLabel}`}
         >
           {body}
         </button>
@@ -177,7 +138,7 @@ function SpineTile({ item, photoMode, onSelectBook, horizontal = false, leaning 
   );
 }
 
-function SpineRowBooks({ items, rowIndex, photoMode, onSelectBook }) {
+function SpineRowBooks({ items, rowIndex, photoMode, onInspectItem }) {
   const { upright, stack } = composeSpineRow(items);
   return <>
     {upright.map((item, index) => (
@@ -185,14 +146,14 @@ function SpineRowBooks({ items, rowIndex, photoMode, onSelectBook }) {
         key={item.book_id}
         item={item}
         photoMode={photoMode}
-        onSelectBook={onSelectBook}
+        onInspectItem={onInspectItem}
         leaning={index === upright.length - 1 && upright.length > 3 && rowIndex % 2 === 0}
       />
     ))}
     {stack.length > 0 ? (
       <div className="library-showcase-spine-stack">
         {stack.map((item) => (
-          <SpineTile key={item.book_id} item={item} photoMode={photoMode} onSelectBook={onSelectBook} horizontal />
+          <SpineTile key={item.book_id} item={item} photoMode={photoMode} onInspectItem={onInspectItem} horizontal />
         ))}
       </div>
     ) : null}
@@ -229,7 +190,7 @@ function SearchIcon() {
   );
 }
 
-export default function LibraryShelfShowcase({ shelf, items, initialViewMode = "covers", onClose, onSelectBook }) {
+export default function LibraryShelfShowcase({ shelf, items, initialViewMode = "covers", onClose, onSelectBook, onInspectItem }) {
   const [mode, setMode] = useState(initialViewMode === "spines" ? "spines" : "covers");
   const [photoMode, setPhotoMode] = useState(false);
   const [query, setQuery] = useState("");
@@ -260,6 +221,7 @@ export default function LibraryShelfShowcase({ shelf, items, initialViewMode = "
     document.body.style.overflow = "hidden";
 
     function handleKeyDown(event) {
+      if (document.querySelector("dialog[open]")) return;
       if (event.key !== "Escape") return;
       if (photoMode) setPhotoMode(false);
       else onClose?.();
@@ -402,7 +364,7 @@ export default function LibraryShelfShowcase({ shelf, items, initialViewMode = "
                     photoMode={photoMode}
                     onSelectBook={onSelectBook}
                   />
-                )) : <SpineRowBooks items={row} rowIndex={rowIndex} photoMode={photoMode} onSelectBook={onSelectBook} />}
+                )) : <SpineRowBooks items={row} rowIndex={rowIndex} photoMode={photoMode} onInspectItem={onInspectItem} />}
               </div>
               <div className="library-showcase-wood" aria-hidden="true" />
             </div>

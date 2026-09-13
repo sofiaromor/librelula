@@ -1,0 +1,185 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import { resolveBookVisual } from "../src/lib/book3dGeometry.js";
+
+test("both shelf surfaces keep only covers/spines and wire the shared 3D inspector", async () => {
+  const library = await readFile(new URL("../src/MiBibliotecaImpl.jsx", import.meta.url), "utf8");
+  const showcase = await readFile(new URL("../src/LibraryShelfShowcase.jsx", import.meta.url), "utf8");
+  assert.match(library, /onInspectItem=\{setInspectedItem\}/);
+  assert.match(library, /<Book3DInspector/);
+  assert.match(library, /<InteractiveLibraryBook3D item=\{item\}/);
+  assert.match(library, /<LibrarySpineStatic item=\{item\}/);
+  assert.match(showcase, /<SpineRowBooks[^>]*onInspectItem=\{onInspectItem\}/);
+  assert.match(showcase, /<InteractiveLibraryBook3D item=\{item\}/);
+  assert.match(showcase, /<LibrarySpineStatic item=\{item\}/);
+  assert.equal((showcase.match(/aria-label="Ver portadas"/g) || []).length, 1);
+  assert.equal((showcase.match(/aria-label="Ver lomos"/g) || []).length, 1);
+  assert.match(library, /handleSpineFileSelected/);
+  assert.match(library, /handleEditCrop/);
+});
+
+test("mobile book/editor dialogs stay in the top layer with bounded dynamic viewport and safe-area footers", async () => {
+  for (const name of ["Book3DInspector", "BookProductFaceEditor"]) {
+    const [jsx, css] = await Promise.all([
+      readFile(new URL(`../src/${name}.jsx`, import.meta.url), "utf8"),
+      readFile(new URL(`../src/${name}.css`, import.meta.url), "utf8"),
+    ]);
+    assert.match(jsx, /<dialog/);
+    assert.match(jsx, /showModal\(\)/);
+    assert.match(jsx, /onCancel=/);
+    assert.match(css, /100dvh/);
+    assert.match(css, /safe-area-inset-bottom/);
+    assert.match(css, /position: sticky; bottom: 0/);
+  }
+});
+
+test("rectified cover is an in-flow grid item so it cannot obscure showcase stars or collapse its height", async () => {
+  const [showcaseCss, bookCss] = await Promise.all([
+    readFile(new URL("../src/LibraryShelfShowcase.css", import.meta.url), "utf8"),
+    readFile(new URL("../src/LibraryBook3D.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(showcaseCss, /\.library-showcase-cover-visual > \.book3d-interactive \{[^}]*aspect-ratio: 2 \/ 3;/);
+  assert.match(bookCss, /repeating-linear-gradient\(90deg,/);
+  assert.match(bookCss, /\.book3d-face\.is-top > \.book3d-paper-lines,\s*\.book3d-face\.is-bottom > \.book3d-paper-lines \{[^}]*repeating-linear-gradient\(0deg,/);
+});
+
+test("the special Villain Assistant edition keeps the photographed painted edge tied to its ISBN", async () => {
+  const migration = await readFile(new URL("../../supabase/migrations/20260913040421_seed_asistente_del_villano_visual.sql", import.meta.url), "utf8");
+  assert.match(migration, /9791388108112/);
+  assert.match(migration, /edition_label = 'Edición especial limitada'/);
+  const preset = resolveBookVisual({ isbn: "9791388108112", cover: "https://imagessl2.casadellibro.com/a/l/s5/12/9791388108112.webp" });
+  const seededQuads = [...migration.matchAll(/'(\[\[.*?\]\])'::jsonb/g)].map(([, json]) => JSON.parse(json));
+  assert.deepEqual(seededQuads, [preset.front_quad, preset.fore_edge_quad]);
+  assert.ok(migration.includes(preset.product_image_url));
+});
+
+test("the book detail uses the same draggable preview and inspector entry point", async () => {
+  const detail = await readFile(new URL("../src/BookDetailImpl.jsx", import.meta.url), "utf8");
+  assert.match(detail, /<InteractiveLibraryBook3D item=\{book3dPreviewItem\}/);
+  assert.match(detail, /className="book-detail-cover-3d"/);
+  assert.match(detail, /<Book3DInspector/);
+});
+
+test("the detail preview has no rectangular frame or clipping and reserves room for rotation", async () => {
+  const css = await readFile(new URL("../src/index.css", import.meta.url), "utf8");
+  const rules = [...css.matchAll(/\.book-detail-cover-wrap\s*\{([^}]*)\}/g)].map(([, declarations]) => declarations);
+  assert.ok(rules.length > 0);
+  assert.match(rules[0], /margin:\s*24px 12px;/);
+  assert.match(rules[0], /overflow:\s*visible;/);
+  assert.match(rules[0], /background:\s*transparent;/);
+  assert.match(rules[0], /box-shadow:\s*none;/);
+  assert.match(rules[0], /aspect-ratio:\s*2 \/ 3;/);
+  for (const rule of rules) {
+    assert.doesNotMatch(rule, /overflow(?:-x|-y)?:\s*(?:hidden|clip|auto|scroll)/);
+    assert.doesNotMatch(rule, /(?:background|box-shadow):\s*(?!transparent\s*;|none\s*;)\S/);
+  }
+  assert.match(css, /\.book-detail-cover-3d\s*\{[^}]*overflow:\s*visible;/);
+  assert.match(css, /\.book-detail-cover-3d \.book3d-drag-surface:focus-visible\s*\{[^}]*outline:\s*3px solid/);
+  // Face-level clipping is still needed to discard the product photo outside each quad.
+  const faces = await readFile(new URL("../src/LibraryBook3D.css", import.meta.url), "utf8");
+  assert.match(faces, /\.book-face-texture\s*\{[^}]*overflow:\s*hidden;/);
+});
+
+test("3D faces, inspector note and face editor use the same effective edition visual", async () => {
+  for (const name of ["LibraryBook3D", "Book3DInspector", "BookProductFaceEditor"]) {
+    const jsx = await readFile(new URL(`../src/${name}.jsx`, import.meta.url), "utf8");
+    assert.match(jsx, /resolveBookVisual\(/);
+  }
+});
+
+test("painted caps continue the visible edge while unpainted caps retain horizontal paper", async () => {
+  const [jsx, inspector, css] = await Promise.all(["LibraryBook3D.jsx", "Book3DInspector.jsx", "LibraryBook3D.css"].map((name) => readFile(new URL(`../src/${name}`, import.meta.url), "utf8")));
+  assert.equal((jsx.match(/className="book3d-painted-cap"/g) || []).length, 2);
+  assert.match(jsx, /const painted = !compact && Boolean\(visual.fore_edge_quad\)/);
+  assert.match(jsx, /is-top[^\n]*quad=\{visual.fore_edge_quad\}[^\n]*book3d-paper-lines/);
+  assert.match(jsx, /is-bottom[^\n]*quad=\{visual.fore_edge_quad\}[^\n]*book3d-paper-lines/);
+  assert.match(css, /\.book3d-painted-cap \{[^}]*rotate\(-90deg\)/);
+  assert.match(inspector, /continuación aproximada/);
+});
+
+test("generated spines and backs expose the shared dominant color instead of blurred cover overlays", async () => {
+  for (const name of ["LibraryBook3D", "LibrarySpineStatic"]) {
+    const jsx = await readFile(new URL(`../src/${name}.jsx`, import.meta.url), "utf8");
+    assert.match(jsx, /useBook3DColor\(book,/);
+    assert.match(jsx, /"--book-cloth": cloth/);
+    assert.doesNotMatch(jsx, /blurred=/);
+  }
+  const texture = await readFile(new URL("../src/BookFaceTexture.jsx", import.meta.url), "utf8");
+  assert.match(texture, /width: natural.width/);
+  assert.match(texture, /naturalWidth/);
+  assert.match(texture, /naturalHeight/);
+});
+
+test("2D is a native sibling action that resets both angles without opening the book", async () => {
+  const jsx = await readFile(new URL("../src/InteractiveLibraryBook3D.jsx", import.meta.url), "utf8");
+  const reset = jsx.match(/function resetTo2D\(event\) \{([\s\S]*?)\n  \}/)?.[1];
+  assert.ok(reset);
+  assert.match(reset, /event.preventDefault\(\)/);
+  assert.match(reset, /event.stopPropagation\(\)/);
+  assert.match(reset, /gestureRef.current = null/);
+  assert.match(reset, /releasePointerCapture\(pointerId\)/);
+  assert.match(reset, /draggedRef.current = false/);
+  assert.match(reset, /applyRotation\(0, 0\)/);
+  assert.match(reset, /setIsFlat\(true\)/);
+  assert.doesNotMatch(reset, /onOpen/);
+  assert.match(jsx, /<\/Surface>\s*<button\s*type="button"\s*className="book3d-reset-2d"\s*onClick=\{resetTo2D\}/);
+  assert.match(jsx, /Volver al modo 2D/);
+  assert.doesNotMatch(jsx, /book3d-rotate-hint/);
+});
+
+test("2D really removes perspective and hidden faces; a new drag restores 3D", async () => {
+  const [jsx, css] = await Promise.all([
+    readFile(new URL("../src/InteractiveLibraryBook3D.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/LibraryBook3D.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(jsx, /isFlat \? "is-flat" : ""/);
+  assert.match(jsx, /Math.hypot\(deltaX, deltaY\) < DRAG_THRESHOLD\) return;\s*if \(!draggedRef.current\) setIsFlat\(false\)/);
+  assert.match(css, /\.book3d-interactive\.is-flat \.book3d-stage\s*\{\s*perspective: none;/);
+  assert.match(css, /\.book3d-interactive\.is-flat \.book3d-object\s*\{\s*transform: none;/);
+  assert.match(css, /\.book3d-interactive\.is-flat \.book3d-face:not\(\.is-front\)\s*\{\s*display: none;/);
+  assert.match(css, /\.book3d-interactive\.is-flat \.book3d-face\.is-front\s*\{\s*transform: none;/);
+  assert.match(css, /\.book3d-reset-2d:focus-visible\s*\{[^}]*outline:/);
+});
+
+test("all cover entry points delegate opening to the drag surface without nesting buttons", async () => {
+  const [detail, library, showcase] = await Promise.all([
+    "BookDetailImpl.jsx", "MiBibliotecaImpl.jsx", "LibraryShelfShowcase.jsx",
+  ].map((name) => readFile(new URL(`../src/${name}`, import.meta.url), "utf8")));
+  assert.match(detail, /<div className="book-detail-cover-3d">\s*<InteractiveLibraryBook3D[^>]*onOpen=\{\(\) => setBook3dOpen\(true\)\}/);
+  assert.match(detail, /key=\{currentBook.id\}/);
+  assert.match(library, /<div className="library-v2-cover-image">\s*<InteractiveLibraryBook3D[^>]*onOpen=\{\(\) => onSelectBook\?\.\(book\)\}/);
+  assert.match(showcase, /onOpen=\{photoMode \? undefined : \(\) => onSelectBook\?\.\(book\)\}/);
+  assert.match(showcase, /<div className="library-showcase-cover-card">\s*\{visual\}/);
+  assert.match(showcase, /<button type="button" className="library-showcase-cover-copy"/);
+});
+
+test("2D displays the original edition cover, not the rectified 3D front", async () => {
+  const [jsx, css] = await Promise.all([
+    readFile(new URL("../src/InteractiveLibraryBook3D.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/LibraryBook3D.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(jsx, /edition \|\| item.visual_edition \|\| pickVisualEdition\(book, item.editions\)/);
+  assert.match(jsx, /originalCover = bookImageUrl\(selected\?\.cover \|\| book.cover\)/);
+  assert.match(jsx, /isFlat && hasOriginalCover \? <img/);
+  const originalImage = jsx.match(/className="book3d-original-cover"([\s\S]*?)\/>/)?.[1];
+  assert.ok(originalImage);
+  assert.match(originalImage, /src=\{originalCover\}/);
+  assert.match(originalImage, /draggable="false"/);
+  assert.doesNotMatch(originalImage, /quad|faceCssMatrix|crop/);
+  assert.match(css, /\.book3d-original-cover\s*\{[^}]*object-fit: contain;/);
+});
+
+test("the 3D model is retained until the original cover loads or if it fails", async () => {
+  const [jsx, css] = await Promise.all([
+    readFile(new URL("../src/InteractiveLibraryBook3D.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/LibraryBook3D.css", import.meta.url), "utf8"),
+  ]);
+  assert.match(jsx, /failedCover !== originalCover/);
+  assert.match(jsx, /originalReady = hasOriginalCover && loadedCover === originalCover/);
+  assert.match(jsx, /onLoad=\{\(\) => setLoadedCover\(originalCover\)\}/);
+  assert.match(jsx, /onError=\{\(\) => setFailedCover\(originalCover\)\}/);
+  // Group opacity also hides rectified descendants whose inline visibility is explicitly visible.
+  assert.match(css, /\.book3d-interactive\.is-flat\.has-original-cover \.book3d-stage\s*\{\s*opacity: 0;/);
+  assert.match(css, /\.book3d-interactive\.is-flat\.has-original-cover \.book3d-original-cover\s*\{\s*opacity: 1;/);
+});
