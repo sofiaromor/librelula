@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { resolveBookVisual } from "../src/lib/book3dGeometry.js";
 
 test("both shelf surfaces keep only covers/spines and wire the shared 3D inspector", async () => {
   const library = await readFile(new URL("../src/MiBibliotecaImpl.jsx", import.meta.url), "utf8");
@@ -40,14 +41,17 @@ test("rectified cover is an in-flow grid item so it cannot obscure showcase star
   ]);
   assert.match(showcaseCss, /\.library-showcase-cover-visual > \.book3d-interactive \{[^}]*aspect-ratio: 2 \/ 3;/);
   assert.match(bookCss, /repeating-linear-gradient\(90deg,/);
+  assert.match(bookCss, /\.book3d-face\.is-top > \.book3d-paper-lines,\s*\.book3d-face\.is-bottom > \.book3d-paper-lines \{[^}]*repeating-linear-gradient\(0deg,/);
 });
 
 test("the special Villain Assistant edition keeps the photographed painted edge tied to its ISBN", async () => {
   const migration = await readFile(new URL("../../supabase/migrations/20260913040421_seed_asistente_del_villano_visual.sql", import.meta.url), "utf8");
   assert.match(migration, /9791388108112/);
   assert.match(migration, /edition_label = 'Edición especial limitada'/);
-  assert.match(migration, /front_quad[\s\S]*\[\[0\.25,0\.14\],\[0\.716,0\.122\],\[0\.716,0\.843\],\[0\.25,0\.855\]\]/);
-  assert.match(migration, /fore_edge_quad[\s\S]*\[\[0\.716,0\.122\],\[0\.777,0\.135\],\[0\.777,0\.856\],\[0\.716,0\.843\]\]/);
+  const preset = resolveBookVisual({ isbn: "9791388108112", cover: "https://imagessl2.casadellibro.com/a/l/s5/12/9791388108112.webp" });
+  const seededQuads = [...migration.matchAll(/'(\[\[.*?\]\])'::jsonb/g)].map(([, json]) => JSON.parse(json));
+  assert.deepEqual(seededQuads, [preset.front_quad, preset.fore_edge_quad]);
+  assert.ok(migration.includes(preset.product_image_url));
 });
 
 test("the book detail uses the same draggable preview and inspector entry point", async () => {
@@ -55,4 +59,11 @@ test("the book detail uses the same draggable preview and inspector entry point"
   assert.match(detail, /<InteractiveLibraryBook3D item=\{book3dPreviewItem\}/);
   assert.match(detail, /className="book-detail-cover-3d"/);
   assert.match(detail, /<Book3DInspector/);
+});
+
+test("3D faces, inspector note and face editor use the same effective edition visual", async () => {
+  for (const name of ["LibraryBook3D", "Book3DInspector", "BookProductFaceEditor"]) {
+    const jsx = await readFile(new URL(`../src/${name}.jsx`, import.meta.url), "utf8");
+    assert.match(jsx, /resolveBookVisual\(/);
+  }
 });

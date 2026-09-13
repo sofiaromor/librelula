@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import BookFaceTexture from "./BookFaceTexture.jsx";
-import { FULL_FACE, normalizeBookVisual, normalizeFaceQuad, safeProductImageUrl } from "./lib/book3dGeometry.js";
+import { FULL_FACE, normalizeBookVisual, normalizeFaceQuad, resolveBookVisual, safeProductImageUrl } from "./lib/book3dGeometry.js";
 import { saveEditionVisual } from "./lib/bookVisualsApi.js";
 import "./BookProductFaceEditor.css";
 
 const CORNERS = ["superior izquierda", "superior derecha", "inferior derecha", "inferior izquierda"];
 
 export default function BookProductFaceEditor({ edition, onClose, onSaved, onConfirm }) {
-  const initial = normalizeBookVisual(edition.visual);
+  const initial = resolveBookVisual(null, edition);
   const dialogRef = useRef(null);
   const photoRef = useRef(null);
   const pointerRef = useRef(null);

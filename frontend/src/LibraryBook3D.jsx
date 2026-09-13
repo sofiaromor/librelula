@@ -1,13 +1,13 @@
 import { useEffect, useRef } from "react";
 import BookFaceTexture from "./BookFaceTexture.jsx";
-import { bookClothColor, bookThicknessRatio, normalizeBookVisual, pickVisualEdition } from "./lib/book3dGeometry.js";
+import { bookClothColor, bookThicknessRatio, resolveBookVisual, pickVisualEdition } from "./lib/book3dGeometry.js";
 import { shouldShowSpineTitle } from "./lib/librarySpineMedia.js";
 import "./LibraryBook3D.css";
 
 export default function LibraryBook3D({ item, edition, compact = false, objectRef, initialYaw, initialPitch }) {
   const book = item.book || {};
   const selected = edition || item.visual_edition || pickVisualEdition(book, item.editions);
-  const visual = normalizeBookVisual(selected?.visual);
+  const visual = resolveBookVisual(book, selected);
   const cover = selected?.cover || book.cover;
   const depthRatio = bookThicknessRatio(selected?.pages || book.pages);
   const stageRef = useRef(null);

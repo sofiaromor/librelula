@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import LibraryBook3D from "./LibraryBook3D.jsx";
-import { normalizeBookVisual } from "./lib/book3dGeometry.js";
+import { resolveBookVisual } from "./lib/book3dGeometry.js";
 import "./Book3DInspector.css";
 
 const BookProductFaceEditor = lazy(() => import("./BookProductFaceEditor.jsx"));
@@ -17,7 +17,7 @@ export default function Book3DInspector({ item, isAdmin = false, onClose, onSele
   const [activeFace, setActiveFace] = useState("");
   const [editing, setEditing] = useState(false);
   const edition = editions.find((e) => e.id === editionId) || item.visual_edition;
-  const exactEdge = Boolean(normalizeBookVisual(edition?.visual).fore_edge_quad);
+  const exactEdge = Boolean(resolveBookVisual(book, edition).fore_edge_quad);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -76,6 +76,6 @@ export default function Book3DInspector({ item, isAdmin = false, onClose, onSele
     {book.synopsis ? <details className="book3d-synopsis"><summary>Leer sinopsis</summary><p>{String(book.synopsis).replace(/<[^>]*>/g, " ")}</p></details> : null}
     {isAdmin && edition?.id ? <button className="book3d-edit-textures" type="button" onClick={() => setEditing(true)}>Ajustar portada y canto de esta edición</button> : null}
     <footer className="book3d-inspector-footer">{onSelectBook ? <button type="button" onClick={() => navigate(onSelectBook)}>Abrir ficha</button> : null}{onOpenReader ? <button type="button" className="is-primary" onClick={() => navigate(onOpenReader)}>Abrir lector</button> : <button type="button" className="is-primary" onClick={onClose}>Volver</button>}</footer>
-    {editing ? <Suspense fallback={<p role="status">Abriendo el recorte…</p>}><BookProductFaceEditor edition={edition} onClose={() => setEditing(false)} onSaved={(visual) => { setEditions((rows) => rows.map((e) => e.id === edition.id ? { ...e, visual } : e)); onVisualSaved?.(edition.id, visual); setEditing(false); }} /></Suspense> : null}
+    {editing ? <Suspense fallback={<p role="status">Abriendo el recorte…</p>}><BookProductFaceEditor edition={edition} onClose={() => setEditing(false)} onSaved={(visual) => { setEditions((rows) => rows.some((e) => e.id === edition.id) ? rows.map((e) => e.id === edition.id ? { ...e, visual } : e) : [...rows, { ...edition, visual }]); onVisualSaved?.(edition.id, visual); setEditing(false); }} /></Suspense> : null}
   </dialog>;
 }

@@ -10,7 +10,7 @@ La portada de la ficha del libro también es interactiva y abre el mismo inspect
 - Canto de páginas: cara visible recortada de la foto de **esa edición/ISBN**, solo después de definir sus esquinas. No es el lomo.
 - Lomo: foto personal existente; en su ausencia, portada desenfocada con título y autora.
 - Contraportada: composición de paleta/portada desenfocada y sinopsis, no una fotografía de la contraportada real.
-- Canto sin foto, superior e inferior: papel neutro recreado con líneas verticales. Grosor aproximado según páginas, no dimensiones físicas verificadas.
+- Canto sin foto: papel neutro recreado con líneas verticales. Caras superior e inferior: líneas horizontales, paralelas al ancho de la portada. Grosor aproximado según páginas, no dimensiones físicas verificadas.
 
 Una foto no permite recuperar caras ocultas ni detalles perdidos por compresión. La rectificación corrige la perspectiva geométrica; no reconstruye ilustraciones. La extracción de portada/canto se confirma con el editor: **no hay detección automática de caras ni asignación de una imagen de galería a una cara oculta**.
 
@@ -23,6 +23,8 @@ En la revisión de una importación, **Preparar portada y canto 3D** permite ele
 Para libros importados anteriormente, una administradora puede abrir el inspector desde Lomos y usar **Ajustar portada y canto de esta edición**, pegando otra foto original si hace falta.
 
 La migración `20260913040421_seed_asistente_del_villano_visual.sql` deja preparada una primera edición de prueba para **Asistente del villano (edición especial limitada)** (ISBN `9791388108112`). Usa la fotografía de producto importada y las esquinas que delimitan la portada y el canto pintado visible. Es una semilla puntual del catálogo, no una suposición que se aplique a todos los libros.
+
+La misma foto tiene un recorte público de respaldo en `resolveBookVisual`: funciona en la ficha y en ambos puntos de entrada al inspector antes de activar la semilla opcional. Solo se aplica al ISBN `9791388108112` y a las URLs verificadas de esa fotografía (`s5`/`s7`); usa la versión `s7` de 552 px publicada en el srcset original. La portada y el canto se rectifican por separado y no incluyen el fondo blanco. Un recorte guardado en la edición tiene prioridad, incluso si desactiva el canto. Cambiar de ISBN o de fotografía no reutiliza estas coordenadas. No se modifica la base de datos para activar este respaldo.
 
 El inspector identifica la edición mostrada por ISBN/principal y permite ver otras ediciones sin modificar el estado de lectura ni la edición del registro de biblioteca. No se reutiliza automáticamente el canto de una edición especial para otra edición.
 

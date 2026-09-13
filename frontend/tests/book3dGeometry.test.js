@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { FULL_FACE, normalizeFaceQuad, faceHomography, projectPoint, faceCssMatrix, normalizeBookVisual, pickVisualEdition, bookThicknessRatio, safeProductImageUrl, bookImageUrl } from "../src/lib/book3dGeometry.js";
+import { FULL_FACE, normalizeFaceQuad, faceHomography, projectPoint, faceCssMatrix, normalizeBookVisual, resolveBookVisual, pickVisualEdition, bookThicknessRatio, safeProductImageUrl, bookImageUrl } from "../src/lib/book3dGeometry.js";
+
+const photographedEdition = {
+  isbn: "979-1-388108-11-2",
+  cover: "https://imagessl2.casadellibro.com/a/l/s5/12/9791388108112.webp",
+};
 
 test("product face rectification maps all photographed corners exactly to a rectangle", () => {
   for (const quad of [FULL_FACE, [[.14,.05],[.77,.10],[.77,.95],[.14,.88]], [[.77,.10],[.91,.04],[.91,.89],[.77,.95]]]) {
@@ -52,4 +57,56 @@ test("only safe HTTPS product images persist; existing local covers remain suppo
   assert.equal(bookImageUrl("//evil.test/x"), "");
   const v = normalizeBookVisual({ image_gallery: Array.from({length:20}, (_,i) => `https://images.example.test/${i}.jpg`) });
   assert.equal(v.image_gallery.length, 8);
+});
+
+test("verified product photo has separate rectified front and painted edge without a visual seed", () => {
+  const visual = resolveBookVisual(photographedEdition);
+  assert.equal(visual.product_image_url, "https://imagessl2.casadellibro.com/a/l/s7/12/9791388108112.webp");
+  assert.notDeepEqual(visual.front_quad, FULL_FACE);
+  assert.notDeepEqual(visual.front_quad, visual.fore_edge_quad);
+  for (const quad of [visual.front_quad, visual.fore_edge_quad]) {
+    const matrix = faceHomography(quad);
+    assert.ok(matrix);
+    quad.forEach((point, i) => {
+      const projected = projectPoint(matrix, point);
+      assert.ok(Math.abs(projected[0] - FULL_FACE[i][0]) < 1e-8);
+      assert.ok(Math.abs(projected[1] - FULL_FACE[i][1]) < 1e-8);
+    });
+  }
+  assert.deepEqual(resolveBookVisual({}, photographedEdition), visual);
+  assert.deepEqual(resolveBookVisual({ ...photographedEdition, cover: visual.product_image_url }), visual);
+});
+
+test("verified coordinates are never borrowed for another ISBN, photograph or unknown selected edition", () => {
+  for (const [book, edition] of [
+    [{ ...photographedEdition, isbn: "9781234567897" }],
+    [{ ...photographedEdition, cover: "https://images.example.test/another-photo.jpg" }],
+    [{ ...photographedEdition, isbn: "", title: "Asistente del villano" }],
+    [photographedEdition, { isbn: "9781234567897", cover: photographedEdition.cover }],
+    [photographedEdition, { cover: photographedEdition.cover }],
+  ]) {
+    const visual = resolveBookVisual(book, edition);
+    assert.equal(visual.front_quad, null);
+    assert.equal(visual.fore_edge_quad, null);
+  }
+});
+
+test("saved edition visual wins over the preset, including an explicitly disabled painted edge", () => {
+  const saved = {
+    product_image_url: photographedEdition.cover,
+    front_quad: FULL_FACE,
+    fore_edge_quad: null,
+  };
+  const visual = resolveBookVisual(photographedEdition, { ...photographedEdition, visual: saved });
+  assert.deepEqual(visual, normalizeBookVisual(saved));
+  assert.equal(visual.fore_edge_quad, null);
+});
+
+test("resolving a preset does not expose mutable shared texture coordinates", () => {
+  const before = resolveBookVisual(photographedEdition);
+  const mutated = resolveBookVisual(photographedEdition);
+  mutated.front_quad[0][0] = 0;
+  mutated.fore_edge_quad[0][0] = 0;
+  mutated.image_gallery.length = 0;
+  assert.deepEqual(resolveBookVisual(photographedEdition), before);
 });

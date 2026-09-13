@@ -83,10 +83,10 @@ insert into public.book_edition_visuals (
 )
 select
   editions.id,
-  'https://imagessl2.casadellibro.com/a/l/s5/12/9791388108112.webp',
-  jsonb_build_array('https://imagessl2.casadellibro.com/a/l/s5/12/9791388108112.webp'),
-  '[[0.25,0.14],[0.716,0.122],[0.716,0.843],[0.25,0.855]]'::jsonb,
-  '[[0.716,0.122],[0.777,0.135],[0.777,0.856],[0.716,0.843]]'::jsonb
+  'https://imagessl2.casadellibro.com/a/l/s7/12/9791388108112.webp',
+  jsonb_build_array('https://imagessl2.casadellibro.com/a/l/s5/12/9791388108112.webp', 'https://imagessl2.casadellibro.com/a/l/s7/12/9791388108112.webp'),
+  '[[0.252,0.148],[0.685,0.129],[0.686,0.874],[0.252,0.846]]'::jsonb,
+  '[[0.700,0.148],[0.750,0.148],[0.750,0.855],[0.700,0.856]]'::jsonb
 from public.book_editions editions
 join public.books
   on books.id = editions.book_id
