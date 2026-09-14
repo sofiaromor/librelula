@@ -24,7 +24,9 @@ import {
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
-const EPUB_STARTUP_TIMEOUT_MS = 15_000;
+const READER_DATA_TIMEOUT_MS = 12_000;
+const CATALOG_PROGRESS_TIMEOUT_MS = 3_000;
+const EPUB_STARTUP_TIMEOUT_MS = 10_000;
 
 const NOTE_COLORS = [
   ["yellow", "Amarillo"],
@@ -641,6 +643,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const [documents, setDocuments] = useState([]);
   const [readerState, setReaderState] = useState({ progress: null, annotations: [] });
   const [catalogReading, setCatalogReading] = useState(null);
+  const [catalogProgressReady, setCatalogProgressReady] = useState(false);
   const [selectedDocumentId, setSelectedDocumentId] = useState("");
   const [catalogFormat, setCatalogFormat] = useState("");
   const [loading, setLoading] = useState(true);
@@ -672,28 +675,38 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
 
   useEffect(() => {
     let cancelled = false;
+    let dataTimer = null;
+    let catalogProgressTimer = null;
     const resetTimer = window.setTimeout(() => {
       if (cancelled) return;
       setLoading(true);
       setError("");
       setMessage(null);
       setCatalogReading(null);
+      setCatalogProgressReady(false);
     }, 0);
 
     if (!bookId || !isLoggedIn) {
       window.clearTimeout(resetTimer);
+      setCatalogProgressReady(true);
       return undefined;
     }
 
     readerStartedRef.current = "";
 
-    Promise.all([
+    const readerDataRequest = Promise.all([
       getReaderBookAssets(bookId),
       getReaderDocuments(bookId),
       getReaderBookState(bookId),
-      getCatalogUserBooks({ bookId }).catch(() => ({ item: null })),
-    ])
-      .then(([bookAssets, bookDocuments, state, catalog]) => {
+    ]);
+    const readerDataFallback = new Promise((_, reject) => {
+      dataTimer = window.setTimeout(() => {
+        reject(new Error("El lector está tardando demasiado en cargar tus archivos. Comprueba tu conexión e inténtalo de nuevo."));
+      }, READER_DATA_TIMEOUT_MS);
+    });
+
+    Promise.race([readerDataRequest, readerDataFallback])
+      .then(([bookAssets, bookDocuments, state]) => {
         if (cancelled) return;
         const nextAssets = {
           epub_file: bookAssets?.epub_file || bookEpubFile,
@@ -702,7 +715,6 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         setAssets(nextAssets);
         setDocuments(bookDocuments || []);
         setReaderState(state || { progress: null, annotations: [] });
-        setCatalogReading(catalog?.item || null);
         const preferredDocument = (bookDocuments || []).find((document) => document.id === state?.progress?.document_id)
           || (bookDocuments || [])[0]
           || null;
@@ -711,25 +723,40 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
           preferredDocument?.format
             || (nextAssets.epub_file ? "epub" : nextAssets.pdf_file ? "pdf" : ""),
         );
-        setCurrentProgress(
-          catalog?.item
-            ? clampReaderProgress(catalog.item.progress)
-            : clampReaderProgress(state?.progress?.progress),
-        );
+        setCurrentProgress(clampReaderProgress(state?.progress?.progress));
         setCurrentChapter(state?.progress?.current_chapter || "");
         setCurrentPage(state?.progress?.current_page || null);
+
+        const catalogProgressRequest = getCatalogUserBooks({ bookId }).catch(() => ({ item: null }));
+        const catalogProgressFallback = new Promise((resolve) => {
+          catalogProgressTimer = window.setTimeout(() => resolve({ item: null }), CATALOG_PROGRESS_TIMEOUT_MS);
+        });
+
+        void Promise.race([catalogProgressRequest, catalogProgressFallback])
+          .then((catalog) => {
+            if (cancelled) return;
+            window.clearTimeout(catalogProgressTimer);
+            setCatalogReading(catalog?.item || null);
+            if (catalog?.item) {
+              setCurrentProgress(clampReaderProgress(catalog.item.progress));
+            }
+            setCatalogProgressReady(true);
+          });
       })
       .catch((loadError) => {
         if (cancelled) return;
         setError(loadError?.message || "No se pudo preparar el lector.");
       })
       .finally(() => {
+        window.clearTimeout(dataTimer);
         if (!cancelled) setLoading(false);
       });
 
     return () => {
       cancelled = true;
       window.clearTimeout(resetTimer);
+      window.clearTimeout(dataTimer);
+      window.clearTimeout(catalogProgressTimer);
     };
   }, [bookEpubFile, bookId, bookPdfFile, isLoggedIn]);
 
@@ -833,7 +860,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   }, [manualProgress, persistProgress, selectedDocument?.id]);
 
   useEffect(() => {
-    if (!sourceUrl || !bookId || readerStartedRef.current === sourceKey || loading) return;
+    if (!sourceUrl || !bookId || readerStartedRef.current === sourceKey || loading || !catalogProgressReady) return;
     readerStartedRef.current = sourceKey;
     const startingPosition = {
       documentId: selectedDocument?.id || null,
@@ -846,7 +873,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     };
     latestProgressRef.current = startingPosition;
     void persistProgress(startingPosition);
-  }, [bookId, loading, manualProgress, persistProgress, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
+  }, [bookId, catalogProgressReady, loading, manualProgress, persistProgress, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -1115,8 +1142,8 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
 
       {message && <p className={`reader-feedback is-${message.type}`} role={message.type === "error" ? "alert" : "status"}>{message.text}</p>}
 
-      {loading ? (
-        <ReaderLoading />
+      {loading || (Boolean(sourceUrl) && !catalogProgressReady) ? (
+        <ReaderLoading text={loading ? undefined : "Recuperando tu progreso…"} />
       ) : error ? (
         <section className="reader-setup-card reader-error-card">
           <span className="reader-setup-icon" aria-hidden="true">!</span>
