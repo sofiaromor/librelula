@@ -64,6 +64,31 @@ Nunca guardar host, usuario, contraseña o API keys privadas en el repositorio.
 - Vercel Deployments para verificar que la revisión que contiene el cambio está en producción.
 - Proveedor SMTP para entregas, rebotes y bloqueos.
 
+## Brevo rechaza una IP de Supabase
+
+Un error `525 "5.7.1 Unauthorized IP address"` en Auth Logs significa que Brevo
+rechazó la conexión SMTP antes de entregar el correo. Se observó en los flujos
+`/recover` y `/otp` el 13 de septiembre de 2026. Reenviar desde el frontend no
+corrige esta restricción.
+
+1. Revisar **Settings > Security > Authorized IPs** en Brevo, incluyendo la lista
+   de IP no autorizadas y la protección específica de SMTP.
+2. Contrastar la IP bloqueada y el momento del bloqueo con una solicitud de
+   prueba de Supabase. No autorizar orígenes desconocidos ni usar la IP de Vercel.
+3. Autorizar únicamente el origen identificado, o decidir expresamente cómo
+   gestionar la protección de SMTP si no se dispone de una IP de salida estable.
+4. Solicitar un solo correo con una dirección de prueba autorizada y comprobar
+   la respuesta de Supabase, los logs de Brevo y la recepción. Esperar al menos
+   el intervalo configurado antes de pedir el siguiente.
+5. Completar los flujos de QA de alta y recuperación de este documento.
+
+La web evita solicitudes concurrentes y muestra la espera mínima de 60 segundos
+por dirección. Un fallo SMTP no se considera un envío correcto ni inicia esa
+espera. Un éxito de la API tampoco acredita por sí solo la recepción en el buzón.
+
+Referencia del proveedor:
+https://help.brevo.com/hc/en-us/articles/115000188150-Troubleshooting-Issues-with-Brevo-SMTP
+
 ## Rollback
 
 El cambio de frontend se revierte mediante Git/Vercel. La configuración SMTP es independiente y puede deshabilitarse desde Supabase Auth sin tocar código.

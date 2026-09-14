@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { sendAuthEmailRequest } from "./authEmailRequests.js";
 import {
   isValidVerificationCode,
   normalizeAuthEmail,
@@ -201,7 +202,7 @@ export function getAuthRedirectUrl() {
 export async function signInSupabase({ email, password }) {
   clearSessionProfileCache({ persisted: true, home: true });
   const { error } = await supabase.auth.signInWithPassword({
-    email,
+    email: normalizeAuthEmail(email),
     password,
   });
 
@@ -229,7 +230,7 @@ export async function signUpSupabase({ email, password, username }) {
   }
 
   clearSessionProfileCache({ persisted: true, home: true });
-  const { data, error } = await supabase.auth.signUp({
+  const { data } = await sendAuthEmailRequest(cleanEmail, () => supabase.auth.signUp({
     email: cleanEmail,
     password,
     options: {
@@ -238,14 +239,19 @@ export async function signUpSupabase({ email, password, username }) {
       },
       emailRedirectTo: getAuthRedirectUrl(),
     },
+  }), {
+    shouldStartCooldown: ({ data: signupData }) => !signupData?.session &&
+      !(Array.isArray(signupData?.user?.identities) && signupData.user.identities.length === 0),
   });
-
-  if (error) {
-    throw error;
-  }
 
   if (data?.session) {
     return getSupabaseAppSession();
+  }
+
+  // For an existing confirmed account Supabase returns an obfuscated user and
+  // sends no confirmation. Do not claim that a verification email was sent.
+  if (Array.isArray(data?.user?.identities) && data.user.identities.length === 0) {
+    return { authenticated: false, needsSignIn: true, email: cleanEmail };
   }
 
   return {
@@ -262,17 +268,13 @@ export async function resendSignupConfirmation(email) {
     throw new Error("Escribe el correo electrónico de tu cuenta.");
   }
 
-  const { error } = await supabase.auth.resend({
+  await sendAuthEmailRequest(cleanEmail, () => supabase.auth.resend({
     type: "signup",
     email: cleanEmail,
     options: {
       emailRedirectTo: getAuthRedirectUrl(),
     },
-  });
-
-  if (error) {
-    throw error;
-  }
+  }));
 }
 
 export async function verifySignupCode(email, token) {
@@ -287,17 +289,13 @@ export async function requestSignInCode(email) {
     throw new Error("Escribe el correo electrónico de tu cuenta.");
   }
 
-  const { error } = await supabase.auth.signInWithOtp({
+  await sendAuthEmailRequest(cleanEmail, () => supabase.auth.signInWithOtp({
     email: cleanEmail,
     options: {
       shouldCreateUser: false,
       emailRedirectTo: getAuthRedirectUrl(),
     },
-  });
-
-  if (error) {
-    throw error;
-  }
+  }));
 }
 
 export async function verifySignInCode(email, token) {
@@ -315,13 +313,9 @@ export async function requestPasswordRecovery(email) {
   const recoveryUrl = new URL(getAuthRedirectUrl());
   recoveryUrl.searchParams.set("auth", "recovery");
 
-  const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+  await sendAuthEmailRequest(cleanEmail, () => supabase.auth.resetPasswordForEmail(cleanEmail, {
     redirectTo: recoveryUrl.toString(),
-  });
-
-  if (error) {
-    throw error;
-  }
+  }));
 }
 
 export async function verifyPasswordRecoveryCode(email, token) {
