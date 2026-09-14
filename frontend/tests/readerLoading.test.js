@@ -58,3 +58,17 @@ test("conserva el progreso manual del catálogo", () => {
   assert.match(source, /const manualProgress = catalogReading/);
   assert.match(source, /Math\.max\(manualProgress, automaticProgress\)/);
 });
+
+test("valida y abre el EPUB desde los bytes descargados", () => {
+  assert.match(source, /EPUB_SOURCE_FETCH_TIMEOUT_MS = 8_000/);
+  assert.match(source, /const fetchEpubSource = async/);
+  assert.match(source, /response\.arrayBuffer\(\)/);
+  assert.match(source, /new Uint8Array\(buffer\)/);
+  assert.match(source, /ePub\(sourceBuffer\)/);
+});
+
+test("no persiste un cero provisional y guarda el manual tardío", () => {
+  assert.match(source, /lateCatalogProgressRef\.current = true/);
+  assert.match(source, /manualProgress === null && clampReaderProgress\(sourceProgress\?\.progress\) === 0/);
+  assert.match(source, /void persistProgress\(lateSnapshot, \{ quiet: true \}\)/);
+});
