@@ -31,6 +31,21 @@ https://help.brevo.com/hc/en-us/articles/5740111683858-Authorize-and-block-IP-ad
 La entrega a un buzón y los flujos completos de alta y recuperación siguen
 pendientes de comprobar después de corregir la restricción del proveedor.
 
+## Enlaces de autenticación pendientes de corregir
+
+El 14 de septiembre también se comprobó que **URL Configuration > Site URL**
+contiene `https://librelula.vercel.app/**`. Site URL no admite comodines. Debe
+guardarse como `https://librelula.vercel.app`.
+
+La lista de Redirect URLs incluye el origen de producción, pero falta el retorno
+exacto usado por `requestPasswordRecovery`:
+`https://librelula.vercel.app/?auth=recovery`. Añadir esa URL manteniendo las
+entradas existentes. No hace falta ampliar la lista con un comodín de producción.
+La corrección en Dashboard aún no está guardada; requiere aprobación explícita
+del propietario antes de modificar la configuración de autenticación de producción.
+
+Referencia: https://supabase.com/docs/guides/auth/redirect-urls
+
 ## Opción seleccionada
 
 Brevo Free (0 EUR/mes en la fase inicial).
@@ -53,7 +68,7 @@ Authentication > Emails > SMTP Settings
 Después de guardar las credenciales:
 
 1. Site URL: `https://librelula.vercel.app`
-2. Redirect allowlist: `https://librelula.vercel.app/**`
+2. Redirect allowlist: `https://librelula.vercel.app` y `https://librelula.vercel.app/?auth=recovery`
 3. Confirm signup habilitado.
 4. Ejecutar la checklist `docs/qa/auth-email-checklist.md` con una dirección externa.
 
