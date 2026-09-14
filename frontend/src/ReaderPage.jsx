@@ -26,6 +26,7 @@ GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const READER_DATA_TIMEOUT_MS = 12_000;
 const CATALOG_PROGRESS_TIMEOUT_MS = 3_000;
+const EPUB_SOURCE_FETCH_TIMEOUT_MS = 8_000;
 const EPUB_STARTUP_TIMEOUT_MS = 10_000;
 
 const NOTE_COLORS = [
@@ -150,8 +151,40 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       }
     };
 
-    try {
-      book = ePub(sourceUrl);
+    const fetchEpubSource = async () => {
+      const controller = new AbortController();
+      const fetchTimer = window.setTimeout(() => controller.abort(), EPUB_SOURCE_FETCH_TIMEOUT_MS);
+
+      try {
+        const response = await fetch(sourceUrl, {
+          credentials: "omit",
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error(`No se pudo descargar el ePub (HTTP ${response.status}).`);
+        }
+
+        const buffer = await response.arrayBuffer();
+        const bytes = new Uint8Array(buffer);
+        if (bytes.length < 4 || bytes[0] !== 0x50 || bytes[1] !== 0x4b || bytes[2] !== 0x03 || bytes[3] !== 0x04) {
+          throw new Error("El archivo descargado no es un ePub válido.");
+        }
+        return buffer;
+      } catch (loadError) {
+        if (loadError?.name === "AbortError") {
+          throw new Error("La descarga del ePub está tardando demasiado. Comprueba tu conexión e inténtalo de nuevo.");
+        }
+        throw loadError;
+      } finally {
+        window.clearTimeout(fetchTimer);
+      }
+    };
+
+    void (async () => {
+      const sourceBuffer = await fetchEpubSource();
+      if (cancelled) return;
+
+      book = ePub(sourceBuffer);
       bookRef.current = book;
       rendition = book.renderTo(containerRef.current, {
         width: "100%",
@@ -185,46 +218,35 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
         }
       });
 
-      withStartupTimeout(
+      await withStartupTimeout(
         book.ready,
         "El ePub está tardando demasiado en prepararse. Comprueba que el archivo se haya exportado correctamente.",
-      )
-        .then(async () => {
-          if (cancelled) return;
+      );
+      if (cancelled) return;
 
-          const cfi = initialCfiRef.current || undefined;
-          await withStartupTimeout(
-            rendition.display(cfi),
-            "El ePub no ha podido mostrar su primera página.",
-          );
-          if (cancelled) return;
+      const cfi = initialCfiRef.current || undefined;
+      await withStartupTimeout(
+        rendition.display(cfi),
+        "El ePub no ha podido mostrar su primera página.",
+      );
+      if (cancelled) return;
 
-          setLoading(false);
-          scheduleLocations();
+      setLoading(false);
+      scheduleLocations();
 
-          void book.loaded.navigation
-            .then((navigation) => {
-              if (!cancelled) {
-                setToc(Array.isArray(navigation?.toc) ? navigation.toc : []);
-              }
-            })
-            .catch(() => {});
-        })
-        .catch((loadError) => {
+      void book.loaded.navigation
+        .then((navigation) => {
           if (!cancelled) {
-            setError(loadError?.message || "No se pudo abrir este ePub.");
-            setLoading(false);
+            setToc(Array.isArray(navigation?.toc) ? navigation.toc : []);
           }
-        });
-    } catch (loadError) {
-      const errorMessage = loadError?.message || "No se pudo preparar el lector ePub.";
-      window.setTimeout(() => {
-        if (!cancelled) {
-          setError(errorMessage);
-          setLoading(false);
-        }
-      }, 0);
-    }
+        })
+        .catch(() => {});
+    })().catch((loadError) => {
+      if (!cancelled) {
+        setError(loadError?.message || "No se pudo abrir este ePub.");
+        setLoading(false);
+      }
+    });
 
     if (controlsRef) {
       controlsRef.current = {
@@ -668,6 +690,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const flushProgressRef = useRef(null);
   const touchStartRef = useRef(null);
   const readerStartedRef = useRef("");
+  const lateCatalogProgressRef = useRef(false);
 
   const bookId = String(book?.id || "").trim();
   const bookEpubFile = book?.epub_file || "";
@@ -692,6 +715,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     }
 
     readerStartedRef.current = "";
+    lateCatalogProgressRef.current = false;
 
     const readerDataRequest = Promise.all([
       getReaderBookAssets(bookId),
@@ -748,6 +772,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
 
         void catalogProgressRequest.then((catalog) => {
           if (cancelled || !catalogProgressTimedOut || !catalog?.item) return;
+          lateCatalogProgressRef.current = true;
           setCatalogReading(catalog.item);
           setCurrentProgress(clampReaderProgress(catalog.item.progress));
         });
@@ -874,7 +899,14 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   }, [manualProgress, persistProgress, selectedDocument?.id]);
 
   useEffect(() => {
-    if (!sourceUrl || !bookId || readerStartedRef.current === sourceKey || loading || !catalogProgressReady) return;
+    if (
+      !sourceUrl
+      || !bookId
+      || readerStartedRef.current === sourceKey
+      || loading
+      || !catalogProgressReady
+      || (manualProgress === null && clampReaderProgress(sourceProgress?.progress) === 0)
+    ) return;
     readerStartedRef.current = sourceKey;
     const startingPosition = {
       documentId: selectedDocument?.id || null,
@@ -888,6 +920,25 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     latestProgressRef.current = startingPosition;
     void persistProgress(startingPosition);
   }, [bookId, catalogProgressReady, loading, manualProgress, persistProgress, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
+
+  useEffect(() => {
+    if (!lateCatalogProgressRef.current || manualProgress === null || !sourceUrl || !bookId) return;
+    lateCatalogProgressRef.current = false;
+
+    const currentSnapshot = latestProgressRef.current;
+    const lateSnapshot = {
+      ...(currentSnapshot || {}),
+      documentId: currentSnapshot?.documentId || selectedDocument?.id || null,
+      progress: manualProgress,
+      locator: manualOverridesLocator
+        ? {}
+        : (currentSnapshot?.locator || sourceProgress?.locator || {}),
+      currentPage: currentSnapshot?.currentPage || sourceProgress?.current_page || null,
+      currentChapter: currentSnapshot?.currentChapter || sourceProgress?.current_chapter || "",
+    };
+    latestProgressRef.current = lateSnapshot;
+    void persistProgress(lateSnapshot, { quiet: true });
+  }, [bookId, manualOverridesLocator, manualProgress, persistProgress, selectedDocument?.id, sourceProgress, sourceUrl]);
 
   useEffect(() => {
     mountedRef.current = true;
