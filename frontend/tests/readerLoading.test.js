@@ -41,6 +41,9 @@ test("el progreso manual no bloquea el arranque del lector", () => {
   assert.ok(catalogIndex > readerDataEnd);
   assert.match(source, /CATALOG_PROGRESS_TIMEOUT_MS = 3_000/);
   assert.match(source, /Promise\.race\(\[catalogProgressRequest, catalogProgressFallback\]\)/);
+  assert.match(source, /let catalogProgressTimedOut = false/);
+  assert.match(source, /void catalogProgressRequest\.then/);
+  assert.match(source, /const readerRenderKey/);
 });
 
 test("la carga inicial del lector tiene un límite visible", () => {
