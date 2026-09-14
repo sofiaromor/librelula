@@ -172,7 +172,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
         return buffer;
       } catch (loadError) {
         if (loadError?.name === "AbortError") {
-          throw new Error("La descarga del ePub está tardando demasiado. Comprueba tu conexión e inténtalo de nuevo.");
+          throw new Error("La descarga del ePub está tardando demasiado. Comprueba tu conexión e inténtalo de nuevo.", { cause: loadError });
         }
         throw loadError;
       } finally {
