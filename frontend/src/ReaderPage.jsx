@@ -727,8 +727,12 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         setCurrentPage(state?.progress?.current_page || null);
 
         const catalogProgressRequest = getCatalogUserBooks({ bookId }).catch(() => ({ item: null }));
+        let catalogProgressTimedOut = false;
         const catalogProgressFallback = new Promise((resolve) => {
-          catalogProgressTimer = window.setTimeout(() => resolve({ item: null }), CATALOG_PROGRESS_TIMEOUT_MS);
+          catalogProgressTimer = window.setTimeout(() => {
+            catalogProgressTimedOut = true;
+            resolve({ item: null });
+          }, CATALOG_PROGRESS_TIMEOUT_MS);
         });
 
         void Promise.race([catalogProgressRequest, catalogProgressFallback])
@@ -741,6 +745,12 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
             }
             setCatalogProgressReady(true);
           });
+
+        void catalogProgressRequest.then((catalog) => {
+          if (cancelled || !catalogProgressTimedOut || !catalog?.item) return;
+          setCatalogReading(catalog.item);
+          setCurrentProgress(clampReaderProgress(catalog.item.progress));
+        });
       })
       .catch((loadError) => {
         if (cancelled) return;
@@ -769,6 +779,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const catalogSourcePath = selectedFormat === "pdf" ? assets.pdf_file : assets.epub_file;
   const sourceUrl = selectedDocument?.signed_url || (catalogSourcePath ? publicUrl(catalogSourcePath) : "");
   const sourceKey = selectedDocument?.id || `catalog:${bookId}:${selectedFormat}`;
+  const readerRenderKey = `${sourceKey}:${manualProgress === null ? "automatic" : manualProgress}`;
   const savedProgressMatchesSource = !readerState.progress
     || String(readerState.progress.document_id || "") === String(selectedDocument?.id || "");
   const readerSourceProgress = savedProgressMatchesSource ? readerState.progress : null;
@@ -1174,7 +1185,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
           <section className="reader-main-column" onTouchStart={handleReaderTouchStart} onTouchEnd={handleReaderTouchEnd}>
             {selectedFormat === "pdf" ? (
               <PdfReader
-                key={sourceKey}
+                key={readerRenderKey}
                 sourceUrl={sourceUrl}
                 initialProgress={sourceProgress}
                 zoom={textScale / 100}
@@ -1185,7 +1196,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
               />
             ) : (
               <EpubReader
-                key={sourceKey}
+                key={readerRenderKey}
                 sourceUrl={sourceUrl}
                 initialProgress={sourceProgress}
                 textScale={textScale}
