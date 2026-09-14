@@ -688,7 +688,6 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
 
     if (!bookId || !isLoggedIn) {
       window.clearTimeout(resetTimer);
-      setCatalogProgressReady(true);
       return undefined;
     }
 
@@ -782,13 +781,16 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const manualOverridesLocator = manualProgress !== null
     && readerProgressValue !== null
     && manualProgress !== readerProgressValue;
-  const sourceProgress = manualProgress === null
-    ? readerSourceProgress
-    : {
-        ...(readerSourceProgress || {}),
-        progress: manualProgress,
-        ...(manualOverridesLocator ? { locator: {} } : {}),
-      };
+  const sourceProgress = useMemo(
+    () => (manualProgress === null
+      ? readerSourceProgress
+      : {
+          ...(readerSourceProgress || {}),
+          progress: manualProgress,
+          ...(manualOverridesLocator ? { locator: {} } : {}),
+        }),
+    [manualOverridesLocator, manualProgress, readerSourceProgress],
+  );
   const visibleAnnotations = useMemo(
     () => readerState.annotations || [],
     [readerState.annotations],
