@@ -24,6 +24,8 @@ import {
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
+const EPUB_STARTUP_TIMEOUT_MS = 15_000;
+
 const NOTE_COLORS = [
   ["yellow", "Amarillo"],
   ["pink", "Rosa"],
@@ -93,9 +95,25 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
     let rendition = null;
     let locationTimer = null;
     let idleCallback = null;
+    const startupTimers = new Set();
     setLoading(true);
     setError("");
     setToc([]);
+
+    const withStartupTimeout = (promise, message) => {
+      let timer = null;
+      const timeout = new Promise((_, reject) => {
+        timer = window.setTimeout(() => reject(new Error(message)), EPUB_STARTUP_TIMEOUT_MS);
+        startupTimers.add(timer);
+      });
+
+      return Promise.race([promise, timeout]).finally(() => {
+        if (timer !== null) {
+          window.clearTimeout(timer);
+          startupTimers.delete(timer);
+        }
+      });
+    };
 
     const scheduleLocations = () => {
       const generateLocations = async () => {
@@ -165,21 +183,30 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
         }
       });
 
-      book.ready
+      withStartupTimeout(
+        book.ready,
+        "El ePub está tardando demasiado en prepararse. Comprueba que el archivo se haya exportado correctamente.",
+      )
         .then(async () => {
           if (cancelled) return;
 
-          const navigation = await book.loaded.navigation;
-          if (!cancelled) {
-            setToc(Array.isArray(navigation?.toc) ? navigation.toc : []);
-          }
-
           const cfi = initialCfiRef.current || undefined;
-          await rendition.display(cfi);
+          await withStartupTimeout(
+            rendition.display(cfi),
+            "El ePub no ha podido mostrar su primera página.",
+          );
           if (cancelled) return;
 
           setLoading(false);
           scheduleLocations();
+
+          void book.loaded.navigation
+            .then((navigation) => {
+              if (!cancelled) {
+                setToc(Array.isArray(navigation?.toc) ? navigation.toc : []);
+              }
+            })
+            .catch(() => {});
         })
         .catch((loadError) => {
           if (!cancelled) {
@@ -209,6 +236,8 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       cancelled = true;
       if (locationTimer !== null) window.clearTimeout(locationTimer);
       if (idleCallback !== null) window.cancelIdleCallback?.(idleCallback);
+      startupTimers.forEach((timer) => window.clearTimeout(timer));
+      startupTimers.clear();
       if (controlsRef) controlsRef.current = null;
       rendition?.destroy?.();
       book?.destroy?.();

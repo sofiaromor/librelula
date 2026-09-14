@@ -21,6 +21,16 @@ test("muestra la primera página antes de generar el mapa ePub", () => {
   assert.match(source, /requestIdleCallback/);
 });
 
+test("no bloquea la primera página esperando la navegación", () => {
+  const readyIndex = source.indexOf("book.ready");
+  const displayIndex = source.indexOf("await rendition.display(cfi);", readyIndex);
+  const navigationIndex = source.indexOf("book.loaded.navigation", displayIndex);
+
+  assert.ok(navigationIndex > displayIndex);
+  assert.match(source, /withStartupTimeout\(\s*book\.ready/);
+  assert.match(source, /EPUB_STARTUP_TIMEOUT_MS = 15_000/);
+});
+
 test("conserva el progreso manual del catálogo", () => {
   assert.match(source, /getCatalogUserBooks\(\{ bookId \}\)/);
   assert.match(source, /const manualProgress = catalogReading/);
