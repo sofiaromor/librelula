@@ -12,7 +12,7 @@ test("mantiene la carga estática del lector ePub", () => {
 
 test("muestra la primera página antes de generar el mapa ePub", () => {
   const readyIndex = source.indexOf("book.ready");
-  const displayIndex = source.indexOf("await rendition.display(cfi);", readyIndex);
+  const displayIndex = source.indexOf("rendition.display(cfi)", readyIndex);
   const scheduleIndex = source.indexOf("scheduleLocations();", displayIndex);
 
   assert.ok(readyIndex >= 0);
@@ -23,7 +23,7 @@ test("muestra la primera página antes de generar el mapa ePub", () => {
 
 test("no bloquea la primera página esperando la navegación", () => {
   const readyIndex = source.indexOf("book.ready");
-  const displayIndex = source.indexOf("await rendition.display(cfi);", readyIndex);
+  const displayIndex = source.indexOf("rendition.display(cfi)", readyIndex);
   const navigationIndex = source.indexOf("book.loaded.navigation", displayIndex);
 
   assert.ok(navigationIndex > displayIndex);
