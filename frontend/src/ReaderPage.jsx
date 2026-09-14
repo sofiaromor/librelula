@@ -745,6 +745,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       })
       .catch((loadError) => {
         if (cancelled) return;
+        setCatalogProgressReady(true);
         setError(loadError?.message || "No se pudo preparar el lector.");
       })
       .finally(() => {
