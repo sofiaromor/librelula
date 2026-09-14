@@ -4,8 +4,25 @@ import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../src/ReaderPage.jsx", import.meta.url), "utf8");
 
-test("mantiene la carga estable del lector ePub", () => {
+test("mantiene la carga estática del lector ePub", () => {
   assert.match(source, /^import ePub from "epubjs";$/m);
   assert.match(source, /book\.ready/);
   assert.match(source, /book\.locations\.generate\(1600\)/);
+});
+
+test("muestra la primera página antes de generar el mapa ePub", () => {
+  const readyIndex = source.indexOf("book.ready");
+  const displayIndex = source.indexOf("await rendition.display(cfi);", readyIndex);
+  const scheduleIndex = source.indexOf("scheduleLocations();", displayIndex);
+
+  assert.ok(readyIndex >= 0);
+  assert.ok(displayIndex > readyIndex);
+  assert.ok(scheduleIndex > displayIndex);
+  assert.match(source, /requestIdleCallback/);
+});
+
+test("conserva el progreso manual del catálogo", () => {
+  assert.match(source, /getCatalogUserBooks\(\{ bookId \}\)/);
+  assert.match(source, /const manualProgress = catalogReading/);
+  assert.match(source, /Math\.max\(manualProgress, automaticProgress\)/);
 });

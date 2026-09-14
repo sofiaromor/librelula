@@ -5,6 +5,7 @@ import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 import "./ReaderPage.css";
 import { publicUrl } from "./api.js";
+import { getCatalogUserBooks } from "./lib/catalogApi.js";
 import {
   createReaderAnnotation,
   deleteReaderAnnotation,
@@ -78,6 +79,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
   const bookRef = useRef(null);
   const renditionRef = useRef(null);
   const initialCfiRef = useRef(initialProgress?.locator?.cfi || "");
+  const initialProgressRef = useRef(clampReaderProgress(initialProgress?.progress));
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toc, setToc] = useState([]);
@@ -89,9 +91,44 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
     let cancelled = false;
     let book = null;
     let rendition = null;
+    let locationTimer = null;
+    let idleCallback = null;
     setLoading(true);
     setError("");
     setToc([]);
+
+    const scheduleLocations = () => {
+      const generateLocations = async () => {
+        if (cancelled || !book?.locations?.generate) return;
+
+        try {
+          await book.locations.generate(1600);
+
+          const manualProgress = initialProgressRef.current;
+          if (
+            !cancelled
+            && !initialCfiRef.current
+            && manualProgress > 0
+            && typeof book.locations.cfiFromPercentage === "function"
+          ) {
+            const cfi = book.locations.cfiFromPercentage(manualProgress / 100);
+            if (cfi) await rendition.display(cfi);
+          }
+        } catch {
+          // La primera página ya está visible; el mapa es una mejora opcional.
+        }
+      };
+
+      if (typeof window.requestIdleCallback === "function") {
+        idleCallback = window.requestIdleCallback(() => {
+          void generateLocations();
+        }, { timeout: 1500 });
+      } else {
+        locationTimer = window.setTimeout(() => {
+          void generateLocations();
+        }, 0);
+      }
+    };
 
     try {
       book = ePub(sourceUrl);
@@ -131,11 +168,6 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       book.ready
         .then(async () => {
           if (cancelled) return;
-          try {
-            await book.locations.generate(1600);
-          } catch {
-            // El lector sigue funcionando aunque no se pueda generar el mapa de posiciones.
-          }
 
           const navigation = await book.loaded.navigation;
           if (!cancelled) {
@@ -144,7 +176,10 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
 
           const cfi = initialCfiRef.current || undefined;
           await rendition.display(cfi);
-          if (!cancelled) setLoading(false);
+          if (cancelled) return;
+
+          setLoading(false);
+          scheduleLocations();
         })
         .catch((loadError) => {
           if (!cancelled) {
@@ -172,6 +207,8 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
 
     return () => {
       cancelled = true;
+      if (locationTimer !== null) window.clearTimeout(locationTimer);
+      if (idleCallback !== null) window.cancelIdleCallback?.(idleCallback);
       if (controlsRef) controlsRef.current = null;
       rendition?.destroy?.();
       book?.destroy?.();
@@ -574,6 +611,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const [assets, setAssets] = useState({ epub_file: "", pdf_file: "" });
   const [documents, setDocuments] = useState([]);
   const [readerState, setReaderState] = useState({ progress: null, annotations: [] });
+  const [catalogReading, setCatalogReading] = useState(null);
   const [selectedDocumentId, setSelectedDocumentId] = useState("");
   const [catalogFormat, setCatalogFormat] = useState("");
   const [loading, setLoading] = useState(true);
@@ -610,6 +648,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       setLoading(true);
       setError("");
       setMessage(null);
+      setCatalogReading(null);
     }, 0);
 
     if (!bookId || !isLoggedIn) {
@@ -623,8 +662,9 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       getReaderBookAssets(bookId),
       getReaderDocuments(bookId),
       getReaderBookState(bookId),
+      getCatalogUserBooks({ bookId }).catch(() => ({ item: null })),
     ])
-      .then(([bookAssets, bookDocuments, state]) => {
+      .then(([bookAssets, bookDocuments, state, catalog]) => {
         if (cancelled) return;
         const nextAssets = {
           epub_file: bookAssets?.epub_file || bookEpubFile,
@@ -633,6 +673,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         setAssets(nextAssets);
         setDocuments(bookDocuments || []);
         setReaderState(state || { progress: null, annotations: [] });
+        setCatalogReading(catalog?.item || null);
         const preferredDocument = (bookDocuments || []).find((document) => document.id === state?.progress?.document_id)
           || (bookDocuments || [])[0]
           || null;
@@ -641,7 +682,11 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
           preferredDocument?.format
             || (nextAssets.epub_file ? "epub" : nextAssets.pdf_file ? "pdf" : ""),
         );
-        setCurrentProgress(clampReaderProgress(state?.progress?.progress));
+        setCurrentProgress(
+          catalog?.item
+            ? clampReaderProgress(catalog.item.progress)
+            : clampReaderProgress(state?.progress?.progress),
+        );
         setCurrentChapter(state?.progress?.current_chapter || "");
         setCurrentPage(state?.progress?.current_page || null);
       })
@@ -670,7 +715,23 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const sourceKey = selectedDocument?.id || `catalog:${bookId}:${selectedFormat}`;
   const savedProgressMatchesSource = !readerState.progress
     || String(readerState.progress.document_id || "") === String(selectedDocument?.id || "");
-  const sourceProgress = savedProgressMatchesSource ? readerState.progress : null;
+  const readerSourceProgress = savedProgressMatchesSource ? readerState.progress : null;
+  const manualProgress = catalogReading
+    ? clampReaderProgress(catalogReading.progress)
+    : null;
+  const readerProgressValue = readerSourceProgress
+    ? clampReaderProgress(readerSourceProgress.progress)
+    : null;
+  const manualOverridesLocator = manualProgress !== null
+    && readerProgressValue !== null
+    && manualProgress !== readerProgressValue;
+  const sourceProgress = manualProgress === null
+    ? readerSourceProgress
+    : {
+        ...(readerSourceProgress || {}),
+        progress: manualProgress,
+        ...(manualOverridesLocator ? { locator: {} } : {}),
+      };
   const visibleAnnotations = useMemo(
     () => readerState.annotations || [],
     [readerState.annotations],
@@ -723,9 +784,12 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   }, [persistProgress]);
 
   const handleProgress = useCallback((details) => {
+    const automaticProgress = clampReaderProgress(details?.progress);
     const next = {
       ...details,
-      progress: clampReaderProgress(details?.progress),
+      progress: manualProgress === null
+        ? automaticProgress
+        : Math.max(manualProgress, automaticProgress),
       documentId: selectedDocument?.id || null,
     };
     latestProgressRef.current = next;
@@ -737,21 +801,23 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     progressTimerRef.current = window.setTimeout(() => {
       void persistProgress(next);
     }, 650);
-  }, [persistProgress, selectedDocument?.id]);
+  }, [manualProgress, persistProgress, selectedDocument?.id]);
 
   useEffect(() => {
     if (!sourceUrl || !bookId || readerStartedRef.current === sourceKey || loading) return;
     readerStartedRef.current = sourceKey;
     const startingPosition = {
       documentId: selectedDocument?.id || null,
-      progress: clampReaderProgress(sourceProgress?.progress),
+      progress: manualProgress === null
+        ? clampReaderProgress(sourceProgress?.progress)
+        : manualProgress,
       locator: sourceProgress?.locator || {},
       currentPage: sourceProgress?.current_page || null,
       currentChapter: sourceProgress?.current_chapter || "",
     };
     latestProgressRef.current = startingPosition;
     void persistProgress(startingPosition);
-  }, [bookId, loading, persistProgress, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
+  }, [bookId, loading, manualProgress, persistProgress, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
 
   useEffect(() => {
     mountedRef.current = true;
