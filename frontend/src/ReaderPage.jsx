@@ -85,10 +85,15 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
   const renditionRef = useRef(null);
   const initialCfiRef = useRef(initialProgress?.locator?.cfi || "");
   const initialProgressRef = useRef(clampReaderProgress(initialProgress?.progress));
+  const callbackRef = useRef({ onChapterChange, onProgress, onQuoteSelected });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toc, setToc] = useState([]);
   const [tocOpen, setTocOpen] = useState(false);
+
+  useEffect(() => {
+    callbackRef.current = { onChapterChange, onProgress, onQuoteSelected };
+  }, [onChapterChange, onProgress, onQuoteSelected]);
 
   useEffect(() => {
     if (!sourceUrl || !containerRef.current) return undefined;
@@ -201,8 +206,8 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
           ? book.locations.percentageFromCfi(cfi)
           : Number(location.start.percentage || 0);
         const chapter = location.start.href?.split("#")[0]?.split("/").pop() || "Lectura";
-        onChapterChange?.(chapter);
-        onProgress?.({
+        callbackRef.current.onChapterChange?.(chapter);
+        callbackRef.current.onProgress?.({
           progress: readerProgressFromEpub(percentage),
           locator: { cfi },
           currentPage: null,
@@ -214,7 +219,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       rendition.on("selected", (cfiRange, contents) => {
         const quote = contents?.window?.getSelection?.()?.toString?.().trim() || "";
         if (quote) {
-          onQuoteSelected?.({ quote, locator: { cfi: cfiRange } });
+          callbackRef.current.onQuoteSelected?.({ quote, locator: { cfi: cfiRange } });
         }
       });
 
@@ -268,7 +273,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       bookRef.current = null;
       renditionRef.current = null;
     };
-  }, [controlsRef, onChapterChange, onProgress, onQuoteSelected, sourceUrl]);
+  }, [controlsRef, sourceUrl]);
 
   useEffect(() => {
     renditionRef.current?.themes?.fontSize?.(`${textScale}%`);
