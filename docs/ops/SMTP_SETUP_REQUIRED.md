@@ -31,18 +31,19 @@ https://help.brevo.com/hc/en-us/articles/5740111683858-Authorize-and-block-IP-ad
 La entrega a un buzón y los flujos completos de alta y recuperación siguen
 pendientes de comprobar después de corregir la restricción del proveedor.
 
-## Enlaces de autenticación pendientes de corregir
+## Enlaces de autenticación corregidos en producción
 
-El 14 de septiembre también se comprobó que **URL Configuration > Site URL**
-contiene `https://librelula.vercel.app/**`. Site URL no admite comodines. Debe
-guardarse como `https://librelula.vercel.app`.
+El 14 de septiembre se comprobó que **URL Configuration > Site URL** contenía
+`https://librelula.vercel.app/**`, aunque este campo no admite comodines. Con
+autorización explícita del propietario se guardó `https://librelula.vercel.app`.
 
-La lista de Redirect URLs incluye el origen de producción, pero falta el retorno
-exacto usado por `requestPasswordRecovery`:
-`https://librelula.vercel.app/?auth=recovery`. Añadir esa URL manteniendo las
-entradas existentes. No hace falta ampliar la lista con un comodín de producción.
-La corrección en Dashboard aún no está guardada; requiere aprobación explícita
-del propietario antes de modificar la configuración de autenticación de producción.
+Se añadió a Redirect URLs el retorno exacto usado por `requestPasswordRecovery`:
+`https://librelula.vercel.app/?auth=recovery`, conservando las cinco entradas
+existentes. Ambos valores se verificaron después de volver a cargar el Dashboard.
+La lista tiene ahora seis entradas. No se añadió un comodín de producción.
+
+Estos ajustes corrigen el destino de los enlaces; el rechazo SMTP de Brevo y la
+comprobación de recepción siguen pendientes.
 
 Referencia: https://supabase.com/docs/guides/auth/redirect-urls
 
