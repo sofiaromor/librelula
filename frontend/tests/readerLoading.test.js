@@ -59,6 +59,13 @@ test("conserva el progreso manual del catálogo", () => {
   assert.match(source, /Math\.max\(manualProgress, automaticProgress\)/);
 });
 
+test("no reinicia el EPUB cuando cambia el estado de lectura", () => {
+  assert.match(source, /const callbackRef = useRef\(\{ onChapterChange, onProgress, onQuoteSelected \}\)/);
+  assert.match(source, /callbackRef\.current\.onProgress\?\./);
+  assert.match(source, /callbackRef\.current\.onQuoteSelected\?\./);
+  assert.match(source, /\}, \[controlsRef, sourceUrl\]\);/);
+});
+
 test("valida y abre el EPUB desde los bytes descargados", () => {
   assert.match(source, /EPUB_SOURCE_FETCH_TIMEOUT_MS = 8_000/);
   assert.match(source, /const fetchEpubSource = async/);
