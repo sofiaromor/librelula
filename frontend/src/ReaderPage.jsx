@@ -779,13 +779,13 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const catalogSourcePath = selectedFormat === "pdf" ? assets.pdf_file : assets.epub_file;
   const sourceUrl = selectedDocument?.signed_url || (catalogSourcePath ? publicUrl(catalogSourcePath) : "");
   const sourceKey = selectedDocument?.id || `catalog:${bookId}:${selectedFormat}`;
-  const readerRenderKey = `${sourceKey}:${manualProgress === null ? "automatic" : manualProgress}`;
   const savedProgressMatchesSource = !readerState.progress
     || String(readerState.progress.document_id || "") === String(selectedDocument?.id || "");
   const readerSourceProgress = savedProgressMatchesSource ? readerState.progress : null;
   const manualProgress = catalogReading
     ? clampReaderProgress(catalogReading.progress)
     : null;
+  const readerRenderKey = `${sourceKey}:${manualProgress === null ? "automatic" : manualProgress}`;
   const readerProgressValue = readerSourceProgress
     ? clampReaderProgress(readerSourceProgress.progress)
     : null;
