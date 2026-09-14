@@ -22,7 +22,10 @@ let epubModulePromise;
 let pdfModulePromise;
 
 function loadEpubModule() {
-  epubModulePromise ||= import("epubjs").then((module) => module.default || module);
+  epubModulePromise ||= import("epubjs").then((module) => {
+    const candidate = module.default || module;
+    return candidate.default || candidate;
+  });
   return epubModulePromise;
 }
 
@@ -124,9 +127,16 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       }
     };
 
+    const handleLoadError = (loadError) => {
+      if (!cancelled) {
+        setError(loadError?.message || "No se pudo abrir este ePub.");
+        setLoading(false);
+      }
+    };
+
     loadEpubModule()
       .then((ePub) => {
-        if (cancelled) return null;
+        if (cancelled) return;
 
         book = ePub(sourceUrl);
         bookRef.current = book;
@@ -162,32 +172,25 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
           }
         });
 
-        return book.ready;
-      })
-      .then(async () => {
-        if (cancelled || !book || !rendition) return;
+        book.ready
+          .then(async () => {
+            if (cancelled || !book || !rendition) return;
 
-        const cfi = initialCfiRef.current || undefined;
-        await rendition.display(cfi);
-        if (cancelled) return;
-
-        setLoading(false);
-        scheduleLocations();
-
-        void book.loaded.navigation
-          .then((navigation) => {
+            const navigation = await book.loaded.navigation;
             if (!cancelled) {
               setToc(Array.isArray(navigation?.toc) ? navigation.toc : []);
             }
+
+            const cfi = initialCfiRef.current || undefined;
+            await rendition.display(cfi);
+            if (cancelled) return;
+
+            setLoading(false);
+            scheduleLocations();
           })
-          .catch(() => {});
+          .catch(handleLoadError);
       })
-      .catch((loadError) => {
-        if (!cancelled) {
-          setError(loadError?.message || "No se pudo abrir este ePub.");
-          setLoading(false);
-        }
-      });
+      .catch(handleLoadError);
 
     if (controlsRef) {
       controlsRef.current = {
