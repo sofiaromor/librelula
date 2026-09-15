@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadEpub, loadPdf } from "./lib/readerEngines.js";
-import { READER_SAVE_MODES, mergeReaderProgress, shouldAutoSaveReaderProgress } from "./lib/readerProgressPolicy.js";
+import { READER_SAVE_MODES, resolveReaderSessionProgress, shouldAutoSaveReaderProgress } from "./lib/readerProgressPolicy.js";
 
 import "./ReaderPage.css";
 import { publicUrl } from "./api.js";
@@ -20,6 +20,7 @@ import {
   readerFileFormat,
   readerProgressFromEpub,
   readerProgressFromPdf,
+  readerTouchAction,
 } from "./lib/readerUtils.js";
 
 const READER_DATA_TIMEOUT_MS = 12_000;
@@ -128,6 +129,22 @@ function readerEpubProgressFromLocation(book, location) {
   return readerProgressFromEpub(estimatedPercentage);
 }
 
+function readerEpubProgressIsPrecise(book, location) {
+  const cfi = location?.start?.cfi || "";
+  if (
+    !cfi
+    || !book?.locations?.length
+    || typeof book.locations.percentageFromCfi !== "function"
+  ) return false;
+
+  try {
+    const percentage = Number(book.locations.percentageFromCfi(cfi));
+    return Number.isFinite(percentage) && percentage >= 0;
+  } catch {
+    return false;
+  }
+}
+
 function ReaderLoading({ text = "Abriendo tu lectura…" }) {
   return (
     <div className="reader-loading" role="status">
@@ -165,6 +182,10 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
     let rendition = null;
     let locationTimer = null;
     let idleCallback = null;
+    let resolveEngineReady = null;
+    const engineReadyPromise = new Promise((resolve) => {
+      resolveEngineReady = resolve;
+    });
     const startupTimers = new Set();
     setLoading(true);
     setError("");
@@ -288,6 +309,11 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
             || 0;
           if (!width || !Number.isFinite(clientX)) return;
 
+          if (readingModeRef.current === READER_FLOW_MODES.CASCADE) {
+            callbackRef.current.onTapNavigate?.("center");
+            return;
+          }
+
           const edge = Math.min(180, width * 0.32);
           if (clientX <= edge) callbackRef.current.onTapNavigate?.("previous");
           else if (clientX >= width - edge) callbackRef.current.onTapNavigate?.("next");
@@ -315,15 +341,18 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
           suppressClickUntil = Date.now() + 700;
           const distanceX = touch.clientX - start.x;
           const distanceY = touch.clientY - start.y;
-          const isHorizontalSwipe = Math.abs(distanceX) >= 48 && Math.abs(distanceY) <= 80;
+          const action = readerTouchAction({
+            readingMode: readingModeRef.current,
+            deltaX: distanceX,
+            deltaY: distanceY,
+          });
+          if (!action) return;
+
           window.setTimeout(() => {
             const selection = contentDocument.defaultView?.getSelection?.();
             if (selection?.toString?.().trim()) return;
-            if (isHorizontalSwipe) {
-              callbackRef.current.onTapNavigate?.(distanceX > 0 ? "previous" : "next");
-            } else {
-              navigateFromPoint(touch.clientX, event.target);
-            }
+            if (action === "tap") navigateFromPoint(touch.clientX, event.target);
+            else callbackRef.current.onTapNavigate?.(action);
           }, 220);
         };
 
@@ -344,6 +373,26 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
           pointerup: handlePointerUp,
         });
       });
+    };
+
+    const createEpubProgressSnapshot = (location) => {
+      if (!location?.start) return null;
+      const cfi = location.start.cfi || "";
+      const chapter = location.start.href?.split("#")[0]?.split("/").pop() || "Lectura";
+      return {
+        progress: readerEpubProgressFromLocation(book, location),
+        progressIsPrecise: readerEpubProgressIsPrecise(book, location),
+        locator: { cfi },
+        currentPage: null,
+        currentChapter: chapter,
+      };
+    };
+
+    const waitForEngine = async () => {
+      if (book && renditionRef.current) {
+        return { book, rendition: renditionRef.current };
+      }
+      return engineReadyPromise;
     };
 
     void (async () => {
@@ -387,17 +436,11 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
 
       const handleRelocated = (location) => {
         if (cancelled || !location?.start) return;
-        const cfi = location.start.cfi || "";
-        if (cfi) currentLocationRef.current = cfi;
-        const progress = readerEpubProgressFromLocation(book, location);
-        const chapter = location.start.href?.split("#")[0]?.split("/").pop() || "Lectura";
-        callbackRef.current.onChapterChange?.(chapter);
-        callbackRef.current.onProgress?.({
-          progress,
-          locator: { cfi },
-          currentPage: null,
-          currentChapter: chapter,
-        });
+        const snapshot = createEpubProgressSnapshot(location);
+        if (!snapshot) return;
+        if (snapshot.locator.cfi) currentLocationRef.current = snapshot.locator.cfi;
+        callbackRef.current.onChapterChange?.(snapshot.currentChapter);
+        callbackRef.current.onProgress?.(snapshot);
       };
       relocatedHandlerRef.current = handleRelocated;
 
@@ -422,6 +465,8 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
       );
       if (cancelled) return;
 
+      resolveEngineReady?.({ book, rendition });
+      resolveEngineReady = null;
       bindContentTapHandlers();
       setLoading(false);
       scheduleLocations();
@@ -434,6 +479,8 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
         })
         .catch(() => {});
     })().catch((loadError) => {
+      resolveEngineReady?.(null);
+      resolveEngineReady = null;
       if (!cancelled) {
         setError(loadError?.message || "No se pudo abrir este ePub.");
         setLoading(false);
@@ -442,14 +489,33 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
 
     if (controlsRef) {
       controlsRef.current = {
-        next: () => renditionRef.current?.next(),
-        previous: () => renditionRef.current?.prev(),
-        goTo: (target) => renditionRef.current?.display(target),
+        next: async () => {
+          const engine = await waitForEngine();
+          return engine?.rendition?.next?.() ?? null;
+        },
+        previous: async () => {
+          const engine = await waitForEngine();
+          return engine?.rendition?.prev?.() ?? null;
+        },
+        goTo: async (target) => {
+          const engine = await waitForEngine();
+          return engine?.rendition?.display?.(target) ?? null;
+        },
         goToProgress: async (progress) => {
+          const engine = await waitForEngine();
+          if (!engine || cancelled) return null;
           const locations = await ensureLocations();
           if (cancelled || !locations?.cfiFromPercentage) return null;
           const cfi = locations.cfiFromPercentage(clampReaderProgress(progress) / 100);
-          return cfi ? renditionRef.current?.display(cfi) : null;
+          return cfi ? engine.rendition.display(cfi) : null;
+        },
+        getProgress: async () => {
+          const engine = await waitForEngine();
+          if (!engine || cancelled) return null;
+          await ensureLocations();
+          if (cancelled) return null;
+          const location = await Promise.resolve(engine.rendition.currentLocation?.());
+          return createEpubProgressSnapshot(location);
         },
       };
     }
@@ -460,6 +526,8 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
       if (idleCallback !== null) window.cancelIdleCallback?.(idleCallback);
       startupTimers.forEach((timer) => window.clearTimeout(timer));
       startupTimers.clear();
+      resolveEngineReady?.(null);
+      resolveEngineReady = null;
       if (controlsRef) controlsRef.current = null;
       relocatedHandlerRef.current = null;
       rendition?.off?.("rendered", bindContentTapHandlers);
@@ -708,7 +776,8 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
         onPageChange?.(`Página ${pageNumber}`);
         onProgress?.({
           progress,
-          locator: { page: pageNumber },
+          progressIsPrecise: totalPages > 0,
+          locator: { page: pageNumber, totalPages },
           currentPage: pageNumber,
           currentChapter: `Página ${pageNumber}`,
         });
@@ -733,12 +802,29 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
   useEffect(() => {
     if (!controlsRef) return undefined;
     controlsRef.current = {
-      next: () => goToPage(pageNumber + 1),
-      previous: () => goToPage(pageNumber - 1),
-      goTo: (target) => goToPage(Number(target)),
-      goToProgress: (progress) => goToPage(
-        Math.max(1, Math.round((clampReaderProgress(progress) / 100) * (totalPages || 1))),
-      ),
+      next: () => {
+        goToPage(pageNumber + 1);
+        return true;
+      },
+      previous: () => {
+        goToPage(pageNumber - 1);
+        return true;
+      },
+      goTo: (target) => {
+        goToPage(Number(target));
+        return true;
+      },
+      goToProgress: (progress) => {
+        goToPage(Math.max(1, Math.round((clampReaderProgress(progress) / 100) * (totalPages || 1))));
+        return true;
+      },
+      getProgress: () => ({
+        progress: readerProgressFromPdf(pageNumber, totalPages),
+        progressIsPrecise: totalPages > 0,
+        locator: { page: pageNumber, totalPages },
+        currentPage: pageNumber,
+        currentChapter: `Página ${pageNumber}`,
+      }),
     };
     return () => { controlsRef.current = null; };
   }, [controlsRef, goToPage, pageNumber, totalPages]);
@@ -966,7 +1052,6 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const [readerState, setReaderState] = useState({ progress: null, annotations: [] });
   const [catalogReading, setCatalogReading] = useState(null);
   const [catalogProgressReady, setCatalogProgressReady] = useState(false);
-  const [catalogProgressSettled, setCatalogProgressSettled] = useState(false);
   const [selectedDocumentId, setSelectedDocumentId] = useState("");
   const [catalogFormat, setCatalogFormat] = useState("");
   const [loading, setLoading] = useState(true);
@@ -999,8 +1084,8 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const readerPageRef = useRef(null);
   const nativeFullscreenRef = useRef(false);
   const readerStartedRef = useRef("");
-  const lateCatalogProgressRef = useRef(false);
   const manualNavigationKeyRef = useRef("");
+  const manualProgressAppliedRef = useRef(false);
   const pendingAutoSaveTurnsRef = useRef(-1);
   const lastProgressLocatorRef = useRef("");
 
@@ -1019,7 +1104,6 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       setMessage(null);
       setCatalogReading(null);
       setCatalogProgressReady(false);
-      setCatalogProgressSettled(false);
     }, 0);
 
     if (!bookId || !isLoggedIn) {
@@ -1028,8 +1112,8 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     }
 
     readerStartedRef.current = "";
-    lateCatalogProgressRef.current = false;
     manualNavigationKeyRef.current = "";
+    manualProgressAppliedRef.current = false;
 
     const readerDataRequest = Promise.all([
       getReaderBookAssets(bookId),
@@ -1093,12 +1177,17 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
           });
 
         void catalogProgressRequest.then((catalog) => {
-          if (cancelled) return;
-          setCatalogProgressSettled(true);
-          if (!catalogProgressTimedOut || !catalog?.item) return;
-          lateCatalogProgressRef.current = true;
+          if (cancelled || !catalogProgressTimedOut || !catalog?.item) return;
+          const liveSnapshot = latestProgressRef.current;
+          const liveProgress = liveSnapshot?.progressIsPrecise
+            ? clampReaderProgress(liveSnapshot.progress)
+            : null;
           setCatalogReading(catalog.item);
-          setCurrentProgress(clampReaderProgress(catalog.item.progress));
+          setCurrentProgress(
+            liveProgress !== null && liveProgress >= clampReaderProgress(catalog.item.progress)
+              ? liveProgress
+              : clampReaderProgress(catalog.item.progress),
+          );
         });
       })
       .catch((loadError) => {
@@ -1159,38 +1248,87 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   useEffect(() => {
     pendingAutoSaveTurnsRef.current = -1;
     lastProgressLocatorRef.current = "";
+    manualNavigationKeyRef.current = "";
+    manualProgressAppliedRef.current = false;
   }, [sourceKey]);
 
-  const persistProgress = useCallback((snapshot = latestProgressRef.current, { quiet = false } = {}) => {
-    if (!snapshot || !bookId) return Promise.resolve(null);
+  const persistProgress = useCallback((snapshot = null, { quiet = false } = {}) => {
+    if (!bookId) return Promise.resolve(null);
 
-    const pending = {
-      ...snapshot,
-      locator: { ...(snapshot.locator || {}) },
-    };
-    const libraryProgress = catalogProgressSettled
-      ? mergeReaderProgress(manualProgress, pending.progress)
-      : null;
     progressSaveCountRef.current += 1;
     if (!quiet && mountedRef.current) setSavingProgress(true);
 
     const operation = progressSaveQueueRef.current
       .catch(() => null)
-      .then(() => saveReaderBookProgress({
-        bookId,
-        documentId: pending.documentId,
-        progress: pending.progress,
-        locator: pending.locator,
-        currentPage: pending.currentPage,
-        currentChapter: pending.currentChapter,
-        libraryProgress,
-      }));
+      .then(async () => {
+        let candidate = snapshot || latestProgressRef.current;
+        if (!snapshot || candidate?.progressIsPrecise !== true) {
+          try {
+            const liveSnapshot = await readerControlsRef.current?.getProgress?.();
+            if (liveSnapshot) {
+              candidate = {
+                ...(candidate || {}),
+                ...liveSnapshot,
+                documentId: selectedDocument?.id || candidate?.documentId || null,
+              };
+            }
+          } catch {
+            // Si el motor aún no está listo, conservamos la última posición segura.
+          }
+        }
+
+        if (!candidate) return null;
+
+        const documentProgress = clampReaderProgress(candidate.progress);
+        const documentProgressIsAuthoritative = candidate.progressIsPrecise === true
+          && (
+            manualProgress === null
+            || manualProgressAppliedRef.current
+            || documentProgress >= manualProgress
+          );
+        if (
+          manualProgress !== null
+          && candidate.progressIsPrecise === true
+          && documentProgress >= manualProgress
+        ) {
+          manualProgressAppliedRef.current = true;
+        }
+
+        const pending = {
+          ...candidate,
+          documentId: selectedDocument?.id || candidate.documentId || null,
+          progress: resolveReaderSessionProgress({
+            manualProgress,
+            documentProgress,
+            documentProgressIsAuthoritative,
+          }),
+          progressIsAuthoritative: documentProgressIsAuthoritative,
+          locator: { ...(candidate.locator || {}) },
+        };
+        latestProgressRef.current = pending;
+
+        return saveReaderBookProgress({
+          bookId,
+          documentId: pending.documentId,
+          progress: pending.progress,
+          locator: pending.locator,
+          currentPage: pending.currentPage,
+          currentChapter: pending.currentChapter,
+          libraryProgress: documentProgressIsAuthoritative ? pending.progress : null,
+        });
+      });
     progressSaveQueueRef.current = operation.catch(() => null);
 
     return operation
       .then((result) => {
+        if (!result) return null;
         if (mountedRef.current) {
           setReaderState((current) => ({ ...current, progress: result.progress }));
+          if (result.libraryItem) {
+            manualProgressAppliedRef.current = true;
+            setCatalogReading(result.libraryItem);
+            setCurrentProgress(clampReaderProgress(result.libraryItem.progress));
+          }
         }
         return result;
       })
@@ -1204,14 +1342,28 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         progressSaveCountRef.current = Math.max(0, progressSaveCountRef.current - 1);
         if (mountedRef.current && progressSaveCountRef.current === 0) setSavingProgress(false);
       });
-  }, [bookId, catalogProgressSettled, manualProgress]);
+  }, [bookId, manualProgress, selectedDocument?.id]);
 
   useEffect(() => {
     flushProgressRef.current = persistProgress;
   }, [persistProgress]);
 
   const handleProgress = useCallback((details) => {
-    const automaticProgress = clampReaderProgress(details?.progress);
+    const documentProgress = clampReaderProgress(details?.progress);
+    const documentProgressIsAuthoritative = details?.progressIsPrecise === true
+      && (
+        manualProgress === null
+        || manualProgressAppliedRef.current
+        || documentProgress >= manualProgress
+      );
+    if (
+      manualProgress !== null
+      && details?.progressIsPrecise === true
+      && documentProgress >= manualProgress
+    ) {
+      manualProgressAppliedRef.current = true;
+    }
+
     const navigationKey = details?.locator?.cfi
       ? "cfi:" + details.locator.cfi
       : details?.currentPage
@@ -1227,7 +1379,12 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
 
     const next = {
       ...details,
-      progress: mergeReaderProgress(manualProgress, automaticProgress),
+      progress: resolveReaderSessionProgress({
+        manualProgress,
+        documentProgress,
+        documentProgressIsAuthoritative,
+      }),
+      progressIsAuthoritative: documentProgressIsAuthoritative,
       documentId: selectedDocument?.id || null,
     };
     latestProgressRef.current = next;
@@ -1235,10 +1392,13 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     if (next.currentPage) setCurrentPage(next.currentPage);
     if (next.currentChapter) setCurrentChapter(next.currentChapter);
 
-    if (shouldAutoSaveReaderProgress({
-      mode: saveMode,
-      pendingPageTurns: pendingAutoSaveTurnsRef.current,
-    })) {
+    if (
+      documentProgressIsAuthoritative
+      && shouldAutoSaveReaderProgress({
+        mode: saveMode,
+        pendingPageTurns: pendingAutoSaveTurnsRef.current,
+      })
+    ) {
       pendingAutoSaveTurnsRef.current = 0;
       void persistProgress(next);
     }
@@ -1262,67 +1422,69 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       locator: sourceProgress?.locator || {},
       currentPage: sourceProgress?.current_page || null,
       currentChapter: sourceProgress?.current_chapter || "",
+      progressIsPrecise: false,
+      progressIsAuthoritative: false,
     };
     latestProgressRef.current = startingPosition;
-    if (saveMode === READER_SAVE_MODES.AUTO) {
-      void persistProgress(startingPosition);
-    }
-  }, [bookId, catalogProgressReady, loading, manualProgress, persistProgress, saveMode, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
+  }, [bookId, catalogProgressReady, loading, manualProgress, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
 
   useEffect(() => {
     if (!catalogProgressReady || manualProgress === null || !sourceUrl || !bookId) return undefined;
 
-    const navigationKey = `${sourceKey}:${manualProgress}`;
+    const navigationKey = sourceKey + ":" + manualProgress;
     if (manualNavigationKeyRef.current === navigationKey) return undefined;
 
-    if (readerProgressValue === manualProgress) {
+    const liveSnapshot = latestProgressRef.current;
+    const liveProgress = liveSnapshot?.progressIsPrecise
+      ? clampReaderProgress(liveSnapshot.progress)
+      : null;
+    if (
+      (liveProgress !== null && liveProgress >= manualProgress)
+      || readerProgressValue === manualProgress
+    ) {
+      manualProgressAppliedRef.current = true;
       manualNavigationKeyRef.current = navigationKey;
       return undefined;
     }
 
+    let cancelled = false;
     let timer = null;
     let attempts = 0;
-    const navigateToManualProgress = () => {
+
+    const navigateToManualProgress = async () => {
       const navigate = readerControlsRef.current?.goToProgress;
-      if (navigate) {
-        manualNavigationKeyRef.current = navigationKey;
-        void navigate(manualProgress);
+      if (!navigate) {
+        attempts += 1;
+        if (!cancelled && attempts < 50) {
+          timer = window.setTimeout(() => void navigateToManualProgress(), 100);
+        }
         return;
       }
 
-      attempts += 1;
-      if (attempts < 4) timer = window.setTimeout(navigateToManualProgress, 100);
+      try {
+        const result = await navigate(manualProgress);
+        if (cancelled) return;
+        if (result === null) {
+          attempts += 1;
+          if (attempts < 50) timer = window.setTimeout(() => void navigateToManualProgress(), 100);
+          return;
+        }
+        manualProgressAppliedRef.current = true;
+        manualNavigationKeyRef.current = navigationKey;
+      } catch {
+        attempts += 1;
+        if (!cancelled && attempts < 50) {
+          timer = window.setTimeout(() => void navigateToManualProgress(), 100);
+        }
+      }
     };
 
-    timer = window.setTimeout(navigateToManualProgress, 0);
+    timer = window.setTimeout(() => void navigateToManualProgress(), 0);
     return () => {
+      cancelled = true;
       if (timer !== null) window.clearTimeout(timer);
     };
   }, [bookId, catalogProgressReady, manualProgress, readerProgressValue, sourceKey, sourceUrl]);
-  useEffect(() => {
-    if (
-      !lateCatalogProgressRef.current
-      || saveMode !== READER_SAVE_MODES.AUTO
-      || manualProgress === null
-      || !sourceUrl
-      || !bookId
-    ) return;
-    lateCatalogProgressRef.current = false;
-
-    const currentSnapshot = latestProgressRef.current;
-    const lateSnapshot = {
-      ...(currentSnapshot || {}),
-      documentId: currentSnapshot?.documentId || selectedDocument?.id || null,
-      progress: manualProgress,
-      locator: manualOverridesLocator
-        ? {}
-        : (currentSnapshot?.locator || sourceProgress?.locator || {}),
-      currentPage: currentSnapshot?.currentPage || sourceProgress?.current_page || null,
-      currentChapter: currentSnapshot?.currentChapter || sourceProgress?.current_chapter || "",
-    };
-    latestProgressRef.current = lateSnapshot;
-    void persistProgress(lateSnapshot, { quiet: true });
-  }, [bookId, manualOverridesLocator, manualProgress, persistProgress, saveMode, selectedDocument?.id, sourceProgress, sourceUrl]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -1601,11 +1763,16 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     const rect = surface.getBoundingClientRect();
     if (!rect.width) return;
 
+    if (selectedFormat === "epub" && readingMode === READER_FLOW_MODES.CASCADE) {
+      handleReaderTap("center");
+      return;
+    }
+
     const fraction = (event.clientX - rect.left) / rect.width;
     if (fraction <= 0.32) handleReaderTap("previous");
     else if (fraction >= 0.68) handleReaderTap("next");
     else handleReaderTap("center");
-  }, [handleReaderTap]);
+  }, [handleReaderTap, readingMode, selectedFormat]);
 
   async function handleBack() {
     await persistProgress();
@@ -1622,7 +1789,13 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     const start = touchStartRef.current;
     touchStartRef.current = null;
     const touch = event.changedTouches?.[0];
-    if (!start || !touch || annotationComposer || (selectedFormat === "pdf" && textScale > 100)) return;
+    if (
+      !start
+      || !touch
+      || annotationComposer
+      || (selectedFormat === "pdf" && textScale > 100)
+      || (selectedFormat === "epub" && readingMode === READER_FLOW_MODES.CASCADE)
+    ) return;
     if (window.getSelection?.()?.toString?.().trim()) return;
 
     const distanceX = touch.clientX - start.x;
