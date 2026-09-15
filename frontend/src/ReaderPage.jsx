@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadEpub, loadPdf } from "./lib/readerEngines.js";
-import { mergeReaderProgress } from "./lib/readerProgressPolicy.js";
+import { READER_SAVE_MODES, mergeReaderProgress, shouldAutoSaveReaderProgress } from "./lib/readerProgressPolicy.js";
 
 import "./ReaderPage.css";
 import { publicUrl } from "./api.js";
@@ -43,6 +43,8 @@ function ReaderIcon({ name }) {
     next: <path d="m9 5 7 7-7 7M16 12H4" />,
     prev: <path d="m15 5-7 7 7 7M8 12h12" />,
     note: <><path d="M5 4h14v16H5z" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
+    save: <><path d="M5 4h11l3 3v13H5z" /><path d="M8 4v6h8V4M8 20v-5h8v5" /></>,
+    clock: <><circle cx="12" cy="12" r="8" /><path d="M12 7v5l3 2" /></>,
     plus: <><path d="M12 5v14M5 12h14" /></>,
     upload: <><path d="M12 16V5M8 9l4-4 4 4" /><path d="M5 15v4h14v-4" /></>,
     zoomIn: <><circle cx="10.8" cy="10.8" r="5.8" /><path d="m15.2 15.2 4 4M10.8 8v5.6M8 10.8h5.6" /></>,
@@ -67,6 +69,50 @@ function formatBytes(value) {
 
 function formatLabel(format) {
   return format === "pdf" ? "PDF" : "ePub";
+}
+
+function readerEpubSpineLength(book) {
+  const spineItems = book?.spine?.spineItems;
+  if (Array.isArray(spineItems) && spineItems.length > 0) return spineItems.length;
+
+  const spineLength = Number(book?.spine?.length);
+  return Number.isFinite(spineLength) && spineLength > 0 ? spineLength : 0;
+}
+
+function readerEpubProgressFromLocation(book, location) {
+  const cfi = location?.start?.cfi || "";
+  if (
+    cfi
+    && book?.locations?.length
+    && typeof book.locations.percentageFromCfi === "function"
+  ) {
+    try {
+      const mappedPercentage = Number(book.locations.percentageFromCfi(cfi));
+      if (Number.isFinite(mappedPercentage) && mappedPercentage >= 0) {
+        return readerProgressFromEpub(mappedPercentage);
+      }
+    } catch {
+      // El mapa puede estar cambiando mientras ePub.js termina de generarlo.
+    }
+  }
+
+  const reportedPercentage = Number(location?.start?.percentage);
+  if (Number.isFinite(reportedPercentage) && reportedPercentage > 0) {
+    return readerProgressFromEpub(reportedPercentage);
+  }
+
+  const page = Number(location?.start?.displayed?.page);
+  const total = Number(location?.start?.displayed?.total);
+  const sectionProgress = Number.isFinite(page) && Number.isFinite(total) && total > 0
+    ? Math.max(0, Math.min(1, (page - 1) / total))
+    : 0;
+  const spineIndex = Number(location?.start?.index);
+  const spineLength = readerEpubSpineLength(book);
+  const estimatedPercentage = spineLength > 0 && Number.isFinite(spineIndex)
+    ? Math.max(0, Math.min(1, (spineIndex + sectionProgress) / spineLength))
+    : sectionProgress;
+
+  return readerProgressFromEpub(estimatedPercentage);
 }
 
 function ReaderLoading({ text = "Abriendo tu lectura…" }) {
@@ -150,6 +196,9 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
             const cfi = book.locations.cfiFromPercentage(manualProgress / 100);
             if (cfi) await rendition.display(cfi);
           }
+
+          const currentLocation = rendition.currentLocation?.();
+          if (!cancelled && currentLocation?.start) handleRelocated(currentLocation);
         } catch {
           // La primera página ya está visible; el mapa es una mejora opcional.
         }
@@ -245,13 +294,11 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       const handleRelocated = (location) => {
         if (cancelled || !location?.start) return;
         const cfi = location.start.cfi || "";
-        const percentage = book.locations?.length
-          ? book.locations.percentageFromCfi(cfi)
-          : Number(location.start.percentage || 0);
+        const progress = readerEpubProgressFromLocation(book, location);
         const chapter = location.start.href?.split("#")[0]?.split("/").pop() || "Lectura";
         callbackRef.current.onChapterChange?.(chapter);
         callbackRef.current.onProgress?.({
-          progress: readerProgressFromEpub(percentage),
+          progress,
           locator: { cfi },
           currentPage: null,
           currentChapter: chapter,
@@ -756,6 +803,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const [error, setError] = useState("");
   const [immersiveMode, setImmersiveMode] = useState(false);
   const [readerUiVisible, setReaderUiVisible] = useState(true);
+  const [saveMode, setSaveMode] = useState(READER_SAVE_MODES.MANUAL);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [currentChapter, setCurrentChapter] = useState("");
   const [currentPage, setCurrentPage] = useState(null);
@@ -774,6 +822,8 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const readerStartedRef = useRef("");
   const lateCatalogProgressRef = useRef(false);
   const manualNavigationKeyRef = useRef("");
+  const pendingAutoSaveTurnsRef = useRef(-1);
+  const lastProgressLocatorRef = useRef("");
 
   const bookId = String(book?.id || "").trim();
   const bookEpubFile = book?.epub_file || "";
@@ -927,6 +977,11 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     [readerState.annotations],
   );
 
+  useEffect(() => {
+    pendingAutoSaveTurnsRef.current = -1;
+    lastProgressLocatorRef.current = "";
+  }, [sourceKey]);
+
   const persistProgress = useCallback((snapshot = latestProgressRef.current, { quiet = false } = {}) => {
     window.clearTimeout(progressTimerRef.current);
     if (!snapshot || !bookId) return Promise.resolve(null);
@@ -979,6 +1034,19 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
 
   const handleProgress = useCallback((details) => {
     const automaticProgress = clampReaderProgress(details?.progress);
+    const navigationKey = details?.locator?.cfi
+      ? "cfi:" + details.locator.cfi
+      : details?.currentPage
+        ? "page:" + details.currentPage
+        : details?.locator?.page
+          ? "page:" + details.locator.page
+          : "";
+
+    if (navigationKey && navigationKey !== lastProgressLocatorRef.current) {
+      lastProgressLocatorRef.current = navigationKey;
+      pendingAutoSaveTurnsRef.current += 1;
+    }
+
     const next = {
       ...details,
       progress: mergeReaderProgress(manualProgress, automaticProgress),
@@ -990,10 +1058,14 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     if (next.currentChapter) setCurrentChapter(next.currentChapter);
 
     window.clearTimeout(progressTimerRef.current);
-    progressTimerRef.current = window.setTimeout(() => {
+    if (shouldAutoSaveReaderProgress({
+      mode: saveMode,
+      pendingPageTurns: pendingAutoSaveTurnsRef.current,
+    })) {
+      pendingAutoSaveTurnsRef.current = 0;
       void persistProgress(next);
-    }, 650);
-  }, [manualProgress, persistProgress, selectedDocument?.id]);
+    }
+  }, [manualProgress, persistProgress, saveMode, selectedDocument?.id]);
 
   useEffect(() => {
     if (
@@ -1015,8 +1087,10 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       currentChapter: sourceProgress?.current_chapter || "",
     };
     latestProgressRef.current = startingPosition;
-    void persistProgress(startingPosition);
-  }, [bookId, catalogProgressReady, loading, manualProgress, persistProgress, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
+    if (saveMode === READER_SAVE_MODES.AUTO) {
+      void persistProgress(startingPosition);
+    }
+  }, [bookId, catalogProgressReady, loading, manualProgress, persistProgress, saveMode, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
 
   useEffect(() => {
     if (!catalogProgressReady || manualProgress === null || !sourceUrl || !bookId) return undefined;
@@ -1049,7 +1123,13 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     };
   }, [bookId, catalogProgressReady, manualProgress, readerProgressValue, sourceKey, sourceUrl]);
   useEffect(() => {
-    if (!lateCatalogProgressRef.current || manualProgress === null || !sourceUrl || !bookId) return;
+    if (
+      !lateCatalogProgressRef.current
+      || saveMode !== READER_SAVE_MODES.AUTO
+      || manualProgress === null
+      || !sourceUrl
+      || !bookId
+    ) return;
     lateCatalogProgressRef.current = false;
 
     const currentSnapshot = latestProgressRef.current;
@@ -1223,6 +1303,15 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     setTextScale((current) => Math.max(80, Math.min(150, current + delta)));
   }
 
+  function toggleSaveMode() {
+    pendingAutoSaveTurnsRef.current = 0;
+    setSaveMode((mode) => (
+      mode === READER_SAVE_MODES.AUTO
+        ? READER_SAVE_MODES.MANUAL
+        : READER_SAVE_MODES.AUTO
+    ));
+  }
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement && nativeFullscreenRef.current) {
@@ -1367,7 +1456,13 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         <div className="reader-header-progress" aria-label={`${currentProgress}% leído`}>
           <strong>{currentProgress}%</strong>
           <span><i style={{ width: `${currentProgress}%` }} /></span>
-          <small>{savingProgress ? "Guardando…" : currentChapter || "Tu posición se guarda sola"}</small>
+          <small>{savingProgress
+            ? "Guardando…"
+            : currentChapter || (
+              saveMode === READER_SAVE_MODES.AUTO
+                ? "Auto · cada 5 páginas"
+                : "Guardado manual"
+            )}</small>
         </div>
       </header>
 
@@ -1399,6 +1494,30 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
           <button type="button" className={`reader-toolbar-button${notesOpen ? " is-active" : ""}`} onClick={() => setNotesOpen((open) => !open)}>
             <ReaderIcon name="note" /><span>Mis notas</span>{visibleAnnotations.length > 0 && <b>{visibleAnnotations.length}</b>}
           </button>
+          <div className="reader-save-controls" aria-label="Guardado del progreso">
+            <button
+              type="button"
+              className="reader-toolbar-button reader-save-button"
+              onClick={() => void persistProgress()}
+              disabled={savingProgress || !latestProgressRef.current}
+              aria-label="Guardar posición ahora"
+              title="Guardar posición ahora"
+            >
+              <ReaderIcon name="save" />
+              <span>{savingProgress ? "Guardando…" : "Guardar"}</span>
+            </button>
+            <button
+              type="button"
+              className={"reader-toolbar-button reader-save-mode-button" + (saveMode === READER_SAVE_MODES.AUTO ? " is-active" : "")}
+              onClick={toggleSaveMode}
+              aria-pressed={saveMode === READER_SAVE_MODES.AUTO}
+              aria-label={saveMode === READER_SAVE_MODES.AUTO ? "Cambiar a guardado manual" : "Activar guardado automático cada 5 páginas"}
+              title={saveMode === READER_SAVE_MODES.AUTO ? "Guardado automático cada 5 páginas · pulsa para volver al modo manual" : "Activar guardado automático cada 5 páginas"}
+            >
+              <ReaderIcon name="clock" />
+              <span>{saveMode === READER_SAVE_MODES.AUTO ? "Auto · 5 pág." : "Manual"}</span>
+            </button>
+          </div>
           <button
             type="button"
             className={`reader-toolbar-button reader-immersive-button${immersiveMode ? " is-active" : ""}`}

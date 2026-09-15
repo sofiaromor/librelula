@@ -166,6 +166,38 @@
   justify-content: end;
 }
 
+.reader-save-controls {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid #eadfd4;
+  border-radius: 13px;
+  background: rgba(251, 245, 238, .9);
+}
+
+.reader-save-controls .reader-toolbar-button {
+  min-height: 34px;
+}
+
+.reader-save-button {
+  color: #3d6653;
+}
+
+.reader-save-button:disabled {
+  cursor: not-allowed;
+  opacity: .48;
+}
+
+.reader-save-mode-button {
+  color: #806f60;
+}
+
+.reader-save-mode-button.is-active {
+  background: #e4efe8;
+  color: #3d6653;
+}
+
 .reader-toolbar-button {
   min-height: 38px;
   display: inline-flex;
@@ -935,6 +967,21 @@
     flex: 1;
   }
 
+  .reader-toolbar-actions > .reader-save-controls {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+
+  .reader-save-controls .reader-toolbar-button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding-inline: 6px;
+  }
+
+  .reader-save-controls .reader-toolbar-button > span {
+    display: none;
+  }
+
   .reader-toolbar-button {
     min-height: 35px;
     padding: 6px 7px;
@@ -1216,6 +1263,11 @@ body.reader-immersive-active .mobile-reader-dock {
 
 .reader-page.is-reader-immersive .reader-toolbar-button {
   color: var(--reader-night-ink);
+}
+
+.reader-page.is-reader-immersive .reader-save-controls {
+  border-color: rgba(255, 245, 235, .16);
+  background: rgba(255, 245, 235, .08);
 }
 
 .reader-page.is-reader-immersive .reader-toolbar-button:hover {

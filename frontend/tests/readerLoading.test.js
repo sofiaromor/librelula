@@ -130,3 +130,17 @@ test("ofrece pantalla completa y navegación por zonas con un toque", () => {
   assert.match(styles, /body\.reader-immersive-active \.mobile-reader-dock/);
   assert.match(styles, /prefers-reduced-motion/);
 });
+
+
+test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual", () => {
+  assert.match(source, /function readerEpubProgressFromLocation/);
+  assert.match(source, /displayed\?\.page/);
+  assert.match(source, /spineItems/);
+  assert.match(source, /const currentLocation = rendition\.currentLocation\?\.\(\)/);
+  assert.match(source, /READER_SAVE_MODES\.MANUAL/);
+  assert.match(source, /shouldAutoSaveReaderProgress/);
+  assert.match(source, /pendingPageTurns: pendingAutoSaveTurnsRef\.current/);
+  assert.match(source, /Guardar posición ahora/);
+  assert.match(source, /Auto · 5 pág\./);
+  assert.doesNotMatch(source, /progressTimerRef\.current = window\.setTimeout/);
+});
