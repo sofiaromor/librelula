@@ -1031,3 +1031,399 @@
     padding-bottom: calc(18px + env(safe-area-inset-bottom));
   }
 }
+
+
+/* Reader polish: chrome de lectura calmado y controles táctiles de tamaño cómodo. */
+.reader-page {
+  isolation: isolate;
+  --reader-night: #20212a;
+  --reader-night-soft: #2d2e38;
+  --reader-night-ink: #f8eee5;
+  --reader-night-muted: #c9b7aa;
+}
+
+.reader-page :is(button, [role="button"], input, textarea, select):focus-visible {
+  outline: 3px solid rgba(188, 126, 91, .48);
+  outline-offset: 2px;
+}
+
+.reader-page button {
+  touch-action: manipulation;
+}
+
+.reader-header {
+  background:
+    radial-gradient(circle at 90% 0%, rgba(214, 177, 144, .22), transparent 32%),
+    linear-gradient(135deg, rgba(255, 253, 249, .99), rgba(248, 239, 228, .94));
+}
+
+.reader-toolbar {
+  border-color: rgba(224, 205, 186, .95);
+  box-shadow: 0 12px 34px rgba(75, 46, 28, .1);
+}
+
+.reader-toolbar-button {
+  transition: background-color .18s ease, color .18s ease, transform .18s ease;
+}
+
+.reader-toolbar-button:active,
+.reader-back-button:active {
+  transform: scale(.96);
+}
+
+.reader-format-stage {
+  border-color: rgba(229, 216, 201, .9);
+  border-radius: 26px;
+  background:
+    radial-gradient(circle at 50% 16%, rgba(255, 255, 255, .08), transparent 30%),
+    #2b2c35;
+  box-shadow: 0 24px 58px rgba(50, 34, 24, .16);
+}
+
+.reader-epub-stage {
+  background:
+    radial-gradient(circle at 50% 35%, rgba(255, 250, 241, .34), transparent 44%),
+    linear-gradient(145deg, #3c3d47, #272831);
+}
+
+.reader-epub-viewport {
+  background: transparent;
+}
+
+.reader-epub-viewport iframe {
+  box-shadow: 0 18px 44px rgba(31, 24, 20, .18);
+}
+
+.reader-pdf-stage {
+  background:
+    radial-gradient(circle at 50% 10%, rgba(255, 255, 255, .09), transparent 36%),
+    #2b2c35;
+}
+
+.reader-pdf-page {
+  border-radius: 4px;
+  box-shadow: 0 18px 46px rgba(24, 18, 15, .26);
+}
+
+.reader-reader-footer {
+  color: #ad9c8e;
+}
+
+.reader-immersive-heading {
+  display: none;
+  min-width: 0;
+  gap: 2px;
+}
+
+.reader-immersive-heading strong,
+.reader-immersive-heading small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-immersive-heading strong {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.reader-immersive-heading small {
+  color: #927e6e;
+  font-size: .76rem;
+}
+
+.reader-immersive-button {
+  color: #805037;
+}
+
+.reader-immersive-button.is-active {
+  background: #e4efe8;
+  color: #3d6653;
+}
+
+.reader-immersive-reveal {
+  display: none;
+}
+
+/* El modo inmersivo ocupa el viewport y retira también el dock global del móvil. */
+body.reader-immersive-active {
+  overflow: hidden;
+}
+
+body.reader-immersive-active .mobile-reader-dock {
+  display: none;
+}
+
+.reader-page.is-reader-immersive {
+  position: fixed;
+  z-index: 3000;
+  inset: 0;
+  width: 100%;
+  max-width: none;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow: hidden;
+  padding: max(10px, env(safe-area-inset-top)) 0 max(10px, env(safe-area-inset-bottom));
+  background:
+    radial-gradient(circle at 50% -10%, rgba(175, 131, 101, .2), transparent 36%),
+    var(--reader-night);
+  color: var(--reader-night-ink);
+}
+
+.reader-page.is-reader-immersive .reader-header,
+.reader-page.is-reader-immersive .reader-source-strip,
+.reader-page.is-reader-immersive .reader-feedback,
+.reader-page.is-reader-immersive .reader-reader-footer {
+  display: none;
+}
+
+.reader-page.is-reader-immersive .reader-toolbar {
+  position: fixed;
+  z-index: 12;
+  top: max(10px, env(safe-area-inset-top));
+  right: max(12px, env(safe-area-inset-right));
+  left: max(12px, env(safe-area-inset-left));
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0;
+  border-color: rgba(255, 245, 235, .14);
+  background: rgba(32, 33, 42, .76);
+  color: var(--reader-night-ink);
+  box-shadow: 0 14px 34px rgba(0, 0, 0, .18);
+  backdrop-filter: blur(18px) saturate(1.15);
+  transition: opacity .2s ease, transform .2s ease;
+}
+
+.reader-page.is-reader-immersive .reader-immersive-heading {
+  display: grid;
+  flex: 1 1 220px;
+}
+
+.reader-page.is-reader-immersive .reader-immersive-heading small {
+  color: var(--reader-night-muted);
+}
+
+.reader-page.is-reader-immersive .reader-toolbar-group {
+  flex: 0 0 auto;
+}
+
+.reader-page.is-reader-immersive .reader-toolbar-center {
+  padding-inline: 4px;
+  border-color: rgba(255, 245, 235, .14);
+}
+
+.reader-page.is-reader-immersive .reader-toolbar-button {
+  color: var(--reader-night-ink);
+}
+
+.reader-page.is-reader-immersive .reader-toolbar-button:hover {
+  background: rgba(255, 245, 235, .12);
+  color: #fffaf5;
+}
+
+.reader-page.is-reader-immersive .reader-toolbar-button.is-active {
+  background: rgba(198, 225, 211, .18);
+  color: #d9f2e3;
+}
+
+.reader-page.is-reader-immersive .reader-scale-label {
+  color: var(--reader-night-ink);
+}
+
+.reader-page.is-reader-immersive .reader-toolbar-button b {
+  background: rgba(255, 245, 235, .14);
+  color: var(--reader-night-ink);
+}
+
+.reader-page.is-reader-immersive .reader-layout {
+  display: block;
+  height: 100%;
+}
+
+.reader-page.is-reader-immersive .reader-main-column {
+  display: flex;
+  height: 100%;
+  flex-direction: column;
+}
+
+.reader-page.is-reader-immersive .reader-format-stage {
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.reader-page.is-reader-immersive .reader-epub-viewport {
+  height: 100%;
+  min-height: 0;
+}
+
+.reader-page.is-reader-immersive .reader-pdf-stage {
+  padding: 0;
+}
+
+.reader-page.is-reader-immersive .reader-pdf-viewport {
+  height: 100%;
+  min-height: 0;
+  padding: 74px 16px 20px;
+}
+
+.reader-page.is-reader-immersive .reader-pdf-page {
+  box-shadow: 0 24px 60px rgba(0, 0, 0, .3);
+}
+
+.reader-page.is-reader-immersive .reader-pdf-page-label {
+  top: 78px;
+  left: 18px;
+  color: var(--reader-night-muted);
+}
+
+.reader-page.is-reader-immersive .reader-toc-wrap {
+  top: 72px;
+  left: 14px;
+}
+
+.reader-page.is-reader-immersive .reader-stage-overlay {
+  background: rgba(32, 33, 42, .88);
+}
+
+.reader-page.is-reader-immersive.is-reader-chrome-hidden .reader-toolbar {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-130%);
+}
+
+.reader-page.is-reader-immersive .reader-immersive-reveal {
+  position: fixed;
+  z-index: 14;
+  right: max(16px, env(safe-area-inset-right));
+  bottom: max(16px, env(safe-area-inset-bottom));
+  width: 46px;
+  height: 46px;
+  place-items: center;
+  border: 1px solid rgba(255, 245, 235, .22);
+  border-radius: 50%;
+  background: rgba(32, 33, 42, .82);
+  color: var(--reader-night-ink);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, .24);
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+}
+
+.reader-page.is-reader-immersive .reader-immersive-reveal svg {
+  width: 21px;
+  height: 21px;
+}
+
+@media (max-width: 900px) {
+  .reader-format-stage {
+    touch-action: pan-y;
+  }
+
+  .reader-toolbar-button {
+    min-width: 44px;
+    min-height: 42px;
+  }
+
+  .reader-page.is-reader-immersive .reader-toolbar {
+    gap: 4px;
+  }
+
+  .reader-page.is-reader-immersive .reader-toolbar-button {
+    min-width: 42px;
+    padding-inline: 8px;
+  }
+
+  .reader-page.is-reader-immersive .reader-toolbar-button > span {
+    display: none;
+  }
+
+  .reader-page.is-reader-immersive .reader-toolbar-actions {
+    gap: 1px;
+  }
+
+  .reader-page.is-reader-immersive .reader-toolbar-actions .reader-toolbar-button.is-note {
+    display: none;
+  }
+
+  .reader-page.is-reader-immersive .reader-immersive-heading {
+    flex-basis: 110px;
+  }
+}
+
+@media (max-width: 620px) {
+  .reader-toolbar-actions .reader-immersive-button {
+    flex: 0 0 42px;
+    padding-inline: 6px;
+  }
+
+  .reader-toolbar-actions .reader-immersive-button > span {
+    display: none;
+  }
+
+  .reader-page.is-reader-immersive {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .reader-page.is-reader-immersive .reader-toolbar {
+    top: max(6px, env(safe-area-inset-top));
+    right: 8px;
+    left: 8px;
+    padding: 4px;
+    border-radius: 16px;
+  }
+
+  .reader-page.is-reader-immersive .reader-toolbar-button {
+    min-width: 40px;
+    min-height: 40px;
+    padding-inline: 6px;
+  }
+
+  .reader-page.is-reader-immersive .reader-toolbar-center {
+    gap: 0;
+  }
+
+  .reader-page.is-reader-immersive .reader-toolbar-center .reader-toolbar-button {
+    min-width: 36px;
+  }
+
+  .reader-page.is-reader-immersive .reader-immersive-heading {
+    flex-basis: 88px;
+  }
+
+  .reader-page.is-reader-immersive .reader-immersive-heading strong {
+    font-size: .88rem;
+  }
+
+  .reader-page.is-reader-immersive .reader-pdf-viewport {
+    padding: 64px 8px 12px;
+  }
+
+  .reader-page.is-reader-immersive .reader-pdf-page-label {
+    top: 68px;
+    left: 10px;
+    font-size: .8rem;
+  }
+
+  .reader-page.is-reader-immersive .reader-toc-wrap {
+    top: 62px;
+    left: 9px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-toolbar-button,
+  .reader-back-button,
+  .reader-page.is-reader-immersive .reader-toolbar {
+    transition: none;
+  }
+
+  .reader-loading-mark {
+    animation: none;
+  }
+}
