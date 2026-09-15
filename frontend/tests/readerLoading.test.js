@@ -150,6 +150,9 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.match(source, /Auto · 5 pág\./);
   assert.match(source, /selectionchange/);
   assert.match(source, /onPointerUp={captureSelection}/);
+  assert.match(source, /pendingSelection/);
+  assert.match(source, /Marcar selección/);
+  assert.doesNotMatch(source, /openNewAnnotation\(\{\s*quote: selection\.quote/);
   assert.match(source, /scrolled-continuous/);
   assert.match(source, /readingMode/);
   assert.match(source, /readerTheme/);
@@ -159,4 +162,6 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.match(styles, /touch-action: auto/);
   assert.match(styles, /reader-page\.is-reader-dark/);
   assert.match(styles, /reader-page\.is-reader-cascade/);
+  assert.match(styles, /reader-selection-actions/);
+  assert.match(styles, /flex-wrap: wrap/);
 });
