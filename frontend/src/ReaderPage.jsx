@@ -9,7 +9,8 @@ import {
   createReaderAnnotation,
   deleteReaderAnnotation,
   getReaderBookAssets,
-  getReaderBookState,
+  getReaderBookAnnotations,
+  getReaderBookProgress,
   getReaderDocuments,
   saveReaderBookProgress,
   uploadReaderDocument,
@@ -760,8 +761,8 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
 
     const readerDataRequest = Promise.all([
       getReaderBookAssets(bookId),
-      getReaderDocuments(bookId),
-      getReaderBookState(bookId),
+      getReaderDocuments(bookId).catch(() => []),
+      getReaderBookProgress(bookId),
     ]);
     const readerDataFallback = new Promise((_, reject) => {
       dataTimer = window.setTimeout(() => {
@@ -778,8 +779,8 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         };
         setAssets(nextAssets);
         setDocuments(bookDocuments || []);
-        setReaderState(state || { progress: null, annotations: [] });
-        const preferredDocument = (bookDocuments || []).find((document) => document.id === state?.progress?.document_id)
+        setReaderState({ progress: progress || null, annotations: [] });
+        const preferredDocument = (bookDocuments || []).find((document) => document.id === progress?.document_id)
           || (bookDocuments || [])[0]
           || null;
         setSelectedDocumentId(preferredDocument?.id || "");
@@ -787,9 +788,17 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
           preferredDocument?.format
             || (nextAssets.epub_file ? "epub" : nextAssets.pdf_file ? "pdf" : ""),
         );
-        setCurrentProgress(clampReaderProgress(state?.progress?.progress));
-        setCurrentChapter(state?.progress?.current_chapter || "");
-        setCurrentPage(state?.progress?.current_page || null);
+        setCurrentProgress(clampReaderProgress(progress?.progress));
+        setCurrentChapter(progress?.current_chapter || "");
+        setCurrentPage(progress?.current_page || null);
+
+        void getReaderBookAnnotations(bookId)
+          .then((annotations) => {
+            if (!cancelled) {
+              setReaderState((current) => ({ ...current, annotations: annotations || [] }));
+            }
+          })
+          .catch(() => {});
 
         const catalogProgressRequest = getCatalogUserBooks({ bookId }).catch(() => ({ item: null }));
         let catalogProgressTimedOut = false;

@@ -16,6 +16,14 @@ test("carga ePub y PDF bajo demanda y no en el chunk común del lector", () => {
   assert.match(source, /book\.locations\.generate\(1600\)/);
 });
 
+test("carga posición y anotaciones por separado", () => {
+  assert.match(readerApiSource, /export async function getReaderBookProgress/);
+  assert.match(readerApiSource, /export async function getReaderBookAnnotations/);
+  assert.match(source, /getReaderBookProgress\(bookId\)/);
+  assert.match(source, /void getReaderBookAnnotations\(bookId\)/);
+  assert.doesNotMatch(source, /getReaderBookState\(bookId\)/);
+});
+
 test("reutiliza el contexto validado al guardar el progreso", () => {
   assert.match(readerApiSource, /READER_CONTEXT_CACHE_TTL_MS/);
   assert.match(readerApiSource, /supabase\.auth\.getSession/);

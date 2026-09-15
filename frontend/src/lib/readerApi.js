@@ -277,34 +277,47 @@ export async function deleteReaderDocument(document) {
   if (error) throw schemaError(error);
 }
 
-export async function getReaderBookState(bookId) {
+const READER_PROGRESS_FIELDS = "owner_id, book_id, document_id, progress, locator, current_page, current_chapter, created_at, updated_at";
+const READER_ANNOTATION_FIELDS = "id, book_id, document_id, kind, quote, note, locator, page, color, spoiler, shared_post_id, created_at, updated_at";
+
+export async function getReaderBookProgress(bookId) {
   const cleanId = cleanBookId(bookId);
-  const [progressResult, annotationsResult] = await Promise.all([
-    supabase
-      .from("reader_book_progress")
-      .select("owner_id, book_id, document_id, progress, locator, current_page, current_chapter, created_at, updated_at")
-      .eq("book_id", cleanId)
-      .maybeSingle(),
-    supabase
-      .from("reader_annotations")
-      .select("id, book_id, document_id, kind, quote, note, locator, page, color, spoiler, shared_post_id, created_at, updated_at")
-      .eq("book_id", cleanId)
-      .order("created_at", { ascending: false }),
+  const { data, error } = await supabase
+    .from("reader_book_progress")
+    .select(READER_PROGRESS_FIELDS)
+    .eq("book_id", cleanId)
+    .maybeSingle();
+
+  if (error) throw schemaError(error);
+
+  return data
+    ? {
+        ...data,
+        progress: clampReaderProgress(data.progress),
+        locator: normalizeReaderLocator(data.locator),
+      }
+    : null;
+}
+
+export async function getReaderBookAnnotations(bookId) {
+  const cleanId = cleanBookId(bookId);
+  const { data, error } = await supabase
+    .from("reader_annotations")
+    .select(READER_ANNOTATION_FIELDS)
+    .eq("book_id", cleanId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw schemaError(error);
+  return (data || []).map(normalizeAnnotation);
+}
+
+export async function getReaderBookState(bookId) {
+  const [progress, annotations] = await Promise.all([
+    getReaderBookProgress(bookId),
+    getReaderBookAnnotations(bookId),
   ]);
 
-  if (progressResult.error) throw schemaError(progressResult.error);
-  if (annotationsResult.error) throw schemaError(annotationsResult.error);
-
-  return {
-    progress: progressResult.data
-      ? {
-          ...progressResult.data,
-          progress: clampReaderProgress(progressResult.data.progress),
-          locator: normalizeReaderLocator(progressResult.data.locator),
-        }
-      : null,
-    annotations: (annotationsResult.data || []).map(normalizeAnnotation),
-  };
+  return { progress, annotations };
 }
 
 export async function saveReaderBookProgress({
