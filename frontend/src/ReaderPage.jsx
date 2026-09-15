@@ -251,22 +251,54 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
         const contentDocument = contents?.document;
         if (!contentDocument || contentTapHandlers.has(contentDocument)) return;
 
-        const handleTap = (event) => {
-          if (event.defaultPrevented || (event.button && event.button !== 0)) return;
+        let suppressClickUntil = 0;
+        const navigateFromPoint = (clientX, target) => {
           const selection = contentDocument.defaultView?.getSelection?.();
           if (selection?.toString?.().trim()) return;
-          if (event.target?.closest?.("a,button,input,textarea,select,summary,[role=\"button\"]")) return;
+          if (target?.closest?.("a,button,input,textarea,select,summary,[role=\"button\"]")) return;
 
           const width = contentDocument.documentElement?.clientWidth
             || contentDocument.body?.clientWidth
+            || contents?.window?.innerWidth
             || 0;
-          if (!width) return;
+          if (!width || !Number.isFinite(clientX)) return;
 
           const edge = Math.min(180, width * 0.32);
-          if (event.clientX <= edge) callbackRef.current.onTapNavigate?.("previous");
-          else if (event.clientX >= width - edge) callbackRef.current.onTapNavigate?.("next");
+          if (clientX <= edge) callbackRef.current.onTapNavigate?.("previous");
+          else if (clientX >= width - edge) callbackRef.current.onTapNavigate?.("next");
           else callbackRef.current.onTapNavigate?.("center");
         };
+
+        const handleTap = (event) => {
+          if (Date.now() < suppressClickUntil) return;
+          if (event.defaultPrevented || (event.button && event.button !== 0)) return;
+          navigateFromPoint(event.clientX, event.target);
+        };
+
+        const handleTouchEnd = (event) => {
+          const touch = event.changedTouches?.[0];
+          const clientX = touch?.clientX;
+          if (!Number.isFinite(clientX)) return;
+          suppressClickUntil = Date.now() + 500;
+          window.setTimeout(() => navigateFromPoint(clientX, event.target), 90);
+        };
+
+        const handlePointerUp = (event) => {
+          if (event.pointerType === "mouse" || !Number.isFinite(event.clientX)) return;
+          suppressClickUntil = Date.now() + 500;
+          navigateFromPoint(event.clientX, event.target);
+        };
+
+        contentDocument.addEventListener("click", handleTap, { passive: true });
+        contentDocument.addEventListener("touchend", handleTouchEnd, { passive: true });
+        contentDocument.addEventListener("pointerup", handlePointerUp, { passive: true });
+        contentTapHandlers.set(contentDocument, {
+          click: handleTap,
+          touchend: handleTouchEnd,
+          pointerup: handlePointerUp,
+        });
+      });
+    };
 
         contentDocument.addEventListener("click", handleTap, { passive: true });
         contentTapHandlers.set(contentDocument, handleTap);
@@ -369,8 +401,10 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       if (controlsRef) controlsRef.current = null;
       relocatedHandlerRef.current = null;
       rendition?.off?.("rendered", bindContentTapHandlers);
-      contentTapHandlers.forEach((handler, contentDocument) => {
-        contentDocument.removeEventListener("click", handler);
+      contentTapHandlers.forEach((handlers, contentDocument) => {
+        contentDocument.removeEventListener("click", handlers.click);
+        contentDocument.removeEventListener("touchend", handlers.touchend);
+        contentDocument.removeEventListener("pointerup", handlers.pointerup);
       });
       contentTapHandlers.clear();
       rendition?.destroy?.();
@@ -430,6 +464,8 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
   const textLayerConstructorRef = useRef(null);
   const viewportRef = useRef(null);
   const pdfRef = useRef(null);
+  const selectionTimerRef = useRef(null);
+  const lastSelectionRef = useRef("");
   const [pdf, setPdf] = useState(null);
   const [pageNumber, setPageNumber] = useState(Math.max(1, Number(initialProgress?.current_page || initialProgress?.locator?.page || 1)));
   const [totalPages, setTotalPages] = useState(0);
@@ -593,7 +629,9 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
   }, [controlsRef, goToPage, pageNumber, totalPages]);
 
   const captureSelection = useCallback(() => {
-    window.setTimeout(() => {
+    window.clearTimeout(selectionTimerRef.current);
+    selectionTimerRef.current = window.setTimeout(() => {
+      selectionTimerRef.current = null;
       const selection = window.getSelection?.();
       const anchor = selection?.anchorNode;
       const focus = selection?.focusNode;
@@ -602,13 +640,33 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
 
       const selectionBelongsToPage = (anchor && layer?.contains(anchor)) || (focus && layer?.contains(focus));
       if (!layer || !quote || !selectionBelongsToPage) return;
+
+      const selectionKey = String(pageNumber) + ":" + quote;
+      if (lastSelectionRef.current === selectionKey) return;
+      lastSelectionRef.current = selectionKey;
       onQuoteSelected?.({
         quote,
         locator: { page: pageNumber },
         page: pageNumber,
       });
-    }, 80);
+    }, 220);
   }, [onQuoteSelected, pageNumber]);
+
+  useEffect(() => () => {
+    window.clearTimeout(selectionTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const selection = window.getSelection?.();
+      const range = selection?.rangeCount ? selection.getRangeAt(0) : null;
+      const layer = textLayerRef.current;
+      if (layer && range && layer.contains(range.commonAncestorContainer)) captureSelection();
+    };
+
+    document.addEventListener("selectionchange", handleSelectionChange);
+    return () => document.removeEventListener("selectionchange", handleSelectionChange);
+  }, [captureSelection]);
 
   return (
     <div className="reader-format-stage reader-pdf-stage">
@@ -621,6 +679,7 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
             className="reader-pdf-text-layer"
             onMouseUp={captureSelection}
             onTouchEnd={captureSelection}
+            onPointerUp={captureSelection}
             aria-label="Texto seleccionable del PDF"
           />
         </div>
