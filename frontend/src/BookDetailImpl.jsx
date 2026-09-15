@@ -1843,10 +1843,10 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
                   return (
                     <article className="book-progress-thread-item" key={entry.id}>
                       <span className="book-progress-thread-dot" aria-hidden="true" />
-                      <div className={`book-progress-thread-card${entry.body ? " has-reflection" : " is-progress-only"}`}>
+                      <div className={`book-progress-thread-card${entry.body ? " has-reflection" : " is-progress-only"}${entry.is_reader_annotation ? ` is-reader-annotation is-activity-${entry.accent_color}` : ""}`}>
                         <header>
                           <div className="book-progress-thread-meta">
-                            <span>{isPost ? "Reflexión" : "Avance"}</span>
+                            <span>{isPost ? (entry.activity_title || "Reflexión") : "Avance"}</span>
                             {!isPost && (
                               <small>
                                 {entry.previous_progress}% → {entry.new_progress}%

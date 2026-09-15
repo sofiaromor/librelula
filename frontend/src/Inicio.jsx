@@ -1274,7 +1274,10 @@ function LoggedInHome({ onExplore, onProfile, onReviews, onReviewBook, onClubs, 
                   const reviewIsLong = item.type === "review" && reviewBody.length > 320;
 
                   return (
-                    <article className="home-feed-item" key={item.key}>
+                    <article
+                      className={`home-feed-item${item.is_reader_annotation ? ` is-reader-annotation is-activity-${item.accent_color}` : ""}`}
+                      key={item.key}
+                    >
                       <img className="home-feed-avatar" src={item.profile.avatar} alt="" />
                       <div className="home-feed-content">
                         <header>
@@ -1288,7 +1291,10 @@ function LoggedInHome({ onExplore, onProfile, onReviews, onReviewBook, onClubs, 
                         </header>
 
                         {item.type === "post" && (
-                          <p className={spoilerHidden ? "home-spoiler-text" : ""}>{spoilerHidden ? "Contenido oculto por spoilers" : item.body}</p>
+                          <>
+                            {item.activity_title && <span className="home-reader-activity-title">{item.activity_title}</span>}
+                            <p className={spoilerHidden ? "home-spoiler-text" : ""}>{spoilerHidden ? "Contenido oculto por spoilers" : item.body}</p>
+                          </>
                         )}
 
                         {item.image_url && (

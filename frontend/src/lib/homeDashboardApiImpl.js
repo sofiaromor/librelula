@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { encodeReaderActivityBody, parseReaderActivityBody } from "./readerActivityMetadata.js";
 
 const DEFAULT_WEEKLY_PAGE_GOAL = 150;
 
@@ -516,6 +517,7 @@ async function getFeed(context, following) {
   for (const row of posts) {
     const profile = profiles.byAuthId.get(String(row.author_id));
     if (!profile || !cleanText(row.body)) continue;
+    const parsedActivity = parseReaderActivityBody(row.body);
 
     items.push({
       ...activityBase({
@@ -526,7 +528,11 @@ async function getFeed(context, following) {
         createdAt: row.created_at,
         spoiler: Boolean(row.spoiler),
       }),
-      body: cleanText(row.body),
+      body: parsedActivity.body,
+      activity_title: parsedActivity.activityTitle,
+      accent_color: parsedActivity.accentColor,
+      annotation_kind: parsedActivity.annotationKind,
+      is_reader_annotation: parsedActivity.isReaderAnnotation,
       image_url: postImages.get(String(row.image_path || "")) || "",
     });
   }
@@ -773,6 +779,9 @@ export async function publishReaderPost({
   spoiler = false,
   bookId = null,
   imageFile = null,
+  activityTitle = "",
+  accentColor = "yellow",
+  annotationKind = "postit",
 }) {
   const context = await getCurrentContext();
   const cleanBody = cleanText(body);
@@ -780,6 +789,15 @@ export async function publishReaderPost({
   if (!cleanBody && !imageFile) {
     throw apiError("Escribe algo o añade una imagen antes de publicar.", 400);
   }
+
+  const storedBody = activityTitle
+    ? encodeReaderActivityBody({
+        body: cleanBody,
+        title: activityTitle,
+        color: accentColor,
+        annotationKind,
+      })
+    : cleanBody;
 
   let imagePath = null;
 
@@ -813,7 +831,7 @@ export async function publishReaderPost({
     .from("reader_posts")
     .insert({
       author_id: context.authId,
-      body: cleanBody.slice(0, 1200) || "Compartió una imagen.",
+      body: storedBody.slice(0, 1200) || "Compartió una imagen.",
       spoiler: Boolean(spoiler),
       book_id: cleanText(bookId) || null,
       image_path: imagePath,
@@ -843,16 +861,23 @@ export async function getBookProgressThread(bookId, profileId = null) {
   });
 
   if (!error) {
-    return (data || []).map((row) => ({
-      id: cleanText(row.entry_id) || `${cleanText(row.source) || "update"}:${row.created_at}`,
-      source: cleanText(row.source) || "progress",
-      body: cleanText(row.body),
-      previous_progress: row.previous_progress === null ? null : clampProgress(row.previous_progress),
-      new_progress: row.progress === null ? null : clampProgress(row.progress),
-      pages_delta: Math.max(0, asNumber(row.pages_delta)),
-      spoiler: Boolean(row.spoiler),
-      created_at: row.created_at,
-    }));
+    return (data || []).map((row) => {
+      const parsedActivity = parseReaderActivityBody(row.body);
+      return {
+        id: cleanText(row.entry_id) || `${cleanText(row.source) || "update"}:${row.created_at}`,
+        source: cleanText(row.source) || "progress",
+        body: parsedActivity.body,
+        activity_title: parsedActivity.activityTitle,
+        accent_color: parsedActivity.accentColor,
+        annotation_kind: parsedActivity.annotationKind,
+        is_reader_annotation: parsedActivity.isReaderAnnotation,
+        previous_progress: row.previous_progress === null ? null : clampProgress(row.previous_progress),
+        new_progress: row.progress === null ? null : clampProgress(row.progress),
+        pages_delta: Math.max(0, asNumber(row.pages_delta)),
+        spoiler: Boolean(row.spoiler),
+        created_at: row.created_at,
+      };
+    });
   }
 
   // Compatibilidad durante un despliegue escalonado: mientras V9 todavía no

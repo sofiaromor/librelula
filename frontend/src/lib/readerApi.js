@@ -9,6 +9,7 @@ import {
   safeReaderPathSegment,
   validateReaderFile,
 } from "./readerUtils.js";
+import { normalizeReaderActivityTitle } from "./readerActivityMetadata.js";
 
 const READER_SIGNED_URL_SECONDS = 60 * 60 * 4;
 
@@ -127,6 +128,7 @@ function normalizeDocument(row, signedUrl = "") {
 }
 
 function normalizeAnnotation(row) {
+  const locator = normalizeReaderLocator(row.locator);
   return {
     id: row.id,
     book_id: String(row.book_id || ""),
@@ -134,9 +136,10 @@ function normalizeAnnotation(row) {
     kind: row.kind || "postit",
     quote: row.quote || "",
     note: row.note || "",
-    locator: normalizeReaderLocator(row.locator),
+    locator,
     page: row.page === null || row.page === undefined ? null : Number(row.page),
     color: row.color || "yellow",
+    activity_title: normalizeReaderActivityTitle(locator.activityTitle, ""),
     spoiler: Boolean(row.spoiler),
     shared_post_id: row.shared_post_id || null,
     created_at: row.created_at || null,
@@ -388,11 +391,17 @@ export async function createReaderAnnotation({
   color = "yellow",
   spoiler = false,
   share = false,
+  activityTitle = "",
 }) {
   const cleanId = cleanBookId(bookId);
   const context = await getReaderContext();
   const cleanQuote = cleanText(quote).slice(0, 4000);
   const cleanNote = cleanText(note).slice(0, 1200);
+  const cleanActivityTitle = normalizeReaderActivityTitle(activityTitle, "");
+  const safeLocator = {
+    ...normalizeReaderLocator(locator),
+    ...(cleanActivityTitle ? { activityTitle: cleanActivityTitle } : {}),
+  };
 
   if (!cleanQuote && !cleanNote) {
     throw apiError("Añade una frase o una nota antes de guardar.", 400);
@@ -407,7 +416,7 @@ export async function createReaderAnnotation({
       kind: ["highlight", "note", "postit", "bookmark"].includes(kind) ? kind : "postit",
       quote: cleanQuote,
       note: cleanNote,
-      locator: normalizeReaderLocator(locator),
+      locator: safeLocator,
       page: page ? Math.max(1, Math.round(Number(page))) : null,
       color: ["yellow", "pink", "blue", "green", "lilac"].includes(color) ? color : "yellow",
       spoiler: Boolean(spoiler),
@@ -431,6 +440,9 @@ export async function createReaderAnnotation({
         body: shareBody || "Compartió una anotación de lectura.",
         spoiler: Boolean(spoiler),
         bookId: cleanId,
+        activityTitle: cleanActivityTitle,
+        accentColor: color,
+        annotationKind: kind,
       });
 
       const { data: shared, error: shareSaveError } = await supabase

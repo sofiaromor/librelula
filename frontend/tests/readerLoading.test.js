@@ -6,6 +6,7 @@ const source = await readFile(new URL("../src/ReaderPage.jsx", import.meta.url),
 const engines = await readFile(new URL("../src/lib/readerEngines.js", import.meta.url), "utf8");
 const readerApiSource = await readFile(new URL("../src/lib/readerApi.js", import.meta.url), "utf8");
 const catalogApiSource = await readFile(new URL("../src/lib/catalogApi.js", import.meta.url), "utf8");
+const activityMetadataSource = await readFile(new URL("../src/lib/readerActivityMetadata.js", import.meta.url), "utf8");
 const styles = await readFile(new URL("../src/ReaderPage.css", import.meta.url), "utf8");
 
 test("carga ePub y PDF bajo demanda y no en el chunk común del lector", () => {
@@ -84,10 +85,12 @@ test("protege el progreso manual hasta que la posición del archivo es autoritat
   assert.match(source, /resolveReaderSessionProgress/);
   assert.match(source, /manualProgressAppliedRef/);
   assert.match(source, /documentProgressIsAuthoritative/);
+  assert.match(source, /userNavigationOccurredRef/);
+  assert.match(source, /isReaderDocumentProgressAuthoritative/);
 });
 
 test("no reinicia el EPUB cuando cambia el estado de lectura", () => {
-  assert.match(source, /const callbackRef = useRef\(\{ onChapterChange, onProgress, onQuoteSelected, onTapNavigate \}\)/);
+  assert.match(source, /const callbackRef = useRef\(\{ onChapterChange, onProgress, onQuoteSelected, onTapNavigate, onUserNavigation \}\)/);
   assert.match(source, /callbackRef\.current\.onProgress\?\./);
   assert.match(source, /callbackRef\.current\.onQuoteSelected\?\./);
   assert.match(source, /\}, \[controlsRef, sourceUrl\]\);/);
@@ -162,14 +165,19 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.match(source, /pendingSelection/);
   assert.match(source, /Marcar selección/);
   assert.doesNotMatch(source, /openNewAnnotation\(\{\s*quote: selection\.quote/);
-  assert.match(source, /scrolled-continuous/);
+  assert.doesNotMatch(source, /scrolled-continuous/);
+  assert.match(source, /flow: "paginated"/);
+  assert.match(source, /updateAxis\?\.\(/);
+  assert.match(source, /"vertical" : "horizontal"/);
+  assert.match(source, /scrollBehavior/);
   assert.match(source, /currentLocationRef/);
   assert.match(source, /preservedCfi/);
   assert.match(source, /flowChangeIdRef/);
   assert.match(source, /rendition\.display\(preservedCfi\)/);
   assert.match(source, /readingMode/);
   assert.match(source, /readerTheme/);
-  assert.match(source, /reader-dark/);
+  assert.match(source, /reader-base/);
+  assert.match(source, /themes\?\.override/);
   assert.doesNotMatch(source, /progressTimerRef\.current = window\.setTimeout/);
   assert.match(styles, /-webkit-user-select: text/);
   assert.match(styles, /touch-action: auto/);
@@ -177,4 +185,18 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.match(styles, /reader-page\.is-reader-cascade/);
   assert.match(styles, /reader-selection-actions/);
   assert.match(styles, /flex-wrap: wrap/);
+});
+
+test("las anotaciones conservan color y título configurable en Actividad", () => {
+  assert.match(source, /READER_ACTIVITY_TITLE_OPTIONS/);
+  assert.match(source, /Título personalizado/);
+  assert.match(source, /customActivityTitle/);
+  assert.match(source, /annotationComposer\.share/);
+  assert.match(source, /activityTitle/);
+  assert.match(readerApiSource, /normalizeReaderActivityTitle\(activityTitle, ""\)/);
+  assert.match(readerApiSource, /activityTitle: cleanActivityTitle/);
+  assert.match(activityMetadataSource, /encodeReaderActivityBody/);
+  assert.match(activityMetadataSource, /parseReaderActivityBody/);
+  assert.match(styles, /--annotation-accent/);
+  assert.match(styles, /reader-activity-title-fields/);
 });

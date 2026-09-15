@@ -40,3 +40,16 @@ export function resolveReaderSessionProgress({
 
   return mergeReaderProgress(manualProgress, documentProgress);
 }
+
+export function isReaderDocumentProgressAuthoritative({
+  manualProgress = null,
+  documentProgress = 0,
+  progressIsPrecise = false,
+  manualProgressApplied = false,
+  userNavigationOccurred = false,
+} = {}) {
+  if (!progressIsPrecise) return false;
+  if (manualProgress === null || manualProgress === undefined) return true;
+  if (manualProgressApplied || userNavigationOccurred) return true;
+  return clampReaderProgress(documentProgress) >= clampReaderProgress(manualProgress);
+}

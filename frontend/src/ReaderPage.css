@@ -545,7 +545,8 @@
 }
 
 .reader-page.is-reader-cascade .reader-epub-viewport {
-  overflow-y: auto;
+  overflow: hidden;
+  touch-action: pan-y;
 }
 
 .reader-page.is-reader-cascade .reader-epub-stage {
@@ -665,17 +666,21 @@
 }
 
 .reader-annotation-card {
+  --annotation-accent: #c99a16;
+  --annotation-surface: #fff2a8;
+  --annotation-ink: #4f431b;
   position: relative;
-  border-left: 5px solid #e8c760;
+  border: 1px solid color-mix(in srgb, var(--annotation-accent) 58%, transparent);
+  border-left: 7px solid var(--annotation-accent);
   border-radius: 4px 13px 13px 4px;
-  background: #fff4b8;
+  background: var(--annotation-surface);
   box-shadow: 0 7px 16px rgba(79, 54, 36, .08);
 }
 
-.reader-annotation-card.is-pink { border-color: #e7a5b8; background: #fce4ec; }
-.reader-annotation-card.is-blue { border-color: #91bde0; background: #e5f1fb; }
-.reader-annotation-card.is-green { border-color: #91c49b; background: #e5f4e8; }
-.reader-annotation-card.is-lilac { border-color: #b6a0d0; background: #eee6f7; }
+.reader-annotation-card.is-pink { --annotation-accent: #c94f79; --annotation-surface: #fde0ea; --annotation-ink: #5f263a; }
+.reader-annotation-card.is-blue { --annotation-accent: #367fba; --annotation-surface: #dceffc; --annotation-ink: #1f4664; }
+.reader-annotation-card.is-green { --annotation-accent: #4b965d; --annotation-surface: #def2e2; --annotation-ink: #285335; }
+.reader-annotation-card.is-lilac { --annotation-accent: #8056ae; --annotation-surface: #eadff7; --annotation-ink: #493264; }
 
 .reader-annotation-open {
   width: 100%;
@@ -684,7 +689,7 @@
   padding: 14px 36px 14px 14px;
   border: 0;
   background: transparent;
-  color: #5c4a2f;
+  color: var(--annotation-ink);
   text-align: left;
 }
 
@@ -693,11 +698,28 @@
 }
 
 .reader-annotation-kind {
-  color: #8b7248;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--annotation-ink);
   font-size: .73rem;
   font-weight: 700;
   letter-spacing: .08em;
   text-transform: uppercase;
+}
+
+.reader-annotation-kind i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--annotation-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--annotation-accent) 20%, transparent);
+}
+
+.reader-annotation-title {
+  color: var(--annotation-ink);
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 1.05rem;
 }
 
 .reader-annotation-open blockquote,
@@ -715,7 +737,7 @@
 }
 
 .reader-annotation-open small {
-  color: #8b7248;
+  color: color-mix(in srgb, var(--annotation-ink) 75%, transparent);
 }
 
 .reader-annotation-delete {
@@ -848,6 +870,8 @@
 }
 
 .reader-composer {
+  --annotation-accent: #c99a16;
+  --annotation-surface: #fff2a8;
   width: min(560px, 100%);
   max-height: min(760px, calc(100vh - 36px));
   overflow: auto;
@@ -857,6 +881,15 @@
   box-shadow: 0 24px 70px rgba(45, 29, 20, .24);
 }
 
+.reader-composer.is-pink { --annotation-accent: #c94f79; --annotation-surface: #fde0ea; }
+.reader-composer.is-blue { --annotation-accent: #367fba; --annotation-surface: #dceffc; }
+.reader-composer.is-green { --annotation-accent: #4b965d; --annotation-surface: #def2e2; }
+.reader-composer.is-lilac { --annotation-accent: #8056ae; --annotation-surface: #eadff7; }
+
+.reader-composer > header {
+  border-top: 6px solid var(--annotation-accent);
+}
+
 .reader-composer h2 {
   font-size: 1.75rem;
 }
@@ -864,10 +897,10 @@
 .reader-selected-quote {
   margin: 18px 18px 8px;
   padding: 14px 16px;
-  border-left: 4px solid #b47757;
+  border-left: 6px solid var(--annotation-accent);
   border-radius: 4px 12px 12px 4px;
-  background: #f7eee5;
-  color: #644a39;
+  background: var(--annotation-surface);
+  color: #403128;
   line-height: 1.5;
 }
 
@@ -958,6 +991,32 @@
 
 .reader-share-check small {
   color: #a08d7e;
+}
+
+.reader-activity-title-fields {
+  display: grid;
+  gap: 8px;
+  margin: 14px 18px 0;
+  padding: 13px;
+  border: 1px solid color-mix(in srgb, var(--annotation-accent) 35%, #e8dbce);
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--annotation-surface) 42%, #fffdf9);
+}
+
+.reader-activity-title-fields .reader-form-label {
+  margin: 0;
+}
+
+.reader-activity-title-fields select,
+.reader-activity-title-fields input {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #ddcbbb;
+  border-radius: 10px;
+  background: #fffdf9;
+  color: #403128;
+  font: inherit;
 }
 
 .reader-composer > footer {

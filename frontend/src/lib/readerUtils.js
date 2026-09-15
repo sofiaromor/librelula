@@ -96,6 +96,8 @@ export function readerTouchAction({
   const hasMoved = absoluteX > 14 || absoluteY > 14;
 
   if (readingMode === "cascade") {
+    const isVerticalSwipe = absoluteY >= 48 && absoluteY > absoluteX * 1.2;
+    if (isVerticalSwipe) return verticalDistance > 0 ? "previous" : "next";
     return hasMoved ? "" : "center";
   }
 
@@ -103,6 +105,12 @@ export function readerTouchAction({
   if (isHorizontalSwipe) return horizontalDistance > 0 ? "previous" : "next";
   if (hasMoved) return "";
   return "tap";
+}
+
+export function readerThemePalette(theme) {
+  return theme === "dark"
+    ? { background: "#252630", color: "#f7eee6" }
+    : { background: "#fffdf9", color: "#3a2a22" };
 }
 
 export function readerProgressLabel(progress) {
@@ -117,4 +125,3 @@ export function safeReaderPathSegment(value, fallback = "book") {
 
   return segment || fallback;
 }
-

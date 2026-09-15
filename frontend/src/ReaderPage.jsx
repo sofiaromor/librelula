@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { loadEpub, loadPdf } from "./lib/readerEngines.js";
-import { READER_SAVE_MODES, resolveReaderSessionProgress, shouldAutoSaveReaderProgress } from "./lib/readerProgressPolicy.js";
+import {
+  READER_SAVE_MODES,
+  isReaderDocumentProgressAuthoritative,
+  resolveReaderSessionProgress,
+  shouldAutoSaveReaderProgress,
+} from "./lib/readerProgressPolicy.js";
 
 import "./ReaderPage.css";
 import { publicUrl } from "./api.js";
@@ -20,8 +25,13 @@ import {
   readerFileFormat,
   readerProgressFromEpub,
   readerProgressFromPdf,
+  readerThemePalette,
   readerTouchAction,
 } from "./lib/readerUtils.js";
+import {
+  READER_ACTIVITY_TITLE_OPTIONS,
+  normalizeReaderActivityTitle,
+} from "./lib/readerActivityMetadata.js";
 
 const READER_DATA_TIMEOUT_MS = 12_000;
 const CATALOG_PROGRESS_TIMEOUT_MS = 3_000;
@@ -145,6 +155,37 @@ function readerEpubProgressIsPrecise(book, location) {
   }
 }
 
+function applyEpubTheme(rendition, theme) {
+  const palette = readerThemePalette(theme);
+  rendition?.themes?.select?.("reader-base");
+  rendition?.themes?.override?.("background", palette.background, true);
+  rendition?.themes?.override?.("color", palette.color, true);
+
+  rendition?.getContents?.().forEach((contents) => {
+    const body = contents?.document?.body;
+    const root = contents?.document?.documentElement;
+    [root, body].filter(Boolean).forEach((element) => {
+      element.style.setProperty("background", palette.background, "important");
+      element.style.setProperty("color", palette.color, "important");
+    });
+  });
+}
+
+function applyEpubReadingMode(rendition, readingMode) {
+  if (!rendition) return;
+  rendition.flow?.("paginated");
+  rendition.manager?.updateAxis?.(
+    readingMode === READER_FLOW_MODES.CASCADE ? "vertical" : "horizontal",
+    true,
+  );
+
+  const managerContainer = rendition.manager?.container;
+  if (managerContainer?.style) {
+    managerContainer.style.scrollBehavior = readingMode === READER_FLOW_MODES.CASCADE ? "smooth" : "auto";
+    managerContainer.style.overscrollBehavior = "contain";
+  }
+}
+
 function ReaderLoading({ text = "Abriendo tu lectura…" }) {
   return (
     <div className="reader-loading" role="status">
@@ -155,7 +196,7 @@ function ReaderLoading({ text = "Abriendo tu lectura…" }) {
   );
 }
 
-function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme, onProgress, onQuoteSelected, controlsRef, onChapterChange, onTapNavigate }) {
+function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme, onProgress, onQuoteSelected, controlsRef, onChapterChange, onTapNavigate, onUserNavigation }) {
   const containerRef = useRef(null);
   const bookRef = useRef(null);
   const renditionRef = useRef(null);
@@ -165,15 +206,15 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
   const readingModeRef = useRef(readingMode);
   const themeRef = useRef(theme);
   const flowChangeIdRef = useRef(0);
-  const callbackRef = useRef({ onChapterChange, onProgress, onQuoteSelected, onTapNavigate });
+  const callbackRef = useRef({ onChapterChange, onProgress, onQuoteSelected, onTapNavigate, onUserNavigation });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toc, setToc] = useState([]);
   const [tocOpen, setTocOpen] = useState(false);
 
   useEffect(() => {
-    callbackRef.current = { onChapterChange, onProgress, onQuoteSelected, onTapNavigate };
-  }, [onChapterChange, onProgress, onQuoteSelected, onTapNavigate]);
+    callbackRef.current = { onChapterChange, onProgress, onQuoteSelected, onTapNavigate, onUserNavigation };
+  }, [onChapterChange, onProgress, onQuoteSelected, onTapNavigate, onUserNavigation]);
 
   useEffect(() => {
     if (!sourceUrl || !containerRef.current) return undefined;
@@ -285,6 +326,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
 
     const contentTapHandlers = new Map();
     const bindContentTapHandlers = () => {
+      applyEpubTheme(rendition, themeRef.current);
       rendition?.getContents?.().forEach((contents) => {
         const contentDocument = contents?.document;
         if (!contentDocument || contentTapHandlers.has(contentDocument)) return;
@@ -409,21 +451,11 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
         width: "100%",
         height: "100%",
         spread: "none",
-        flow: readingModeRef.current === READER_FLOW_MODES.CASCADE ? "scrolled-continuous" : "paginated",
+        flow: "paginated",
       });
       renditionRef.current = rendition;
-      rendition.themes?.register?.("reader-light", {
+      rendition.themes?.register?.("reader-base", {
         body: {
-          background: "#fffdf9 !important",
-          color: "#3a2a22 !important",
-          "user-select": "text",
-          "-webkit-user-select": "text",
-        },
-      });
-      rendition.themes?.register?.("reader-dark", {
-        body: {
-          background: "#252630 !important",
-          color: "#f7eee6 !important",
           "user-select": "text",
           "-webkit-user-select": "text",
         },
@@ -431,7 +463,8 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
           background: "rgba(219, 173, 132, .42)",
         },
       });
-      rendition.themes?.select?.(themeRef.current === READER_THEMES.DARK ? "reader-dark" : "reader-light");
+      applyEpubTheme(rendition, themeRef.current);
+      applyEpubReadingMode(rendition, readingModeRef.current);
 
       rendition.on("rendered", bindContentTapHandlers);
 
@@ -552,7 +585,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
 
   useEffect(() => {
     themeRef.current = theme;
-    renditionRef.current?.themes?.select?.(theme === READER_THEMES.DARK ? "reader-dark" : "reader-light");
+    applyEpubTheme(renditionRef.current, theme);
   }, [theme]);
 
   useEffect(() => {
@@ -560,9 +593,6 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
     const rendition = renditionRef.current;
     if (!rendition?.flow) return undefined;
 
-    const nextFlow = readingMode === READER_FLOW_MODES.CASCADE
-      ? "scrolled-continuous"
-      : "paginated";
     const currentLocation = rendition.currentLocation?.();
     const preservedCfi = currentLocationRef.current || currentLocation?.start?.cfi || "";
     const changeId = flowChangeIdRef.current + 1;
@@ -590,7 +620,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
     }
 
     try {
-      rendition.flow(nextFlow);
+      applyEpubReadingMode(rendition, readingMode);
     } catch {
       rendition.off?.("rendered", restoreLocation);
       if (restoreTimer !== null) window.clearTimeout(restoreTimer);
@@ -605,6 +635,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
 
   function openTocItem(item) {
     if (!item?.href) return;
+    callbackRef.current.onUserNavigation?.();
     renditionRef.current?.display(item.href);
     setTocOpen(false);
   }
@@ -954,7 +985,7 @@ function AnnotationComposer({ draft, saving, onChange, onClose, onSubmit }) {
     <div className="reader-composer-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !saving) onClose(); }}>
       <form
         ref={dialogRef}
-        className="reader-composer"
+        className={`reader-composer is-${draft.color}`}
         role="dialog"
         aria-modal="true"
         aria-labelledby="reader-composer-title"
@@ -969,7 +1000,7 @@ function AnnotationComposer({ draft, saving, onChange, onClose, onSubmit }) {
           <button type="button" className="reader-icon-button" onClick={onClose} disabled={saving} aria-label="Cerrar anotación"><ReaderIcon name="close" /></button>
         </header>
 
-        {draft.quote && <blockquote className="reader-selected-quote">“{draft.quote}”</blockquote>}
+        {draft.quote && <blockquote className={`reader-selected-quote is-${draft.color}`}>“{draft.quote}”</blockquote>}
 
         <label className="reader-form-label" htmlFor="reader-annotation-note">Nota personal <span>(opcional)</span></label>
         <textarea
@@ -1009,6 +1040,30 @@ function AnnotationComposer({ draft, saving, onChange, onClose, onSubmit }) {
           <span><strong>Compartir en Actividad</strong><small>Solo se publicará esta anotación, nunca el archivo.</small></span>
         </label>
 
+        {draft.share && (
+          <div className="reader-activity-title-fields">
+            <label className="reader-form-label" htmlFor="reader-activity-title">Tipo de actividad</label>
+            <select
+              id="reader-activity-title"
+              value={draft.activityTitleChoice}
+              onChange={(event) => onChange({ activityTitleChoice: event.target.value })}
+            >
+              {READER_ACTIVITY_TITLE_OPTIONS.map((title) => <option key={title} value={title}>{title}</option>)}
+              <option value="custom">Título personalizado…</option>
+            </select>
+            {draft.activityTitleChoice === "custom" && (
+              <input
+                type="text"
+                value={draft.customActivityTitle}
+                onChange={(event) => onChange({ customActivityTitle: event.target.value })}
+                placeholder="Ej.: Una pista que no quiero olvidar"
+                maxLength="48"
+                aria-label="Título personalizado de la actividad"
+              />
+            )}
+          </div>
+        )}
+
         <footer>
           <button type="button" className="reader-secondary-button" onClick={onClose} disabled={saving}>Cancelar</button>
           <button type="submit" className="reader-primary-button" disabled={saving || (!draft.quote.trim() && !draft.note.trim())}>
@@ -1036,7 +1091,8 @@ function AnnotationList({ annotations, onOpen, onDelete }) {
       {annotations.map((annotation) => (
         <article className={`reader-annotation-card is-${annotation.color}`} key={annotation.id}>
           <button type="button" className="reader-annotation-open" onClick={() => onOpen(annotation)}>
-            <span className="reader-annotation-kind">{annotation.kind === "highlight" ? "Selección" : "Post-it"}{annotation.shared_post_id ? " · Compartida" : ""}</span>
+            <span className="reader-annotation-kind"><i aria-hidden="true" />{annotation.kind === "highlight" ? "Selección" : "Post-it"}{annotation.shared_post_id ? " · Compartida" : ""}</span>
+            {annotation.activity_title && <strong className="reader-annotation-title">{annotation.activity_title}</strong>}
             {annotation.quote && <blockquote>“{annotation.quote}”</blockquote>}
             {annotation.note && <p>{annotation.note}</p>}
             <small>{annotation.page ? `Página ${annotation.page}` : "Abrir en el lector"}</small>
@@ -1088,6 +1144,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const readerStartedRef = useRef("");
   const manualNavigationKeyRef = useRef("");
   const manualProgressAppliedRef = useRef(false);
+  const userNavigationOccurredRef = useRef(false);
   const pendingAutoSaveTurnsRef = useRef(-1);
   const lastProgressLocatorRef = useRef("");
 
@@ -1116,6 +1173,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     readerStartedRef.current = "";
     manualNavigationKeyRef.current = "";
     manualProgressAppliedRef.current = false;
+    userNavigationOccurredRef.current = false;
 
     const readerDataRequest = Promise.all([
       getReaderBookAssets(bookId),
@@ -1252,6 +1310,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     lastProgressLocatorRef.current = "";
     manualNavigationKeyRef.current = "";
     manualProgressAppliedRef.current = false;
+    userNavigationOccurredRef.current = false;
   }, [sourceKey]);
 
   const persistProgress = useCallback((snapshot = null, { quiet = false } = {}) => {
@@ -1282,12 +1341,13 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         if (!candidate) return null;
 
         const documentProgress = clampReaderProgress(candidate.progress);
-        const documentProgressIsAuthoritative = candidate.progressIsPrecise === true
-          && (
-            manualProgress === null
-            || manualProgressAppliedRef.current
-            || documentProgress >= manualProgress
-          );
+        const documentProgressIsAuthoritative = isReaderDocumentProgressAuthoritative({
+          manualProgress,
+          documentProgress,
+          progressIsPrecise: candidate.progressIsPrecise,
+          manualProgressApplied: manualProgressAppliedRef.current,
+          userNavigationOccurred: userNavigationOccurredRef.current,
+        });
         if (
           manualProgress !== null
           && candidate.progressIsPrecise === true
@@ -1331,6 +1391,15 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
             setCatalogReading(result.libraryItem);
             setCurrentProgress(clampReaderProgress(result.libraryItem.progress));
           }
+          if (!quiet) {
+            const savedProgress = clampReaderProgress(result.libraryItem?.progress ?? result.progress?.progress);
+            setMessage({
+              type: result.libraryItem ? "success" : "error",
+              text: result.libraryItem
+                ? `Posición guardada: ${savedProgress}% del documento.`
+                : "La posición privada se guardó, pero el porcentaje de la biblioteca aún no era fiable. Muévete de página e inténtalo de nuevo.",
+            });
+          }
         }
         return result;
       })
@@ -1352,12 +1421,13 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
 
   const handleProgress = useCallback((details) => {
     const documentProgress = clampReaderProgress(details?.progress);
-    const documentProgressIsAuthoritative = details?.progressIsPrecise === true
-      && (
-        manualProgress === null
-        || manualProgressAppliedRef.current
-        || documentProgress >= manualProgress
-      );
+    const documentProgressIsAuthoritative = isReaderDocumentProgressAuthoritative({
+      manualProgress,
+      documentProgress,
+      progressIsPrecise: details?.progressIsPrecise,
+      manualProgressApplied: manualProgressAppliedRef.current,
+      userNavigationOccurred: userNavigationOccurredRef.current,
+    });
     if (
       manualProgress !== null
       && details?.progressIsPrecise === true
@@ -1520,18 +1590,27 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       const target = event.target;
       if (target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(target?.tagName || "")) return;
 
-      if (event.key === "ArrowLeft" || event.key === "PageUp") {
+      const previousKey = readingMode === READER_FLOW_MODES.CASCADE
+        ? event.key === "ArrowUp" || event.key === "PageUp"
+        : event.key === "ArrowLeft" || event.key === "PageUp";
+      const nextKey = readingMode === READER_FLOW_MODES.CASCADE
+        ? event.key === "ArrowDown" || event.key === "PageDown"
+        : event.key === "ArrowRight" || event.key === "PageDown";
+
+      if (previousKey) {
         event.preventDefault();
+        userNavigationOccurredRef.current = true;
         readerControlsRef.current?.previous?.();
-      } else if (event.key === "ArrowRight" || event.key === "PageDown") {
+      } else if (nextKey) {
         event.preventDefault();
+        userNavigationOccurredRef.current = true;
         readerControlsRef.current?.next?.();
       }
     };
 
     document.addEventListener("keydown", handleKeyDown);
     return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [annotationComposer, sourceUrl]);
+  }, [annotationComposer, readingMode, sourceUrl]);
 
   async function selectSource(documentId, format = "") {
     await persistProgress();
@@ -1573,6 +1652,8 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       color: "yellow",
       spoiler: false,
       share: false,
+      activityTitleChoice: "Reflexión",
+      customActivityTitle: "",
       ...overrides,
     });
     setNotesOpen(false);
@@ -1609,10 +1690,18 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     setSavingAnnotation(true);
     setMessage(null);
     try {
+      const activityTitle = annotationComposer.share
+        ? normalizeReaderActivityTitle(
+            annotationComposer.activityTitleChoice === "custom"
+              ? annotationComposer.customActivityTitle
+              : annotationComposer.activityTitleChoice,
+          )
+        : "";
       const result = await createReaderAnnotation({
         bookId,
         documentId: selectedDocument?.id || null,
         ...annotationComposer,
+        activityTitle,
       });
       setReaderState((current) => ({
         ...current,
@@ -1632,6 +1721,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   }
 
   function openAnnotation(annotation) {
+    userNavigationOccurredRef.current = true;
     if (selectedFormat === "epub" && annotation.locator?.cfi) {
       readerControlsRef.current?.goTo?.(annotation.locator.cfi);
       return;
@@ -1734,13 +1824,18 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     }
   }, [immersiveMode]);
 
+  const markReaderNavigation = useCallback(() => {
+    userNavigationOccurredRef.current = true;
+  }, []);
+
   const navigateReader = useCallback((direction) => {
+    markReaderNavigation();
     if (direction === "previous") {
       readerControlsRef.current?.previous?.();
     } else if (direction === "next") {
       readerControlsRef.current?.next?.();
     }
-  }, []);
+  }, [markReaderNavigation]);
 
   const handleReaderTap = useCallback((zone) => {
     if (zone === "center") {
@@ -1859,10 +1954,10 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         </div>
 
         <div className="reader-toolbar-group">
-          <button type="button" className="reader-toolbar-button" onClick={() => readerControlsRef.current?.previous?.()} aria-label="Página o sección anterior">
+          <button type="button" className="reader-toolbar-button" onClick={() => navigateReader("previous")} aria-label="Página o sección anterior">
             <ReaderIcon name="prev" /><span>Anterior</span>
           </button>
-          <button type="button" className="reader-toolbar-button" onClick={() => readerControlsRef.current?.next?.()} aria-label="Página o sección siguiente">
+          <button type="button" className="reader-toolbar-button" onClick={() => navigateReader("next")} aria-label="Página o sección siguiente">
             <span>Siguiente</span><ReaderIcon name="next" />
           </button>
         </div>
@@ -2031,6 +2126,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
                 controlsRef={readerControlsRef}
                 onChapterChange={setCurrentChapter}
                 onTapNavigate={handleReaderTap}
+                onUserNavigation={markReaderNavigation}
                 readingMode={readingMode}
                 theme={readerTheme}
               />
