@@ -252,6 +252,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
         if (!contentDocument || contentTapHandlers.has(contentDocument)) return;
 
         let suppressClickUntil = 0;
+        let lastTouchAt = 0;
         const navigateFromPoint = (clientX, target) => {
           const selection = contentDocument.defaultView?.getSelection?.();
           if (selection?.toString?.().trim()) return;
@@ -279,12 +280,17 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
           const touch = event.changedTouches?.[0];
           const clientX = touch?.clientX;
           if (!Number.isFinite(clientX)) return;
-          suppressClickUntil = Date.now() + 500;
+          lastTouchAt = Date.now();
+          suppressClickUntil = lastTouchAt + 500;
           window.setTimeout(() => navigateFromPoint(clientX, event.target), 90);
         };
 
         const handlePointerUp = (event) => {
-          if (event.pointerType === "mouse" || !Number.isFinite(event.clientX)) return;
+          if (
+            event.pointerType === "mouse"
+            || Date.now() - lastTouchAt < 500
+            || !Number.isFinite(event.clientX)
+          ) return;
           suppressClickUntil = Date.now() + 500;
           navigateFromPoint(event.clientX, event.target);
         };
