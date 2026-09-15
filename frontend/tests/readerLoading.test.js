@@ -125,6 +125,7 @@ test("ofrece pantalla completa y navegación por zonas con un toque", () => {
   assert.match(source, /fraction >= 0\.68/);
   assert.match(source, /tapIgnoreUntilRef/);
   assert.match(source, /reader-immersive-reveal/);
+  assert.match(source, /reader-immersive-heading/);
   assert.match(styles, /\.reader-page\.is-reader-immersive/);
   assert.match(styles, /body\.reader-immersive-active \.mobile-reader-dock/);
   assert.match(styles, /prefers-reduced-motion/);
