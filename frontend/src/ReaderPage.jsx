@@ -771,7 +771,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     });
 
     Promise.race([readerDataRequest, readerDataFallback])
-      .then(([bookAssets, bookDocuments, state]) => {
+      .then(([bookAssets, bookDocuments, progress]) => {
         if (cancelled) return;
         const nextAssets = {
           epub_file: bookAssets?.epub_file || bookEpubFile,
