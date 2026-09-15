@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import ePub from "epubjs";
-import { getDocument, GlobalWorkerOptions, TextLayer } from "pdfjs-dist";
-import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { loadEpub, loadPdf } from "./lib/readerEngines.js";
+import { mergeReaderProgress } from "./lib/readerProgressPolicy.js";
 
 import "./ReaderPage.css";
 import { publicUrl } from "./api.js";
@@ -21,8 +20,6 @@ import {
   readerProgressFromEpub,
   readerProgressFromPdf,
 } from "./lib/readerUtils.js";
-
-GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
 const READER_DATA_TIMEOUT_MS = 12_000;
 const CATALOG_PROGRESS_TIMEOUT_MS = 3_000;
@@ -123,12 +120,22 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       });
     };
 
+    let locationsPromise = null;
+
+    const ensureLocations = async () => {
+      if (book?.locations?.length) return book.locations;
+      if (!book?.locations?.generate) return null;
+      locationsPromise ||= book.locations.generate(1600);
+      await locationsPromise;
+      return book.locations;
+    };
+
     const scheduleLocations = () => {
       const generateLocations = async () => {
         if (cancelled || !book?.locations?.generate) return;
 
         try {
-          await book.locations.generate(1600);
+          await ensureLocations();
 
           const manualProgress = initialProgressRef.current;
           if (
@@ -186,7 +193,10 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
     };
 
     void (async () => {
-      const sourceBuffer = await fetchEpubSource();
+      const [sourceBuffer, ePub] = await Promise.all([
+        fetchEpubSource(),
+        loadEpub(),
+      ]);
       if (cancelled) return;
 
       book = ePub(sourceBuffer);
@@ -258,6 +268,12 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
         next: () => renditionRef.current?.next(),
         previous: () => renditionRef.current?.prev(),
         goTo: (target) => renditionRef.current?.display(target),
+        goToProgress: async (progress) => {
+          const locations = await ensureLocations();
+          if (cancelled || !locations?.cfiFromPercentage) return null;
+          const cfi = locations.cfiFromPercentage(clampReaderProgress(progress) / 100);
+          return cfi ? renditionRef.current?.display(cfi) : null;
+        },
       };
     }
 
@@ -355,6 +371,7 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
     if (!sourceUrl) return undefined;
 
     let cancelled = false;
+    let loadingTask = null;
     const resetTimer = window.setTimeout(() => {
       if (!cancelled) {
         setLoading(true);
@@ -362,30 +379,35 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
         setPdf(null);
       }
     }, 0);
-    const loadingTask = getDocument({ url: sourceUrl });
 
-    loadingTask.promise
-      .then((loadedPdf) => {
+    void (async () => {
+      try {
+        const { getDocument } = await loadPdf();
+        if (cancelled) return;
+
+        loadingTask = getDocument({ url: sourceUrl });
+        const loadedPdf = await loadingTask.promise;
+
         if (cancelled) {
-          loadedPdf.destroy();
+          void loadedPdf.destroy?.();
           return;
         }
+
         pdfRef.current = loadedPdf;
         setPdf(loadedPdf);
         setTotalPages(loadedPdf.numPages);
         setPageNumber((current) => Math.min(loadedPdf.numPages, Math.max(1, current)));
-      })
-      .catch((loadError) => {
+      } catch (loadError) {
         if (!cancelled) setError(loadError?.message || "No se pudo abrir este PDF.");
-      })
-      .finally(() => {
+      } finally {
         if (!cancelled) setLoading(false);
-      });
+      }
+    })();
 
     return () => {
       cancelled = true;
       window.clearTimeout(resetTimer);
-      loadingTask.destroy();
+      void loadingTask?.destroy?.();
       pdfRef.current?.destroy?.();
       pdfRef.current = null;
     };
@@ -467,6 +489,9 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
       next: () => goToPage(pageNumber + 1),
       previous: () => goToPage(pageNumber - 1),
       goTo: (target) => goToPage(Number(target)),
+      goToProgress: (progress) => goToPage(
+        Math.max(1, Math.round((clampReaderProgress(progress) / 100) * (totalPages || 1))),
+      ),
     };
     return () => { controlsRef.current = null; };
   }, [controlsRef, goToPage, pageNumber]);
@@ -815,7 +840,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const manualProgress = catalogReading
     ? clampReaderProgress(catalogReading.progress)
     : null;
-  const readerRenderKey = `${sourceKey}:${manualProgress === null ? "automatic" : manualProgress}`;
+  const readerRenderKey = sourceKey;
   const readerProgressValue = readerSourceProgress
     ? clampReaderProgress(readerSourceProgress.progress)
     : null;
@@ -845,6 +870,9 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       ...snapshot,
       locator: { ...(snapshot.locator || {}) },
     };
+    const libraryProgress = catalogProgressReady
+      ? mergeReaderProgress(manualProgress, pending.progress)
+      : null;
     progressSaveCountRef.current += 1;
     if (!quiet && mountedRef.current) setSavingProgress(true);
 
@@ -857,6 +885,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         locator: pending.locator,
         currentPage: pending.currentPage,
         currentChapter: pending.currentChapter,
+        libraryProgress,
       }));
     progressSaveQueueRef.current = operation.catch(() => null);
 
@@ -877,7 +906,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         progressSaveCountRef.current = Math.max(0, progressSaveCountRef.current - 1);
         if (mountedRef.current && progressSaveCountRef.current === 0) setSavingProgress(false);
       });
-  }, [bookId]);
+  }, [bookId, catalogProgressReady, manualProgress]);
 
   useEffect(() => {
     flushProgressRef.current = persistProgress;
@@ -887,9 +916,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     const automaticProgress = clampReaderProgress(details?.progress);
     const next = {
       ...details,
-      progress: manualProgress === null
-        ? automaticProgress
-        : Math.max(manualProgress, automaticProgress),
+      progress: mergeReaderProgress(manualProgress, automaticProgress),
       documentId: selectedDocument?.id || null,
     };
     latestProgressRef.current = next;
@@ -942,6 +969,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       currentChapter: currentSnapshot?.currentChapter || sourceProgress?.current_chapter || "",
     };
     latestProgressRef.current = lateSnapshot;
+    void readerControlsRef.current?.goToProgress?.(manualProgress);
     void persistProgress(lateSnapshot, { quiet: true });
   }, [bookId, manualOverridesLocator, manualProgress, persistProgress, selectedDocument?.id, sourceProgress, sourceUrl]);
 
