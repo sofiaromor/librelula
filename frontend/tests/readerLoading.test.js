@@ -6,6 +6,7 @@ const source = await readFile(new URL("../src/ReaderPage.jsx", import.meta.url),
 const engines = await readFile(new URL("../src/lib/readerEngines.js", import.meta.url), "utf8");
 const readerApiSource = await readFile(new URL("../src/lib/readerApi.js", import.meta.url), "utf8");
 const catalogApiSource = await readFile(new URL("../src/lib/catalogApi.js", import.meta.url), "utf8");
+const styles = await readFile(new URL("../src/ReaderPage.css", import.meta.url), "utf8");
 
 test("carga ePub y PDF bajo demanda y no en el chunk común del lector", () => {
   assert.doesNotMatch(source, /^import ePub from "epubjs";$/m);
@@ -112,4 +113,19 @@ test("no persiste un cero provisional y guarda el manual tardío", () => {
   assert.match(source, /lateCatalogProgressRef\.current = true/);
   assert.match(source, /manualProgress === null && clampReaderProgress\(sourceProgress\?\.progress\) === 0/);
   assert.match(source, /void persistProgress\(lateSnapshot, \{ quiet: true \}\)/);
+});
+
+
+test("ofrece pantalla completa y navegación por zonas con un toque", () => {
+  assert.match(source, /requestFullscreen/);
+  assert.match(source, /fullscreenchange/);
+  assert.match(source, /onTapNavigate/);
+  assert.match(source, /handleReaderSurfaceClick/);
+  assert.match(source, /fraction <= 0\.32/);
+  assert.match(source, /fraction >= 0\.68/);
+  assert.match(source, /tapIgnoreUntilRef/);
+  assert.match(source, /reader-immersive-reveal/);
+  assert.match(styles, /\.reader-page\.is-reader-immersive/);
+  assert.match(styles, /body\.reader-immersive-active \.mobile-reader-dock/);
+  assert.match(styles, /prefers-reduced-motion/);
 });
