@@ -728,6 +728,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const touchStartRef = useRef(null);
   const readerStartedRef = useRef("");
   const lateCatalogProgressRef = useRef(false);
+  const manualNavigationKeyRef = useRef("");
 
   const bookId = String(book?.id || "").trim();
   const bookEpubFile = book?.epub_file || "";
@@ -753,6 +754,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
 
     readerStartedRef.current = "";
     lateCatalogProgressRef.current = false;
+    manualNavigationKeyRef.current = "";
 
     const readerDataRequest = Promise.all([
       getReaderBookAssets(bookId),
@@ -961,6 +963,36 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   }, [bookId, catalogProgressReady, loading, manualProgress, persistProgress, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
 
   useEffect(() => {
+    if (!catalogProgressReady || manualProgress === null || !sourceUrl || !bookId) return undefined;
+
+    const navigationKey = `${sourceKey}:${manualProgress}`;
+    if (manualNavigationKeyRef.current === navigationKey) return undefined;
+
+    if (readerProgressValue === manualProgress) {
+      manualNavigationKeyRef.current = navigationKey;
+      return undefined;
+    }
+
+    let timer = null;
+    let attempts = 0;
+    const navigateToManualProgress = () => {
+      const navigate = readerControlsRef.current?.goToProgress;
+      if (navigate) {
+        manualNavigationKeyRef.current = navigationKey;
+        void navigate(manualProgress);
+        return;
+      }
+
+      attempts += 1;
+      if (attempts < 4) timer = window.setTimeout(navigateToManualProgress, 100);
+    };
+
+    timer = window.setTimeout(navigateToManualProgress, 0);
+    return () => {
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, [bookId, catalogProgressReady, manualProgress, readerProgressValue, sourceKey, sourceUrl]);
+  useEffect(() => {
     if (!lateCatalogProgressRef.current || manualProgress === null || !sourceUrl || !bookId) return;
     lateCatalogProgressRef.current = false;
 
@@ -976,7 +1008,6 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       currentChapter: currentSnapshot?.currentChapter || sourceProgress?.current_chapter || "",
     };
     latestProgressRef.current = lateSnapshot;
-    void readerControlsRef.current?.goToProgress?.(manualProgress);
     void persistProgress(lateSnapshot, { quiet: true });
   }, [bookId, manualOverridesLocator, manualProgress, persistProgress, selectedDocument?.id, sourceProgress, sourceUrl]);
 

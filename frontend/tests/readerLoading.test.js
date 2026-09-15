@@ -77,6 +77,8 @@ test("el progreso tardío no desmonta el motor del lector", () => {
   assert.match(source, /const readerRenderKey = sourceKey;/);
   assert.match(source, /goToProgress/);
   assert.match(source, /const libraryProgress = catalogProgressReady/);
+  assert.match(source, /const manualNavigationKeyRef = useRef/);
+  assert.match(source, /readerProgressValue === manualProgress/);
   assert.match(source, /libraryProgress,/);
 });
 
