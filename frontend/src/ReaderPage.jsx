@@ -163,6 +163,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
   const initialProgressRef = useRef(clampReaderProgress(initialProgress?.progress));
   const currentLocationRef = useRef(initialProgress?.locator?.cfi || "");
   const readingModeRef = useRef(readingMode);
+  const themeRef = useRef(theme);
   const flowChangeIdRef = useRef(0);
   const callbackRef = useRef({ onChapterChange, onProgress, onQuoteSelected, onTapNavigate });
   const [loading, setLoading] = useState(true);
@@ -430,7 +431,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
           background: "rgba(219, 173, 132, .42)",
         },
       });
-      rendition.themes?.select?.(theme === READER_THEMES.DARK ? "reader-dark" : "reader-light");
+      rendition.themes?.select?.(themeRef.current === READER_THEMES.DARK ? "reader-dark" : "reader-light");
 
       rendition.on("rendered", bindContentTapHandlers);
 
@@ -550,6 +551,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
   }, [textScale]);
 
   useEffect(() => {
+    themeRef.current = theme;
     renditionRef.current?.themes?.select?.(theme === READER_THEMES.DARK ? "reader-dark" : "reader-light");
   }, [theme]);
 
@@ -1269,7 +1271,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
               candidate = {
                 ...(candidate || {}),
                 ...liveSnapshot,
-                documentId: selectedDocument?.id || candidate?.documentId || null,
+                documentId: selectedDocumentId || candidate?.documentId || null,
               };
             }
           } catch {
@@ -1296,7 +1298,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
 
         const pending = {
           ...candidate,
-          documentId: selectedDocument?.id || candidate.documentId || null,
+          documentId: selectedDocumentId || candidate.documentId || null,
           progress: resolveReaderSessionProgress({
             manualProgress,
             documentProgress,
@@ -1342,7 +1344,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         progressSaveCountRef.current = Math.max(0, progressSaveCountRef.current - 1);
         if (mountedRef.current && progressSaveCountRef.current === 0) setSavingProgress(false);
       });
-  }, [bookId, manualProgress, selectedDocument?.id]);
+  }, [bookId, manualProgress, selectedDocumentId]);
 
   useEffect(() => {
     flushProgressRef.current = persistProgress;
@@ -1385,7 +1387,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         documentProgressIsAuthoritative,
       }),
       progressIsAuthoritative: documentProgressIsAuthoritative,
-      documentId: selectedDocument?.id || null,
+      documentId: selectedDocumentId || null,
     };
     latestProgressRef.current = next;
     setCurrentProgress(next.progress);
@@ -1402,7 +1404,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       pendingAutoSaveTurnsRef.current = 0;
       void persistProgress(next);
     }
-  }, [manualProgress, persistProgress, saveMode, selectedDocument?.id]);
+  }, [manualProgress, persistProgress, saveMode, selectedDocumentId]);
 
   useEffect(() => {
     if (
@@ -1415,7 +1417,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     ) return;
     readerStartedRef.current = sourceKey;
     const startingPosition = {
-      documentId: selectedDocument?.id || null,
+      documentId: selectedDocumentId || null,
       progress: manualProgress === null
         ? clampReaderProgress(sourceProgress?.progress)
         : manualProgress,
@@ -1426,7 +1428,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       progressIsAuthoritative: false,
     };
     latestProgressRef.current = startingPosition;
-  }, [bookId, catalogProgressReady, loading, manualProgress, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
+  }, [bookId, catalogProgressReady, loading, manualProgress, selectedDocumentId, sourceKey, sourceProgress, sourceUrl]);
 
   useEffect(() => {
     if (!catalogProgressReady || manualProgress === null || !sourceUrl || !bookId) return undefined;
