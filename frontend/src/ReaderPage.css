@@ -1572,3 +1572,141 @@ body.reader-immersive-active .mobile-reader-dock {
     animation: none;
   }
 }
+
+
+/* Selección deliberada: no roba el foco mientras el usuario amplía el fragmento. */
+.reader-selection-actions {
+  position: fixed;
+  z-index: 2300;
+  right: max(14px, env(safe-area-inset-right));
+  bottom: max(18px, env(safe-area-inset-bottom));
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(440px, calc(100vw - 28px));
+  padding: 7px 8px 7px 14px;
+  border: 1px solid rgba(224, 205, 186, .95);
+  border-radius: 999px;
+  background: rgba(255, 253, 249, .96);
+  color: #684d3a;
+  box-shadow: 0 14px 34px rgba(68, 45, 30, .2);
+  backdrop-filter: blur(16px);
+}
+
+.reader-selection-actions > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .86rem;
+  font-weight: 700;
+}
+
+.reader-selection-confirm {
+  min-height: 34px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: #3d6653;
+  color: #fffdf9;
+  font-size: .84rem;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.reader-selection-dismiss {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  border-radius: 50%;
+  color: #806f60;
+  font-size: 1.25rem;
+}
+
+.reader-selection-dismiss:hover {
+  background: #f1e4d7;
+}
+
+.reader-page.is-reader-dark .reader-selection-actions {
+  border-color: rgba(255, 245, 235, .16);
+  background: rgba(41, 42, 52, .96);
+  color: #f7eee6;
+}
+
+.reader-page.is-reader-dark .reader-selection-confirm {
+  background: #a9d0b8;
+  color: #1e2a24;
+}
+
+.reader-page.is-reader-dark .reader-selection-dismiss {
+  color: #c9b7aa;
+}
+
+/* En móvil los controles se agrupan por función y nunca compiten por el mismo espacio. */
+@media (max-width: 900px) {
+  .reader-toolbar-actions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .reader-toolbar-actions > .reader-toolbar-button {
+    flex: 0 1 44px;
+    min-width: 40px;
+    padding-inline: 7px;
+  }
+
+  .reader-toolbar-actions > .reader-toolbar-button > span,
+  .reader-reader-options .reader-toolbar-button > span,
+  .reader-save-controls .reader-toolbar-button > span {
+    display: none;
+  }
+
+  .reader-reader-options,
+  .reader-save-controls {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+
+  .reader-reader-options .reader-toolbar-button,
+  .reader-save-controls .reader-toolbar-button {
+    flex: 0 1 42px;
+    min-width: 40px;
+    padding-inline: 7px;
+  }
+
+  .reader-save-controls {
+    display: flex;
+    gap: 2px;
+  }
+
+  .reader-selection-actions {
+    right: 12px;
+    bottom: max(14px, env(safe-area-inset-bottom));
+    left: 12px;
+    justify-content: space-between;
+    max-width: none;
+  }
+
+  .reader-selection-actions > span {
+    flex: 1 1 auto;
+  }
+}
+
+@media (max-width: 620px) {
+  .reader-toolbar-actions {
+    gap: 3px;
+  }
+
+  .reader-toolbar-actions > .reader-toolbar-button,
+  .reader-reader-options .reader-toolbar-button,
+  .reader-save-controls .reader-toolbar-button {
+    min-width: 38px;
+    min-height: 38px;
+    padding-inline: 5px;
+  }
+
+  .reader-selection-actions {
+    padding-left: 11px;
+  }
+}
