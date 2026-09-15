@@ -28,3 +28,15 @@ export function mergeReaderProgress(manualProgress, automaticProgress) {
 
   return Math.max(clampReaderProgress(manualProgress), automatic);
 }
+
+export function resolveReaderSessionProgress({
+  manualProgress = null,
+  documentProgress = 0,
+  documentProgressIsAuthoritative = false,
+} = {}) {
+  if (documentProgressIsAuthoritative) {
+    return clampReaderProgress(documentProgress);
+  }
+
+  return mergeReaderProgress(manualProgress, documentProgress);
+}
