@@ -703,6 +703,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const [readerState, setReaderState] = useState({ progress: null, annotations: [] });
   const [catalogReading, setCatalogReading] = useState(null);
   const [catalogProgressReady, setCatalogProgressReady] = useState(false);
+  const [catalogProgressSettled, setCatalogProgressSettled] = useState(false);
   const [selectedDocumentId, setSelectedDocumentId] = useState("");
   const [catalogFormat, setCatalogFormat] = useState("");
   const [loading, setLoading] = useState(true);
@@ -745,6 +746,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       setMessage(null);
       setCatalogReading(null);
       setCatalogProgressReady(false);
+      setCatalogProgressSettled(false);
     }, 0);
 
     if (!bookId || !isLoggedIn) {
@@ -810,7 +812,9 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
           });
 
         void catalogProgressRequest.then((catalog) => {
-          if (cancelled || !catalogProgressTimedOut || !catalog?.item) return;
+          if (cancelled) return;
+          setCatalogProgressSettled(true);
+          if (!catalogProgressTimedOut || !catalog?.item) return;
           lateCatalogProgressRef.current = true;
           setCatalogReading(catalog.item);
           setCurrentProgress(clampReaderProgress(catalog.item.progress));
@@ -879,7 +883,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       ...snapshot,
       locator: { ...(snapshot.locator || {}) },
     };
-    const libraryProgress = catalogProgressReady
+    const libraryProgress = catalogProgressSettled
       ? mergeReaderProgress(manualProgress, pending.progress)
       : null;
     progressSaveCountRef.current += 1;
@@ -915,7 +919,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         progressSaveCountRef.current = Math.max(0, progressSaveCountRef.current - 1);
         if (mountedRef.current && progressSaveCountRef.current === 0) setSavingProgress(false);
       });
-  }, [bookId, catalogProgressReady, manualProgress]);
+  }, [bookId, catalogProgressSettled, manualProgress]);
 
   useEffect(() => {
     flushProgressRef.current = persistProgress;

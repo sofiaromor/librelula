@@ -76,7 +76,8 @@ test("no reinicia el EPUB cuando cambia el estado de lectura", () => {
 test("el progreso tardío no desmonta el motor del lector", () => {
   assert.match(source, /const readerRenderKey = sourceKey;/);
   assert.match(source, /goToProgress/);
-  assert.match(source, /const libraryProgress = catalogProgressReady/);
+  assert.match(source, /const libraryProgress = catalogProgressSettled/);
+  assert.match(source, /setCatalogProgressSettled\\(true\\)/);
   assert.match(source, /const manualNavigationKeyRef = useRef/);
   assert.match(source, /readerProgressValue === manualProgress/);
   assert.match(source, /libraryProgress,/);
