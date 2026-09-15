@@ -44,30 +44,71 @@ function schemaError(error) {
   return apiError(error?.message || "No se pudo acceder al lector.");
 }
 
+const READER_CONTEXT_CACHE_TTL_MS = 30_000;
+let readerContextCache = null;
+let readerContextRequest = null;
+
 async function getReaderContext() {
   const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  const sessionUser = session?.user || null;
 
-  if (userError || !user) {
+  if (sessionError || !sessionUser) {
     throw apiError("Inicia sesión para usar el lector.", 401);
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, legacy_id")
-    .eq("id", user.id)
-    .single();
-
-  if (profileError || !profile?.legacy_id) {
-    throw apiError("No se pudo cargar tu perfil lector.");
+  if (
+    readerContextCache
+    && readerContextCache.authId === sessionUser.id
+    && Date.now() - readerContextCache.savedAt <= READER_CONTEXT_CACHE_TTL_MS
+  ) {
+    return readerContextCache.value;
   }
 
-  return {
-    authId: user.id,
-    legacyId: Number(profile.legacy_id),
-  };
+  if (readerContextRequest?.authId === sessionUser.id) {
+    return readerContextRequest.promise;
+  }
+
+  const request = (async () => {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user || user.id !== sessionUser.id) {
+      throw apiError("Inicia sesión para usar el lector.", 401);
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, legacy_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile?.legacy_id) {
+      throw apiError("No se pudo cargar tu perfil lector.");
+    }
+
+    const value = {
+      authId: user.id,
+      legacyId: Number(profile.legacy_id),
+    };
+    readerContextCache = {
+      authId: user.id,
+      savedAt: Date.now(),
+      value,
+    };
+    return value;
+  })();
+
+  readerContextRequest = { authId: sessionUser.id, promise: request };
+  return request.finally(() => {
+    if (readerContextRequest?.promise === request) {
+      readerContextRequest = null;
+    }
+  });
 }
 
 function normalizeDocument(row, signedUrl = "") {
@@ -117,9 +158,6 @@ export async function getReaderBookAssets(bookId) {
 
 export async function getReaderDocuments(bookId) {
   const cleanId = cleanBookId(bookId);
-  const { error: userError } = await supabase.auth.getUser();
-  if (userError) throw apiError(userError.message || "No se pudo comprobar la sesión.");
-
   const { data, error } = await supabase
     .from("reader_documents")
     .select("id, book_id, format, original_name, storage_path, mime_type, size_bytes, created_at, updated_at")
@@ -239,34 +277,47 @@ export async function deleteReaderDocument(document) {
   if (error) throw schemaError(error);
 }
 
-export async function getReaderBookState(bookId) {
+const READER_PROGRESS_FIELDS = "owner_id, book_id, document_id, progress, locator, current_page, current_chapter, created_at, updated_at";
+const READER_ANNOTATION_FIELDS = "id, book_id, document_id, kind, quote, note, locator, page, color, spoiler, shared_post_id, created_at, updated_at";
+
+export async function getReaderBookProgress(bookId) {
   const cleanId = cleanBookId(bookId);
-  const [progressResult, annotationsResult] = await Promise.all([
-    supabase
-      .from("reader_book_progress")
-      .select("owner_id, book_id, document_id, progress, locator, current_page, current_chapter, created_at, updated_at")
-      .eq("book_id", cleanId)
-      .maybeSingle(),
-    supabase
-      .from("reader_annotations")
-      .select("id, book_id, document_id, kind, quote, note, locator, page, color, spoiler, shared_post_id, created_at, updated_at")
-      .eq("book_id", cleanId)
-      .order("created_at", { ascending: false }),
+  const { data, error } = await supabase
+    .from("reader_book_progress")
+    .select(READER_PROGRESS_FIELDS)
+    .eq("book_id", cleanId)
+    .maybeSingle();
+
+  if (error) throw schemaError(error);
+
+  return data
+    ? {
+        ...data,
+        progress: clampReaderProgress(data.progress),
+        locator: normalizeReaderLocator(data.locator),
+      }
+    : null;
+}
+
+export async function getReaderBookAnnotations(bookId) {
+  const cleanId = cleanBookId(bookId);
+  const { data, error } = await supabase
+    .from("reader_annotations")
+    .select(READER_ANNOTATION_FIELDS)
+    .eq("book_id", cleanId)
+    .order("created_at", { ascending: false });
+
+  if (error) throw schemaError(error);
+  return (data || []).map(normalizeAnnotation);
+}
+
+export async function getReaderBookState(bookId) {
+  const [progress, annotations] = await Promise.all([
+    getReaderBookProgress(bookId),
+    getReaderBookAnnotations(bookId),
   ]);
 
-  if (progressResult.error) throw schemaError(progressResult.error);
-  if (annotationsResult.error) throw schemaError(annotationsResult.error);
-
-  return {
-    progress: progressResult.data
-      ? {
-          ...progressResult.data,
-          progress: clampReaderProgress(progressResult.data.progress),
-          locator: normalizeReaderLocator(progressResult.data.locator),
-        }
-      : null,
-    annotations: (annotationsResult.data || []).map(normalizeAnnotation),
-  };
+  return { progress, annotations };
 }
 
 export async function saveReaderBookProgress({
@@ -276,6 +327,7 @@ export async function saveReaderBookProgress({
   locator = {},
   currentPage = null,
   currentChapter = "",
+  libraryProgress = null,
 }) {
   const cleanId = cleanBookId(bookId);
   const context = await getReaderContext();
@@ -302,11 +354,14 @@ export async function saveReaderBookProgress({
 
   if (error) throw schemaError(error);
 
-  const libraryResult = await saveCatalogUserBookProgress({
-    book_id: cleanId,
-    progress: cleanProgress,
-    progress_mode: "percentage",
-  });
+  const libraryResult = libraryProgress === null || libraryProgress === undefined
+    ? null
+    : await saveCatalogUserBookProgress({
+        book_id: cleanId,
+        progress: libraryProgress,
+        progress_mode: "percentage",
+        legacyUserId: context.legacyId,
+      });
 
   return {
     progress: {
