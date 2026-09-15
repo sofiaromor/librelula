@@ -47,6 +47,8 @@ function ReaderIcon({ name }) {
     upload: <><path d="M12 16V5M8 9l4-4 4 4" /><path d="M5 15v4h14v-4" /></>,
     zoomIn: <><circle cx="10.8" cy="10.8" r="5.8" /><path d="m15.2 15.2 4 4M10.8 8v5.6M8 10.8h5.6" /></>,
     zoomOut: <><circle cx="10.8" cy="10.8" r="5.8" /><path d="m15.2 15.2 4 4M8 10.8h5.6" /></>,
+    fullscreen: <><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5" /></>,
+    fullscreenExit: <><path d="M8 3v5H3M21 8h-5V3M16 21v-5h5M3 16h5v5" /></>,
   };
 
   return (
@@ -77,21 +79,21 @@ function ReaderLoading({ text = "Abriendo tu lectura…" }) {
   );
 }
 
-function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuoteSelected, controlsRef, onChapterChange }) {
+function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuoteSelected, controlsRef, onChapterChange, onTapNavigate }) {
   const containerRef = useRef(null);
   const bookRef = useRef(null);
   const renditionRef = useRef(null);
   const initialCfiRef = useRef(initialProgress?.locator?.cfi || "");
   const initialProgressRef = useRef(clampReaderProgress(initialProgress?.progress));
-  const callbackRef = useRef({ onChapterChange, onProgress, onQuoteSelected });
+  const callbackRef = useRef({ onChapterChange, onProgress, onQuoteSelected, onTapNavigate });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [toc, setToc] = useState([]);
   const [tocOpen, setTocOpen] = useState(false);
 
   useEffect(() => {
-    callbackRef.current = { onChapterChange, onProgress, onQuoteSelected };
-  }, [onChapterChange, onProgress, onQuoteSelected]);
+    callbackRef.current = { onChapterChange, onProgress, onQuoteSelected, onTapNavigate };
+  }, [onChapterChange, onProgress, onQuoteSelected, onTapNavigate]);
 
   useEffect(() => {
     if (!sourceUrl || !containerRef.current) return undefined;
@@ -210,6 +212,36 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       });
       renditionRef.current = rendition;
 
+      const contentTapHandlers = new Map();
+      const bindContentTapHandlers = () => {
+        rendition?.getContents?.().forEach((contents) => {
+          const contentDocument = contents?.document;
+          if (!contentDocument || contentTapHandlers.has(contentDocument)) return;
+
+          const handleTap = (event) => {
+            if (event.defaultPrevented || (event.button && event.button !== 0)) return;
+            const selection = contentDocument.defaultView?.getSelection?.();
+            if (selection?.toString?.().trim()) return;
+            if (event.target?.closest?.("a,button,input,textarea,select,summary,[role=\"button\"]")) return;
+
+            const width = contentDocument.documentElement?.clientWidth
+              || contentDocument.body?.clientWidth
+              || 0;
+            if (!width) return;
+
+            const edge = Math.min(180, width * 0.32);
+            if (event.clientX <= edge) callbackRef.current.onTapNavigate?.("previous");
+            else if (event.clientX >= width - edge) callbackRef.current.onTapNavigate?.("next");
+            else callbackRef.current.onTapNavigate?.("center");
+          };
+
+          contentDocument.addEventListener("click", handleTap, { passive: true });
+          contentTapHandlers.set(contentDocument, handleTap);
+        });
+      };
+
+      rendition.on("rendered", bindContentTapHandlers);
+
       const handleRelocated = (location) => {
         if (cancelled || !location?.start) return;
         const cfi = location.start.cfi || "";
@@ -247,6 +279,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       );
       if (cancelled) return;
 
+      bindContentTapHandlers();
       setLoading(false);
       scheduleLocations();
 
@@ -285,6 +318,11 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       startupTimers.forEach((timer) => window.clearTimeout(timer));
       startupTimers.clear();
       if (controlsRef) controlsRef.current = null;
+      rendition?.off?.("rendered", bindContentTapHandlers);
+      contentTapHandlers.forEach((handler, contentDocument) => {
+        contentDocument.removeEventListener("click", handler);
+      });
+      contentTapHandlers.clear();
       rendition?.destroy?.();
       book?.destroy?.();
       bookRef.current = null;
@@ -716,6 +754,8 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const [notesOpen, setNotesOpen] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState("");
+  const [immersiveMode, setImmersiveMode] = useState(false);
+  const [readerUiVisible, setReaderUiVisible] = useState(true);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [currentChapter, setCurrentChapter] = useState("");
   const [currentPage, setCurrentPage] = useState(null);
@@ -728,6 +768,9 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const mountedRef = useRef(true);
   const flushProgressRef = useRef(null);
   const touchStartRef = useRef(null);
+  const tapIgnoreUntilRef = useRef(0);
+  const readerPageRef = useRef(null);
+  const nativeFullscreenRef = useRef(false);
   const readerStartedRef = useRef("");
   const lateCatalogProgressRef = useRef(false);
   const manualNavigationKeyRef = useRef("");
@@ -1180,6 +1223,93 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     setTextScale((current) => Math.max(80, Math.min(150, current + delta)));
   }
 
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && nativeFullscreenRef.current) {
+        nativeFullscreenRef.current = false;
+        setImmersiveMode(false);
+        setReaderUiVisible(true);
+      }
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
+  }, []);
+
+  useEffect(() => {
+    document.body.classList.toggle("reader-immersive-active", immersiveMode);
+    return () => document.body.classList.remove("reader-immersive-active");
+  }, [immersiveMode]);
+
+  const toggleImmersiveMode = useCallback(async () => {
+    const page = readerPageRef.current;
+
+    if (immersiveMode) {
+      setImmersiveMode(false);
+      setReaderUiVisible(true);
+      nativeFullscreenRef.current = false;
+      if (document.fullscreenElement === page) {
+        try {
+          await document.exitFullscreen();
+        } catch {
+          // El modo inmersivo de la interfaz sigue siendo válido aunque falle la API nativa.
+        }
+      }
+      return;
+    }
+
+    setNotesOpen(false);
+    setReaderUiVisible(true);
+    setImmersiveMode(true);
+
+    if (!page?.requestFullscreen) return;
+
+    try {
+      await page.requestFullscreen({ navigationUI: "hide" });
+      nativeFullscreenRef.current = true;
+    } catch {
+      // Algunos navegadores móviles no exponen Fullscreen API; usamos el modo inmersivo CSS.
+      nativeFullscreenRef.current = false;
+    }
+  }, [immersiveMode]);
+
+  const navigateReader = useCallback((direction) => {
+    if (direction === "previous") {
+      readerControlsRef.current?.previous?.();
+    } else if (direction === "next") {
+      readerControlsRef.current?.next?.();
+    }
+  }, []);
+
+  const handleReaderTap = useCallback((zone) => {
+    if (zone === "center") {
+      if (immersiveMode) setReaderUiVisible((visible) => !visible);
+      return;
+    }
+    navigateReader(zone);
+  }, [immersiveMode, navigateReader]);
+
+  const handleReaderSurfaceClick = useCallback((event) => {
+    if (event.defaultPrevented || event.detail > 1 || Date.now() < tapIgnoreUntilRef.current) return;
+
+    const target = event.target;
+    const surface = target?.closest?.(".reader-format-stage");
+    const interactive = target?.closest?.(
+      "button,a,input,textarea,select,summary,[role=\"button\"],.reader-toc-wrap,.reader-stage-overlay,.reader-reader-footer",
+    );
+    if (!surface || interactive) return;
+
+    if (window.getSelection?.()?.toString?.().trim()) return;
+
+    const rect = surface.getBoundingClientRect();
+    if (!rect.width) return;
+
+    const fraction = (event.clientX - rect.left) / rect.width;
+    if (fraction <= 0.32) handleReaderTap("previous");
+    else if (fraction >= 0.68) handleReaderTap("next");
+    else handleReaderTap("center");
+  }, [handleReaderTap]);
+
   async function handleBack() {
     await persistProgress();
     onBack?.();
@@ -1201,8 +1331,9 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     const distanceX = touch.clientX - start.x;
     const distanceY = touch.clientY - start.y;
     if (Math.abs(distanceX) < 72 || Math.abs(distanceY) > 55) return;
-    if (distanceX > 0) readerControlsRef.current?.previous?.();
-    else readerControlsRef.current?.next?.();
+    tapIgnoreUntilRef.current = Date.now() + 450;
+    if (distanceX > 0) navigateReader("previous");
+    else navigateReader("next");
   }
 
   if (!bookId || !isLoggedIn) {
@@ -1217,7 +1348,10 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   }
 
   return (
-    <main className="reader-page">
+    <main
+      ref={readerPageRef}
+      className={`reader-page${immersiveMode ? " is-reader-immersive" : ""}${immersiveMode && !readerUiVisible ? " is-reader-chrome-hidden" : ""}`}
+    >
       <header className="reader-header">
         <button type="button" className="reader-back-button" onClick={handleBack}>
           <ReaderIcon name="back" />
@@ -1238,6 +1372,11 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       </header>
 
       <div className="reader-toolbar" role="toolbar" aria-label="Controles del lector">
+        <div className="reader-immersive-heading" aria-live="polite">
+          <strong>{book.title || "Tu lectura"}</strong>
+          <small>{currentChapter || String(currentProgress) + "% leído"}</small>
+        </div>
+
         <div className="reader-toolbar-group">
           <button type="button" className="reader-toolbar-button" onClick={() => readerControlsRef.current?.previous?.()} aria-label="Página o sección anterior">
             <ReaderIcon name="prev" /><span>Anterior</span>
@@ -1259,6 +1398,16 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
           </button>
           <button type="button" className={`reader-toolbar-button${notesOpen ? " is-active" : ""}`} onClick={() => setNotesOpen((open) => !open)}>
             <ReaderIcon name="note" /><span>Mis notas</span>{visibleAnnotations.length > 0 && <b>{visibleAnnotations.length}</b>}
+          </button>
+          <button
+            type="button"
+            className={`reader-toolbar-button reader-immersive-button${immersiveMode ? " is-active" : ""}`}
+            onClick={toggleImmersiveMode}
+            aria-pressed={immersiveMode}
+            aria-label={immersiveMode ? "Salir de pantalla completa" : "Abrir pantalla completa"}
+          >
+            <ReaderIcon name={immersiveMode ? "fullscreenExit" : "fullscreen"} />
+            <span>{immersiveMode ? "Salir" : "Pantalla completa"}</span>
           </button>
         </div>
       </div>
@@ -1317,7 +1466,12 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         </section>
       ) : (
         <div className="reader-layout">
-          <section className="reader-main-column" onTouchStart={handleReaderTouchStart} onTouchEnd={handleReaderTouchEnd}>
+          <section
+            className="reader-main-column"
+            onClick={handleReaderSurfaceClick}
+            onTouchStart={handleReaderTouchStart}
+            onTouchEnd={handleReaderTouchEnd}
+          >
             {selectedFormat === "pdf" ? (
               <PdfReader
                 key={readerRenderKey}
@@ -1339,6 +1493,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
                 onQuoteSelected={handleQuoteSelected}
                 controlsRef={readerControlsRef}
                 onChapterChange={setCurrentChapter}
+                onTapNavigate={handleReaderTap}
               />
             )}
             <footer className="reader-reader-footer">
@@ -1357,6 +1512,17 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
             </aside>
           )}
         </div>
+      )}
+
+      {immersiveMode && !readerUiVisible && (
+        <button
+          type="button"
+          className="reader-immersive-reveal"
+          onClick={() => setReaderUiVisible(true)}
+          aria-label="Mostrar controles del lector"
+        >
+          <ReaderIcon name="menu" />
+        </button>
       )}
 
       <input ref={fileInputRef} className="reader-hidden-input" type="file" accept=".epub,.pdf,application/epub+zip,application/pdf" onChange={handleFileSelected} />
