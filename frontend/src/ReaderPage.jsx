@@ -144,6 +144,9 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
   const renditionRef = useRef(null);
   const initialCfiRef = useRef(initialProgress?.locator?.cfi || "");
   const initialProgressRef = useRef(clampReaderProgress(initialProgress?.progress));
+  const currentLocationRef = useRef(initialProgress?.locator?.cfi || "");
+  const readingModeRef = useRef(readingMode);
+  const flowChangeIdRef = useRef(0);
   const callbackRef = useRef({ onChapterChange, onProgress, onQuoteSelected, onTapNavigate });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -356,7 +359,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
         width: "100%",
         height: "100%",
         spread: "none",
-        flow: readingMode === READER_FLOW_MODES.CASCADE ? "scrolled-continuous" : "paginated",
+        flow: readingModeRef.current === READER_FLOW_MODES.CASCADE ? "scrolled-continuous" : "paginated",
       });
       renditionRef.current = rendition;
       rendition.themes?.register?.("reader-light", {
@@ -385,6 +388,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
       const handleRelocated = (location) => {
         if (cancelled || !location?.start) return;
         const cfi = location.start.cfi || "";
+        if (cfi) currentLocationRef.current = cfi;
         const progress = readerEpubProgressFromLocation(book, location);
         const chapter = location.start.href?.split("#")[0]?.split("/").pop() || "Lectura";
         callbackRef.current.onChapterChange?.(chapter);
@@ -482,7 +486,51 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
   }, [theme]);
 
   useEffect(() => {
-    renditionRef.current?.flow?.(readingMode === READER_FLOW_MODES.CASCADE ? "scrolled-continuous" : "paginated");
+    readingModeRef.current = readingMode;
+    const rendition = renditionRef.current;
+    if (!rendition?.flow) return undefined;
+
+    const nextFlow = readingMode === READER_FLOW_MODES.CASCADE
+      ? "scrolled-continuous"
+      : "paginated";
+    const currentLocation = rendition.currentLocation?.();
+    const preservedCfi = currentLocationRef.current || currentLocation?.start?.cfi || "";
+    const changeId = flowChangeIdRef.current + 1;
+    flowChangeIdRef.current = changeId;
+    let cancelled = false;
+    let restoreTimer = null;
+
+    const restoreLocation = () => {
+      if (cancelled || changeId !== flowChangeIdRef.current || !preservedCfi) return;
+      if (restoreTimer !== null) {
+        window.clearTimeout(restoreTimer);
+        restoreTimer = null;
+      }
+      rendition.off?.("rendered", restoreLocation);
+      try {
+        void Promise.resolve(rendition.display(preservedCfi)).catch(() => {});
+      } catch {
+        // El gestor puede estar cambiando de flujo todavía.
+      }
+    };
+
+    if (preservedCfi) {
+      rendition.on("rendered", restoreLocation);
+      restoreTimer = window.setTimeout(restoreLocation, 0);
+    }
+
+    try {
+      rendition.flow(nextFlow);
+    } catch {
+      rendition.off?.("rendered", restoreLocation);
+      if (restoreTimer !== null) window.clearTimeout(restoreTimer);
+    }
+
+    return () => {
+      cancelled = true;
+      rendition.off?.("rendered", restoreLocation);
+      if (restoreTimer !== null) window.clearTimeout(restoreTimer);
+    };
   }, [readingMode]);
 
   function openTocItem(item) {
@@ -492,7 +540,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
   }
 
   return (
-    <div className="reader-format-stage reader-epub-stage">
+    <div className={`reader-format-stage reader-epub-stage${readingMode === READER_FLOW_MODES.CASCADE ? " is-reader-cascade" : ""}`}>
       {toc.length > 0 && (
         <div className="reader-toc-wrap">
           <button type="button" className="reader-toc-trigger" onClick={() => setTocOpen((open) => !open)} aria-expanded={tocOpen}>
