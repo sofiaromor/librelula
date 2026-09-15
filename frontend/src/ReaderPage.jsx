@@ -1240,7 +1240,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
 
       {message && <p className={`reader-feedback is-${message.type}`} role={message.type === "error" ? "alert" : "status"}>{message.text}</p>}
 
-      {loading || (Boolean(sourceUrl) && !catalogProgressReady) ? (
+      {loading ? (
         <ReaderLoading text={loading ? undefined : "Recuperando tu progreso…"} />
       ) : error ? (
         <section className="reader-setup-card reader-error-card">
