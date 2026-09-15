@@ -85,7 +85,7 @@ test("conserva el progreso manual del catálogo", () => {
 });
 
 test("no reinicia el EPUB cuando cambia el estado de lectura", () => {
-  assert.match(source, /const callbackRef = useRef\(\{ onChapterChange, onProgress, onQuoteSelected \}\)/);
+  assert.match(source, /const callbackRef = useRef\(\{ onChapterChange, onProgress, onQuoteSelected, onTapNavigate \}\)/);
   assert.match(source, /callbackRef\.current\.onProgress\?\./);
   assert.match(source, /callbackRef\.current\.onQuoteSelected\?\./);
   assert.match(source, /\}, \[controlsRef, sourceUrl\]\);/);
