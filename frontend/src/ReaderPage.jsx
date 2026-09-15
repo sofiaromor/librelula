@@ -170,6 +170,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
     };
 
     let locationsPromise = null;
+    const relocatedHandlerRef = { current: null };
 
     const ensureLocations = async () => {
       if (book?.locations?.length) return book.locations;
@@ -198,7 +199,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
           }
 
           const currentLocation = rendition.currentLocation?.();
-          if (!cancelled && currentLocation?.start) handleRelocated(currentLocation);
+          if (!cancelled && currentLocation?.start) relocatedHandlerRef.current?.(currentLocation);
         } catch {
           // La primera página ya está visible; el mapa es una mejora opcional.
         }
@@ -304,6 +305,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
           currentChapter: chapter,
         });
       };
+      relocatedHandlerRef.current = handleRelocated;
 
       rendition.on("relocated", handleRelocated);
       rendition.on("selected", (cfiRange, contents) => {
@@ -365,6 +367,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       startupTimers.forEach((timer) => window.clearTimeout(timer));
       startupTimers.clear();
       if (controlsRef) controlsRef.current = null;
+      relocatedHandlerRef.current = null;
       rendition?.off?.("rendered", bindContentTapHandlers);
       contentTapHandlers.forEach((handler, contentDocument) => {
         contentDocument.removeEventListener("click", handler);
@@ -810,7 +813,6 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const fileInputRef = useRef(null);
   const readerControlsRef = useRef(null);
   const latestProgressRef = useRef(null);
-  const progressTimerRef = useRef(null);
   const progressSaveQueueRef = useRef(Promise.resolve());
   const progressSaveCountRef = useRef(0);
   const mountedRef = useRef(true);
@@ -983,7 +985,6 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   }, [sourceKey]);
 
   const persistProgress = useCallback((snapshot = latestProgressRef.current, { quiet = false } = {}) => {
-    window.clearTimeout(progressTimerRef.current);
     if (!snapshot || !bookId) return Promise.resolve(null);
 
     const pending = {
@@ -1057,7 +1058,6 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     if (next.currentPage) setCurrentPage(next.currentPage);
     if (next.currentChapter) setCurrentChapter(next.currentChapter);
 
-    window.clearTimeout(progressTimerRef.current);
     if (shouldAutoSaveReaderProgress({
       mode: saveMode,
       pendingPageTurns: pendingAutoSaveTurnsRef.current,
@@ -1151,8 +1151,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     mountedRef.current = true;
     return () => {
       mountedRef.current = false;
-      window.clearTimeout(progressTimerRef.current);
-      void flushProgressRef.current?.(latestProgressRef.current, { quiet: true });
+        void flushProgressRef.current?.(latestProgressRef.current, { quiet: true });
     };
   }, []);
 
@@ -1499,7 +1498,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
               type="button"
               className="reader-toolbar-button reader-save-button"
               onClick={() => void persistProgress()}
-              disabled={savingProgress || !latestProgressRef.current}
+              disabled={savingProgress}
               aria-label="Guardar posición ahora"
               title="Guardar posición ahora"
             >
