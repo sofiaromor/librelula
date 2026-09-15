@@ -306,10 +306,6 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       });
     };
 
-        contentDocument.addEventListener("click", handleTap, { passive: true });
-        contentTapHandlers.set(contentDocument, handleTap);
-      });
-    };
 
     void (async () => {
       const [sourceBuffer, ePub] = await Promise.all([
