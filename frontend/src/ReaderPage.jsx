@@ -195,6 +195,34 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
       }
     };
 
+    const contentTapHandlers = new Map();
+    const bindContentTapHandlers = () => {
+      rendition?.getContents?.().forEach((contents) => {
+        const contentDocument = contents?.document;
+        if (!contentDocument || contentTapHandlers.has(contentDocument)) return;
+
+        const handleTap = (event) => {
+          if (event.defaultPrevented || (event.button && event.button !== 0)) return;
+          const selection = contentDocument.defaultView?.getSelection?.();
+          if (selection?.toString?.().trim()) return;
+          if (event.target?.closest?.("a,button,input,textarea,select,summary,[role=\"button\"]")) return;
+
+          const width = contentDocument.documentElement?.clientWidth
+            || contentDocument.body?.clientWidth
+            || 0;
+          if (!width) return;
+
+          const edge = Math.min(180, width * 0.32);
+          if (event.clientX <= edge) callbackRef.current.onTapNavigate?.("previous");
+          else if (event.clientX >= width - edge) callbackRef.current.onTapNavigate?.("next");
+          else callbackRef.current.onTapNavigate?.("center");
+        };
+
+        contentDocument.addEventListener("click", handleTap, { passive: true });
+        contentTapHandlers.set(contentDocument, handleTap);
+      });
+    };
+
     void (async () => {
       const [sourceBuffer, ePub] = await Promise.all([
         fetchEpubSource(),
@@ -211,34 +239,6 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
         flow: "paginated",
       });
       renditionRef.current = rendition;
-
-      const contentTapHandlers = new Map();
-      const bindContentTapHandlers = () => {
-        rendition?.getContents?.().forEach((contents) => {
-          const contentDocument = contents?.document;
-          if (!contentDocument || contentTapHandlers.has(contentDocument)) return;
-
-          const handleTap = (event) => {
-            if (event.defaultPrevented || (event.button && event.button !== 0)) return;
-            const selection = contentDocument.defaultView?.getSelection?.();
-            if (selection?.toString?.().trim()) return;
-            if (event.target?.closest?.("a,button,input,textarea,select,summary,[role=\"button\"]")) return;
-
-            const width = contentDocument.documentElement?.clientWidth
-              || contentDocument.body?.clientWidth
-              || 0;
-            if (!width) return;
-
-            const edge = Math.min(180, width * 0.32);
-            if (event.clientX <= edge) callbackRef.current.onTapNavigate?.("previous");
-            else if (event.clientX >= width - edge) callbackRef.current.onTapNavigate?.("next");
-            else callbackRef.current.onTapNavigate?.("center");
-          };
-
-          contentDocument.addEventListener("click", handleTap, { passive: true });
-          contentTapHandlers.set(contentDocument, handleTap);
-        });
-      };
 
       rendition.on("rendered", bindContentTapHandlers);
 
