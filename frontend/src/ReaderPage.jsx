@@ -461,6 +461,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
       rendition?.off?.("rendered", bindContentTapHandlers);
       contentTapHandlers.forEach((handlers, contentDocument) => {
         contentDocument.removeEventListener("click", handlers.click);
+        contentDocument.removeEventListener("touchstart", handlers.touchstart);
         contentDocument.removeEventListener("touchend", handlers.touchend);
         contentDocument.removeEventListener("pointerup", handlers.pointerup);
       });
@@ -925,6 +926,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const [savingProgress, setSavingProgress] = useState(false);
   const [savingAnnotation, setSavingAnnotation] = useState(false);
   const [annotationComposer, setAnnotationComposer] = useState(null);
+  const [pendingSelection, setPendingSelection] = useState(null);
   const [textScale, setTextScale] = useState(100);
   const [notesOpen, setNotesOpen] = useState(false);
   const [message, setMessage] = useState(null);
@@ -1365,11 +1367,27 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   }
 
   function handleQuoteSelected(selection) {
-    openNewAnnotation({
-      quote: selection.quote || "",
+    const quote = selection?.quote?.trim?.() || "";
+    if (!quote) return;
+    setPendingSelection({
+      quote,
       locator: selection.locator || {},
+      page: selection.page || currentPage,
+    });
+  }
+
+  function confirmPendingSelection() {
+    if (!pendingSelection?.quote) return;
+    openNewAnnotation({
+      ...pendingSelection,
       kind: "highlight",
     });
+    setPendingSelection(null);
+  }
+
+  function dismissPendingSelection() {
+    setPendingSelection(null);
+    window.getSelection?.()?.removeAllRanges?.();
   }
 
   async function handleAnnotationSubmit(event) {
@@ -1727,6 +1745,14 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       )}
 
       {message && <p className={`reader-feedback is-${message.type}`} role={message.type === "error" ? "alert" : "status"}>{message.text}</p>}
+
+      {pendingSelection && !annotationComposer && (
+        <div className="reader-selection-actions" role="status" aria-live="polite">
+          <span>Selección lista</span>
+          <button type="button" className="reader-selection-confirm" onClick={confirmPendingSelection}>Marcar selección</button>
+          <button type="button" className="reader-selection-dismiss" onClick={dismissPendingSelection} aria-label="Descartar selección">×</button>
+        </div>
+      )}
 
       {loading ? (
         <ReaderLoading text={loading ? undefined : "Recuperando tu progreso…"} />
