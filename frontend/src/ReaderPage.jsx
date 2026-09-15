@@ -27,6 +27,16 @@ const CATALOG_PROGRESS_TIMEOUT_MS = 3_000;
 const EPUB_SOURCE_FETCH_TIMEOUT_MS = 8_000;
 const EPUB_STARTUP_TIMEOUT_MS = 10_000;
 
+const READER_FLOW_MODES = {
+  PAGED: "paged",
+  CASCADE: "cascade",
+};
+
+const READER_THEMES = {
+  LIGHT: "light",
+  DARK: "dark",
+};
+
 const NOTE_COLORS = [
   ["yellow", "Amarillo"],
   ["pink", "Rosa"],
@@ -51,6 +61,9 @@ function ReaderIcon({ name }) {
     zoomOut: <><circle cx="10.8" cy="10.8" r="5.8" /><path d="m15.2 15.2 4 4M8 10.8h5.6" /></>,
     fullscreen: <><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M21 16v5h-5" /></>,
     fullscreenExit: <><path d="M8 3v5H3M21 8h-5V3M16 21v-5h5M3 16h5v5" /></>,
+    cascade: <><path d="M5 6h14M7 12h10M9 18h6" /></>,
+    moon: <path d="M20 15.5A8 8 0 0 1 8.5 4 8 8 0 1 0 20 15.5Z" />,
+    sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" /></>,
   };
 
   return (
@@ -125,7 +138,7 @@ function ReaderLoading({ text = "Abriendo tu lectura…" }) {
   );
 }
 
-function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuoteSelected, controlsRef, onChapterChange, onTapNavigate }) {
+function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme, onProgress, onQuoteSelected, controlsRef, onChapterChange, onTapNavigate }) {
   const containerRef = useRef(null);
   const bookRef = useRef(null);
   const renditionRef = useRef(null);
@@ -251,8 +264,16 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
         const contentDocument = contents?.document;
         if (!contentDocument || contentTapHandlers.has(contentDocument)) return;
 
+        const contentRoot = contentDocument.documentElement;
+        const contentBody = contentDocument.body;
+        [contentRoot, contentBody].filter(Boolean).forEach((element) => {
+          element.style.userSelect = "text";
+          element.style.webkitUserSelect = "text";
+          element.style.touchAction = "auto";
+        });
+
         let suppressClickUntil = 0;
-        let lastTouchAt = 0;
+        let touchStart = null;
         const navigateFromPoint = (clientX, target) => {
           const selection = contentDocument.defaultView?.getSelection?.();
           if (selection?.toString?.().trim()) return;
@@ -276,36 +297,51 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
           navigateFromPoint(event.clientX, event.target);
         };
 
+        const handleTouchStart = (event) => {
+          const touch = event.touches?.[0];
+          if (event.touches?.length !== 1 || !touch) return;
+          touchStart = { x: touch.clientX, y: touch.clientY };
+        };
+
         const handleTouchEnd = (event) => {
           const touch = event.changedTouches?.[0];
-          const clientX = touch?.clientX;
-          if (!Number.isFinite(clientX)) return;
-          lastTouchAt = Date.now();
-          suppressClickUntil = lastTouchAt + 500;
-          window.setTimeout(() => navigateFromPoint(clientX, event.target), 90);
+          const start = touchStart;
+          touchStart = null;
+          if (!touch || !start) return;
+
+          suppressClickUntil = Date.now() + 700;
+          const distanceX = touch.clientX - start.x;
+          const distanceY = touch.clientY - start.y;
+          const isHorizontalSwipe = Math.abs(distanceX) >= 48 && Math.abs(distanceY) <= 80;
+          window.setTimeout(() => {
+            const selection = contentDocument.defaultView?.getSelection?.();
+            if (selection?.toString?.().trim()) return;
+            if (isHorizontalSwipe) {
+              callbackRef.current.onTapNavigate?.(distanceX > 0 ? "previous" : "next");
+            } else {
+              navigateFromPoint(touch.clientX, event.target);
+            }
+          }, 220);
         };
 
         const handlePointerUp = (event) => {
-          if (
-            event.pointerType === "mouse"
-            || Date.now() - lastTouchAt < 500
-            || !Number.isFinite(event.clientX)
-          ) return;
+          if (event.pointerType !== "pen" || !Number.isFinite(event.clientX)) return;
           suppressClickUntil = Date.now() + 500;
           navigateFromPoint(event.clientX, event.target);
         };
 
         contentDocument.addEventListener("click", handleTap, { passive: true });
+        contentDocument.addEventListener("touchstart", handleTouchStart, { passive: true });
         contentDocument.addEventListener("touchend", handleTouchEnd, { passive: true });
         contentDocument.addEventListener("pointerup", handlePointerUp, { passive: true });
         contentTapHandlers.set(contentDocument, {
           click: handleTap,
+          touchstart: handleTouchStart,
           touchend: handleTouchEnd,
           pointerup: handlePointerUp,
         });
       });
     };
-
 
     void (async () => {
       const [sourceBuffer, ePub] = await Promise.all([
@@ -320,9 +356,29 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
         width: "100%",
         height: "100%",
         spread: "none",
-        flow: "paginated",
+        flow: readingMode === READER_FLOW_MODES.CASCADE ? "scrolled-continuous" : "paginated",
       });
       renditionRef.current = rendition;
+      rendition.themes?.register?.("reader-light", {
+        body: {
+          background: "#fffdf9 !important",
+          color: "#3a2a22 !important",
+          "user-select": "text",
+          "-webkit-user-select": "text",
+        },
+      });
+      rendition.themes?.register?.("reader-dark", {
+        body: {
+          background: "#252630 !important",
+          color: "#f7eee6 !important",
+          "user-select": "text",
+          "-webkit-user-select": "text",
+        },
+        "::selection": {
+          background: "rgba(219, 173, 132, .42)",
+        },
+      });
+      rendition.themes?.select?.(theme === READER_THEMES.DARK ? "reader-dark" : "reader-light");
 
       rendition.on("rendered", bindContentTapHandlers);
 
@@ -419,6 +475,14 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
   useEffect(() => {
     renditionRef.current?.themes?.fontSize?.(`${textScale}%`);
   }, [textScale]);
+
+  useEffect(() => {
+    renditionRef.current?.themes?.select?.(theme === READER_THEMES.DARK ? "reader-dark" : "reader-light");
+  }, [theme]);
+
+  useEffect(() => {
+    renditionRef.current?.flow?.(readingMode === READER_FLOW_MODES.CASCADE ? "scrolled-continuous" : "paginated");
+  }, [readingMode]);
 
   function openTocItem(item) {
     if (!item?.href) return;
@@ -868,6 +932,8 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const [immersiveMode, setImmersiveMode] = useState(false);
   const [readerUiVisible, setReaderUiVisible] = useState(true);
   const [saveMode, setSaveMode] = useState(READER_SAVE_MODES.MANUAL);
+  const [readingMode, setReadingMode] = useState(READER_FLOW_MODES.PAGED);
+  const [readerTheme, setReaderTheme] = useState(READER_THEMES.LIGHT);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [currentChapter, setCurrentChapter] = useState("");
   const [currentPage, setCurrentPage] = useState(null);
@@ -1372,6 +1438,22 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     ));
   }
 
+  function toggleReadingMode() {
+    setReadingMode((mode) => (
+      mode === READER_FLOW_MODES.CASCADE
+        ? READER_FLOW_MODES.PAGED
+        : READER_FLOW_MODES.CASCADE
+    ));
+  }
+
+  function toggleReaderTheme() {
+    setReaderTheme((theme) => (
+      theme === READER_THEMES.DARK
+        ? READER_THEMES.LIGHT
+        : READER_THEMES.DARK
+    ));
+  }
+
   useEffect(() => {
     const handleFullscreenChange = () => {
       if (!document.fullscreenElement && nativeFullscreenRef.current) {
@@ -1480,9 +1562,12 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     const distanceX = touch.clientX - start.x;
     const distanceY = touch.clientY - start.y;
     if (Math.abs(distanceX) < 72 || Math.abs(distanceY) > 55) return;
-    tapIgnoreUntilRef.current = Date.now() + 450;
-    if (distanceX > 0) navigateReader("previous");
-    else navigateReader("next");
+    tapIgnoreUntilRef.current = Date.now() + 600;
+    window.setTimeout(() => {
+      if (window.getSelection?.()?.toString?.().trim()) return;
+      if (distanceX > 0) navigateReader("previous");
+      else navigateReader("next");
+    }, 260);
   }
 
   if (!bookId || !isLoggedIn) {
@@ -1499,7 +1584,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   return (
     <main
       ref={readerPageRef}
-      className={`reader-page${immersiveMode ? " is-reader-immersive" : ""}${immersiveMode && !readerUiVisible ? " is-reader-chrome-hidden" : ""}`}
+      className={`reader-page${immersiveMode ? " is-reader-immersive" : ""}${immersiveMode && !readerUiVisible ? " is-reader-chrome-hidden" : ""}${readerTheme === READER_THEMES.DARK ? " is-reader-dark" : ""}${readingMode === READER_FLOW_MODES.CASCADE ? " is-reader-cascade" : ""}`}
     >
       <header className="reader-header">
         <button type="button" className="reader-back-button" onClick={handleBack}>
@@ -1548,6 +1633,30 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         </div>
 
         <div className="reader-toolbar-group reader-toolbar-actions">
+          <div className="reader-reader-options" aria-label="Preferencias de lectura">
+            <button
+              type="button"
+              className={`reader-toolbar-button reader-reading-mode-button${readingMode === READER_FLOW_MODES.CASCADE ? " is-active" : ""}`}
+              onClick={toggleReadingMode}
+              aria-pressed={readingMode === READER_FLOW_MODES.CASCADE}
+              aria-label={readingMode === READER_FLOW_MODES.CASCADE ? "Cambiar a modo paginado" : "Cambiar a modo cascada"}
+              title={readingMode === READER_FLOW_MODES.CASCADE ? "Modo cascada · pulsar para volver a páginas" : "Cambiar a modo cascada"}
+            >
+              <ReaderIcon name="cascade" />
+              <span>{readingMode === READER_FLOW_MODES.CASCADE ? "Cascada" : "Paginado"}</span>
+            </button>
+            <button
+              type="button"
+              className={`reader-toolbar-button reader-theme-button${readerTheme === READER_THEMES.DARK ? " is-active" : ""}`}
+              onClick={toggleReaderTheme}
+              aria-pressed={readerTheme === READER_THEMES.DARK}
+              aria-label={readerTheme === READER_THEMES.DARK ? "Cambiar a modo claro" : "Activar modo oscuro"}
+              title={readerTheme === READER_THEMES.DARK ? "Cambiar a modo claro" : "Activar modo oscuro"}
+            >
+              <ReaderIcon name={readerTheme === READER_THEMES.DARK ? "sun" : "moon"} />
+              <span>{readerTheme === READER_THEMES.DARK ? "Claro" : "Oscuro"}</span>
+            </button>
+          </div>
           <button type="button" className="reader-toolbar-button is-note" onClick={() => openNewAnnotation()}>
             <ReaderIcon name="plus" /><span>Nueva anotación</span>
           </button>
@@ -1673,6 +1782,8 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
                 controlsRef={readerControlsRef}
                 onChapterChange={setCurrentChapter}
                 onTapNavigate={handleReaderTap}
+                readingMode={readingMode}
+                theme={readerTheme}
               />
             )}
             <footer className="reader-reader-footer">
