@@ -273,6 +273,7 @@ export async function saveReaderBookProgress({
   locator = {},
   currentPage = null,
   currentChapter = "",
+  libraryProgress = null,
 }) {
   const cleanId = cleanBookId(bookId);
   const context = await getReaderContext();
@@ -299,11 +300,13 @@ export async function saveReaderBookProgress({
 
   if (error) throw schemaError(error);
 
-  const libraryResult = await saveCatalogUserBookProgress({
-    book_id: cleanId,
-    progress: cleanProgress,
-    progress_mode: "percentage",
-  });
+  const libraryResult = libraryProgress === null || libraryProgress === undefined
+    ? null
+    : await saveCatalogUserBookProgress({
+        book_id: cleanId,
+        progress: libraryProgress,
+        progress_mode: "percentage",
+      });
 
   return {
     progress: {
