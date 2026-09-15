@@ -3,9 +3,13 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../src/ReaderPage.jsx", import.meta.url), "utf8");
+const engines = await readFile(new URL("../src/lib/readerEngines.js", import.meta.url), "utf8");
 
-test("mantiene la carga estática del lector ePub", () => {
-  assert.match(source, /^import ePub from "epubjs";$/m);
+test("carga ePub y PDF bajo demanda y no en el chunk común del lector", () => {
+  assert.doesNotMatch(source, /^import ePub from "epubjs";$/m);
+  assert.doesNotMatch(source, /from "pdfjs-dist"/);
+  assert.match(engines, /import\("epubjs"\)/);
+  assert.match(engines, /import\("pdfjs-dist"\)/);
   assert.match(source, /book\.ready/);
   assert.match(source, /book\.locations\.generate\(1600\)/);
 });
@@ -56,7 +60,7 @@ test("la carga inicial del lector tiene un límite visible", () => {
 test("conserva el progreso manual del catálogo", () => {
   assert.match(source, /getCatalogUserBooks\(\{ bookId \}\)/);
   assert.match(source, /const manualProgress = catalogReading/);
-  assert.match(source, /Math\.max\(manualProgress, automaticProgress\)/);
+  assert.match(source, /mergeReaderProgress\(manualProgress, automaticProgress\)/);
 });
 
 test("no reinicia el EPUB cuando cambia el estado de lectura", () => {
@@ -64,6 +68,13 @@ test("no reinicia el EPUB cuando cambia el estado de lectura", () => {
   assert.match(source, /callbackRef\.current\.onProgress\?\./);
   assert.match(source, /callbackRef\.current\.onQuoteSelected\?\./);
   assert.match(source, /\}, \[controlsRef, sourceUrl\]\);/);
+});
+
+test("el progreso tardío no desmonta el motor del lector", () => {
+  assert.match(source, /const readerRenderKey = sourceKey;/);
+  assert.match(source, /goToProgress/);
+  assert.match(source, /const libraryProgress = catalogProgressReady/);
+  assert.match(source, /libraryProgress,/);
 });
 
 test("valida y abre el EPUB desde los bytes descargados", () => {
