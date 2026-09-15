@@ -154,6 +154,10 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.match(source, /Marcar selección/);
   assert.doesNotMatch(source, /openNewAnnotation\(\{\s*quote: selection\.quote/);
   assert.match(source, /scrolled-continuous/);
+  assert.match(source, /currentLocationRef/);
+  assert.match(source, /preservedCfi/);
+  assert.match(source, /flowChangeIdRef/);
+  assert.match(source, /rendition\\.display\\(preservedCfi\\)/);
   assert.match(source, /readingMode/);
   assert.match(source, /readerTheme/);
   assert.match(source, /reader-dark/);
