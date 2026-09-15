@@ -49,6 +49,8 @@ test("el progreso manual no bloquea el arranque del lector", () => {
   assert.match(source, /void catalogProgressRequest\.then/);
   assert.match(source, /const readerRenderKey/);
   assert.doesNotMatch(source, /Boolean\\(sourceUrl\\) && !catalogProgressReady/);
+  assert.match(source, /TextLayer: PdfTextLayer/);
+  assert.match(source, /new TextLayerConstructor/);
 });
 
 test("la carga inicial del lector tiene un límite visible", () => {

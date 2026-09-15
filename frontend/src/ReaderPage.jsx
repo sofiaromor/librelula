@@ -338,6 +338,7 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
   const canvasRef = useRef(null);
   const pageRef = useRef(null);
   const textLayerRef = useRef(null);
+  const textLayerConstructorRef = useRef(null);
   const viewportRef = useRef(null);
   const pdfRef = useRef(null);
   const [pdf, setPdf] = useState(null);
@@ -382,7 +383,8 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
 
     void (async () => {
       try {
-        const { getDocument } = await loadPdf();
+        const { getDocument, TextLayer: PdfTextLayer } = await loadPdf();
+        textLayerConstructorRef.current = PdfTextLayer;
         if (cancelled) return;
 
         loadingTask = getDocument({ url: sourceUrl });
@@ -410,6 +412,7 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
       void loadingTask?.destroy?.();
       pdfRef.current?.destroy?.();
       pdfRef.current = null;
+      textLayerConstructorRef.current = null;
     };
   }, [sourceUrl]);
 
@@ -448,7 +451,11 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
         });
         const textContent = await page.getTextContent({ includeMarkedContent: true });
         if (cancelled) return;
-        textLayer = new TextLayer({
+        const TextLayerConstructor = textLayerConstructorRef.current;
+        if (!TextLayerConstructor) {
+          throw new Error("No se pudo preparar la capa de texto del PDF.");
+        }
+        textLayer = new TextLayerConstructor({
           textContentSource: textContent,
           container: textLayerElement,
           viewport,
@@ -494,7 +501,7 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
       ),
     };
     return () => { controlsRef.current = null; };
-  }, [controlsRef, goToPage, pageNumber]);
+  }, [controlsRef, goToPage, pageNumber, totalPages]);
 
   const captureSelection = useCallback(() => {
     window.setTimeout(() => {
