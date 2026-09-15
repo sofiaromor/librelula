@@ -1145,7 +1145,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     };
     latestProgressRef.current = lateSnapshot;
     void persistProgress(lateSnapshot, { quiet: true });
-  }, [bookId, manualOverridesLocator, manualProgress, persistProgress, selectedDocument?.id, sourceProgress, sourceUrl]);
+  }, [bookId, manualOverridesLocator, manualProgress, persistProgress, saveMode, selectedDocument?.id, sourceProgress, sourceUrl]);
 
   useEffect(() => {
     mountedRef.current = true;
