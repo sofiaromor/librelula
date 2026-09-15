@@ -121,6 +121,9 @@ test("ofrece pantalla completa y navegación por zonas con un toque", () => {
   assert.match(source, /fullscreenchange/);
   assert.match(source, /onTapNavigate/);
   assert.match(source, /handleReaderSurfaceClick/);
+  assert.match(source, /touchend/);
+  assert.match(source, /changedTouches/);
+  assert.match(source, /pointerup/);
   assert.match(source, /fraction <= 0\.32/);
   assert.match(source, /fraction >= 0\.68/);
   assert.match(source, /tapIgnoreUntilRef/);
@@ -143,5 +146,9 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.match(source, /pendingPageTurns: pendingAutoSaveTurnsRef\.current/);
   assert.match(source, /Guardar posición ahora/);
   assert.match(source, /Auto · 5 pág\./);
+  assert.match(source, /selectionchange/);
+  assert.match(source, /onPointerUp={captureSelection}/);
   assert.doesNotMatch(source, /progressTimerRef\.current = window\.setTimeout/);
+  assert.match(styles, /-webkit-user-select: text/);
+  assert.match(styles, /touch-action: auto/);
 });
