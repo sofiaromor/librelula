@@ -137,7 +137,7 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.match(source, /displayed\?\.page/);
   assert.match(source, /spineItems/);
   assert.match(source, /const currentLocation = rendition\.currentLocation\?\.\(\)/);
-  assert.match(source, /handleRelocated\(currentLocation\)/);
+  assert.match(source, /relocatedHandlerRef\.current\?\.\(currentLocation\)/);
   assert.match(source, /READER_SAVE_MODES\.MANUAL/);
   assert.match(source, /shouldAutoSaveReaderProgress/);
   assert.match(source, /pendingPageTurns: pendingAutoSaveTurnsRef\.current/);
