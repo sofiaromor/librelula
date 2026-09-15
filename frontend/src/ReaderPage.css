@@ -523,6 +523,82 @@
   color: transparent;
 }
 
+.reader-reader-options {
+  display: flex;
+  min-width: 0;
+  gap: 2px;
+}
+
+.reader-reader-options .reader-toolbar-button {
+  min-width: 0;
+}
+
+.reader-reading-mode-button,
+.reader-theme-button {
+  color: #806f60;
+}
+
+.reader-reading-mode-button.is-active,
+.reader-theme-button.is-active {
+  background: #e4efe8;
+  color: #3d6653;
+}
+
+.reader-page.is-reader-cascade .reader-epub-viewport {
+  overflow-y: auto;
+}
+
+.reader-page.is-reader-cascade .reader-epub-stage {
+  background: #f1e9df;
+}
+
+.reader-page.is-reader-dark {
+  background: #1e1f27;
+  color: #f7eee6;
+}
+
+.reader-page.is-reader-dark .reader-header,
+.reader-page.is-reader-dark .reader-toolbar,
+.reader-page.is-reader-dark .reader-source-strip,
+.reader-page.is-reader-dark .reader-notes-panel {
+  border-color: rgba(255, 245, 235, .14);
+  background: #292a34;
+  color: #f7eee6;
+}
+
+.reader-page.is-reader-dark .reader-header p,
+.reader-page.is-reader-dark .reader-header-progress small,
+.reader-page.is-reader-dark .reader-source-strip > span,
+.reader-page.is-reader-dark .reader-reader-footer {
+  color: #c9b7aa;
+}
+
+.reader-page.is-reader-dark .reader-format-stage {
+  border-color: rgba(255, 245, 235, .14);
+  background: #292a34;
+}
+
+.reader-page.is-reader-dark .reader-epub-stage {
+  background: #252630;
+}
+
+.reader-page.is-reader-dark .reader-pdf-page {
+  filter: invert(.9) hue-rotate(180deg);
+}
+
+.reader-page.is-reader-dark .reader-pdf-text-layer ::selection {
+  background: rgba(219, 173, 132, .42);
+}
+
+.reader-page.is-reader-dark .reader-toolbar-button {
+  color: #f7eee6;
+}
+
+.reader-page.is-reader-dark .reader-toolbar-button.is-active {
+  background: rgba(198, 225, 211, .18);
+  color: #d9f2e3;
+}
+
 .reader-reader-footer {
   display: flex;
   align-items: center;
@@ -984,6 +1060,18 @@
   }
 
   .reader-save-controls .reader-toolbar-button > span {
+    display: none;
+  }
+
+  .reader-reader-options {
+    flex: 1 1 0;
+  }
+
+  .reader-reader-options .reader-toolbar-button {
+    flex: 1 1 0;
+  }
+
+  .reader-reader-options .reader-toolbar-button > span {
     display: none;
   }
 
