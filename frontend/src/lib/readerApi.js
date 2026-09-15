@@ -44,30 +44,71 @@ function schemaError(error) {
   return apiError(error?.message || "No se pudo acceder al lector.");
 }
 
+const READER_CONTEXT_CACHE_TTL_MS = 30_000;
+let readerContextCache = null;
+let readerContextRequest = null;
+
 async function getReaderContext() {
   const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+    data: { session },
+    error: sessionError,
+  } = await supabase.auth.getSession();
+  const sessionUser = session?.user || null;
 
-  if (userError || !user) {
+  if (sessionError || !sessionUser) {
     throw apiError("Inicia sesión para usar el lector.", 401);
   }
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("id, legacy_id")
-    .eq("id", user.id)
-    .single();
-
-  if (profileError || !profile?.legacy_id) {
-    throw apiError("No se pudo cargar tu perfil lector.");
+  if (
+    readerContextCache
+    && readerContextCache.authId === sessionUser.id
+    && Date.now() - readerContextCache.savedAt <= READER_CONTEXT_CACHE_TTL_MS
+  ) {
+    return readerContextCache.value;
   }
 
-  return {
-    authId: user.id,
-    legacyId: Number(profile.legacy_id),
-  };
+  if (readerContextRequest?.authId === sessionUser.id) {
+    return readerContextRequest.promise;
+  }
+
+  const request = (async () => {
+    const {
+      data: { user },
+      error: userError,
+    } = await supabase.auth.getUser();
+
+    if (userError || !user || user.id !== sessionUser.id) {
+      throw apiError("Inicia sesión para usar el lector.", 401);
+    }
+
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, legacy_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profileError || !profile?.legacy_id) {
+      throw apiError("No se pudo cargar tu perfil lector.");
+    }
+
+    const value = {
+      authId: user.id,
+      legacyId: Number(profile.legacy_id),
+    };
+    readerContextCache = {
+      authId: user.id,
+      savedAt: Date.now(),
+      value,
+    };
+    return value;
+  })();
+
+  readerContextRequest = { authId: sessionUser.id, promise: request };
+  return request.finally(() => {
+    if (readerContextRequest?.promise === request) {
+      readerContextRequest = null;
+    }
+  });
 }
 
 function normalizeDocument(row, signedUrl = "") {
@@ -306,6 +347,7 @@ export async function saveReaderBookProgress({
         book_id: cleanId,
         progress: libraryProgress,
         progress_mode: "percentage",
+        legacyUserId: context.legacyId,
       });
 
   return {

@@ -4,6 +4,8 @@ import { readFile } from "node:fs/promises";
 
 const source = await readFile(new URL("../src/ReaderPage.jsx", import.meta.url), "utf8");
 const engines = await readFile(new URL("../src/lib/readerEngines.js", import.meta.url), "utf8");
+const readerApiSource = await readFile(new URL("../src/lib/readerApi.js", import.meta.url), "utf8");
+const catalogApiSource = await readFile(new URL("../src/lib/catalogApi.js", import.meta.url), "utf8");
 
 test("carga ePub y PDF bajo demanda y no en el chunk común del lector", () => {
   assert.doesNotMatch(source, /^import ePub from "epubjs";$/m);
@@ -12,6 +14,13 @@ test("carga ePub y PDF bajo demanda y no en el chunk común del lector", () => {
   assert.match(engines, /import\("pdfjs-dist"\)/);
   assert.match(source, /book\.ready/);
   assert.match(source, /book\.locations\.generate\(1600\)/);
+});
+
+test("reutiliza el contexto validado al guardar el progreso", () => {
+  assert.match(readerApiSource, /READER_CONTEXT_CACHE_TTL_MS/);
+  assert.match(readerApiSource, /supabase\.auth\.getSession/);
+  assert.match(readerApiSource, /legacyUserId: context\.legacyId/);
+  assert.match(catalogApiSource, /providedLegacyUserId/);
 });
 
 test("muestra la primera página antes de generar el mapa ePub", () => {
