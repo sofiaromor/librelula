@@ -1960,14 +1960,13 @@ body.reader-immersive-active .mobile-reader-dock {
   left: 16px;
   display: grid;
   justify-items: center;
-  gap: 3px;
-  padding: 10px 14px;
+  gap: 6px;
+  padding: 14px 16px;
   border: 1px solid rgba(255, 253, 249, .24);
   border-radius: 14px;
   background: rgba(35, 35, 44, .76);
   color: #fffaf4;
   text-align: center;
-  pointer-events: none;
   backdrop-filter: blur(12px);
 }
 
@@ -1980,10 +1979,36 @@ body.reader-immersive-active .mobile-reader-dock {
   font-size: .76rem;
 }
 
-.reader-cascade-boundary.is-end-armed,
-.reader-cascade-boundary.is-start-armed {
-  border-color: rgba(201, 232, 211, .52);
-  background: rgba(43, 81, 66, .86);
+.reader-cascade-next-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  margin-top: 4px;
+  padding: 8px 14px;
+  border: 1px solid rgba(221, 243, 226, .38);
+  border-radius: 999px;
+  background: #c9e8d3;
+  color: #203c30;
+  font-size: .82rem;
+  font-weight: 800;
+  transition: transform .18s ease, background .18s ease;
+}
+
+.reader-cascade-next-button svg {
+  width: 16px;
+  height: 16px;
+}
+
+.reader-cascade-next-button:hover {
+  background: #e0f3e5;
+  transform: translateY(-1px);
+}
+
+.reader-cascade-next-button:focus-visible {
+  outline: 3px solid rgba(201, 232, 211, .9);
+  outline-offset: 3px;
 }
 
 .reader-page.is-reader-dark .reader-cascade-boundary {
@@ -1991,10 +2016,14 @@ body.reader-immersive-active .mobile-reader-dock {
   background: rgba(24, 25, 32, .82);
 }
 
-.reader-page.is-reader-dark .reader-cascade-boundary.is-end-armed,
-.reader-page.is-reader-dark .reader-cascade-boundary.is-start-armed {
-  border-color: rgba(201, 232, 211, .42);
-  background: rgba(43, 81, 66, .9);
+.reader-page.is-reader-dark .reader-cascade-next-button {
+  border-color: rgba(201, 232, 211, .4);
+  background: #a9d0b8;
+  color: #1e2a24;
+}
+
+.reader-page.is-reader-dark .reader-cascade-next-button:hover {
+  background: #c9e8d3;
 }
 
 @media (max-width: 620px) {

@@ -1305,7 +1305,11 @@ function LoggedInHome({ onExplore, onProfile, onReviews, onReviewBook, onClubs, 
 
                         {item.type === "progress" && (
                           <>
-                            <p>Avanzó del <strong>{item.previous_progress}%</strong> al <strong>{item.progress}%</strong> de <em>{item.book?.title}</em>{item.pages_delta ? ` · ${item.pages_delta} páginas` : ""}.</p>
+                            <p className="home-progress-activity-line">
+                              <strong>Avance {item.previous_progress}% → {item.progress}%</strong>
+                              {item.pages_delta ? ` · +${item.pages_delta} páginas` : ""}
+                            </p>
+                            <p className="home-progress-activity-note">Actualizó su progreso.</p>
                             {item.body && <blockquote className={spoilerHidden ? "home-spoiler-text" : ""}>{spoilerHidden ? "Comentario oculto por spoilers" : item.body}</blockquote>}
                           </>
                         )}

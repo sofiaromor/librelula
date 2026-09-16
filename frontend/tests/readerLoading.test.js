@@ -8,6 +8,7 @@ const readerApiSource = await readFile(new URL("../src/lib/readerApi.js", import
 const catalogApiSource = await readFile(new URL("../src/lib/catalogApi.js", import.meta.url), "utf8");
 const activityMetadataSource = await readFile(new URL("../src/lib/readerActivityMetadata.js", import.meta.url), "utf8");
 const chapterNavigationSource = await readFile(new URL("../src/lib/readerChapterNavigation.js", import.meta.url), "utf8");
+const homeSource = await readFile(new URL("../src/Inicio.jsx", import.meta.url), "utf8");
 const styles = await readFile(new URL("../src/ReaderPage.css", import.meta.url), "utf8");
 
 test("carga ePub y PDF bajo demanda y no en el chunk común del lector", () => {
@@ -91,7 +92,7 @@ test("protege el progreso manual hasta que la posición del archivo es autoritat
 });
 
 test("reconstruye el EPUB solo cuando cambia la fuente o el modo y conserva el progreso", () => {
-  assert.match(source, /const callbackRef = useRef\(\{ onChapterChange, onProgress, onQuoteSelected, onTapNavigate, onUserNavigation \}\)/);
+  assert.match(source, /const callbackRef = useRef\(\{ onChapterChange, onProgress, onQuoteSelected, onTapNavigate, onUserNavigation, onReaderActivity \}\)/);
   assert.match(source, /callbackRef\.current\.onProgress\?\./);
   assert.match(source, /callbackRef\.current\.onQuoteSelected\?\./);
   assert.match(source, /const readerRenderKey = `\$\{sourceKey\}:\$\{readingMode\}`;/);
@@ -174,11 +175,13 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.match(source, /flow: isCascade \? "scrolled-doc" : "paginated"/);
   assert.match(source, /manager: "default"/);
   assert.match(source, /configureEpubRendering/);
-  assert.match(source, /READER_CASCADE_HOLD_MS = 1_000/);
-  assert.match(source, /touchmove/);
-  assert.match(source, /touchcancel/);
   assert.match(source, /nextChapter/);
   assert.match(source, /reader-cascade-boundary/);
+  assert.match(source, /Has llegado al final del capítulo/);
+  assert.match(source, /Leer siguiente capítulo/);
+  assert.match(source, /onClick=\{\(\) => callbackRef\.current\.onTapNavigate\?\.\("nextChapter"\)\}/);
+  assert.doesNotMatch(source, /READER_CASCADE_HOLD_MS/);
+  assert.doesNotMatch(source, /holdReady/);
   assert.match(source, /scrollCascadeByPage/);
   assert.doesNotMatch(source, /updateAxis\?\.\(/);
   assert.match(source, /readerEpubLocationsLength\(book\?\.locations\) > 0/);
@@ -199,6 +202,15 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.match(source, /chapterProgress/);
   assert.match(source, /chapterIndex/);
   assert.match(source, /chapterCount/);
+  assert.match(source, /READER_ACTIVITY_IDLE_TIMEOUT_MS = 5 \* 60_000/);
+  assert.match(source, /recordProgressActivity/);
+  assert.match(source, /recordReadingProgress\(\{/);
+  assert.match(source, /totalPages: book\?\.pages/);
+  assert.match(source, /previousProgress/);
+  assert.match(source, /newProgress: nextProgress/);
+  assert.match(source, /onReaderActivity/);
+  assert.match(homeSource, /Avance \{item\.previous_progress\}% → \{item\.progress\}%/);
+  assert.match(homeSource, /Actualizó su progreso\./);
   assert.doesNotMatch(source, /progressTimerRef\.current = window\.setTimeout/);
   assert.match(styles, /-webkit-user-select: text/);
   assert.match(styles, /touch-action: auto/);

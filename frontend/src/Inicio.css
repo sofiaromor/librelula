@@ -2755,6 +2755,23 @@
   line-height: 1.48;
 }
 
+.home-progress-activity-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  color: #392b25 !important;
+}
+
+.home-progress-activity-line strong {
+  color: #285a48;
+}
+
+.home-progress-activity-note {
+  margin-top: 3px !important;
+  color: #806f65 !important;
+  font-size: .86em;
+}
+
 .home-feed-content em {
   color: #285a48;
   font-style: normal;
