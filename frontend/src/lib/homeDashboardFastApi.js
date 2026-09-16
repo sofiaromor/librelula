@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { parseReaderActivityBody } from "./readerActivityMetadata.js";
 
 const DEFAULT_WEEKLY_PAGE_GOAL = 150;
 const CONTEXT_TTL = 60_000;
@@ -555,6 +556,7 @@ async function getFeed(context, followingPromise) {
   for (const row of posts) {
     const profile = profiles.byAuthId.get(String(row.author_id));
     if (!profile || !cleanText(row.body)) continue;
+    const parsedActivity = parseReaderActivityBody(row.body);
     items.push({
       ...activityBase({
         key: `post:${row.id}`,
@@ -564,7 +566,11 @@ async function getFeed(context, followingPromise) {
         createdAt: row.created_at,
         spoiler: Boolean(row.spoiler),
       }),
-      body: cleanText(row.body),
+      body: parsedActivity.body,
+      activity_title: parsedActivity.activityTitle,
+      accent_color: parsedActivity.accentColor,
+      annotation_kind: parsedActivity.annotationKind,
+      is_reader_annotation: parsedActivity.isReaderAnnotation,
       image_url: postImages.get(String(row.image_path || "")) || "",
     });
   }

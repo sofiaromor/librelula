@@ -4301,6 +4301,24 @@ html {
   border-left: 3px solid rgba(180, 92, 58, .42);
 }
 
+.book-progress-thread-card.is-reader-annotation {
+  --reader-activity-accent: #c99a16;
+  --reader-activity-surface: #fff9d8;
+  border-left: 6px solid var(--reader-activity-accent);
+  background: var(--reader-activity-surface);
+}
+
+.book-progress-thread-card.is-reader-annotation.is-activity-pink { --reader-activity-accent: #c94f79; --reader-activity-surface: #fdebf1; }
+.book-progress-thread-card.is-reader-annotation.is-activity-blue { --reader-activity-accent: #367fba; --reader-activity-surface: #e8f4fc; }
+.book-progress-thread-card.is-reader-annotation.is-activity-green { --reader-activity-accent: #4b965d; --reader-activity-surface: #e8f5eb; }
+.book-progress-thread-card.is-reader-annotation.is-activity-lilac { --reader-activity-accent: #8056ae; --reader-activity-surface: #f0e9f8; }
+
+.book-progress-thread-card.is-reader-annotation .book-progress-thread-meta > span {
+  border: 1px solid color-mix(in srgb, var(--reader-activity-accent) 35%, transparent);
+  background: color-mix(in srgb, var(--reader-activity-accent) 12%, white);
+  color: color-mix(in srgb, var(--reader-activity-accent) 78%, #30231d);
+}
+
 .book-progress-thread-card .book-progress-thread-reflection.is-hidden-spoiler {
   filter: blur(5px);
   user-select: none;

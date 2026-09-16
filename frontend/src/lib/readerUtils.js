@@ -84,6 +84,45 @@ export function readerProgressFromEpub(percentage) {
   return clampReaderProgress(Number(percentage || 0) * 100);
 }
 
+export function readerEpubLocationsLength(locations) {
+  if (!locations) return 0;
+
+  const value = typeof locations.length === "function"
+    ? locations.length()
+    : locations.length;
+  const length = Number(value);
+  return Number.isFinite(length) ? Math.max(0, Math.floor(length)) : 0;
+}
+
+export function readerTouchAction({
+  readingMode,
+  deltaX = 0,
+  deltaY = 0,
+} = {}) {
+  const horizontalDistance = Number(deltaX) || 0;
+  const verticalDistance = Number(deltaY) || 0;
+  const absoluteX = Math.abs(horizontalDistance);
+  const absoluteY = Math.abs(verticalDistance);
+  const hasMoved = absoluteX > 14 || absoluteY > 14;
+
+  if (readingMode === "cascade") {
+    const isVerticalSwipe = absoluteY >= 48 && absoluteY > absoluteX * 1.2;
+    if (isVerticalSwipe) return verticalDistance > 0 ? "previous" : "next";
+    return hasMoved ? "" : "center";
+  }
+
+  const isHorizontalSwipe = absoluteX >= 48 && absoluteX > absoluteY * 1.2;
+  if (isHorizontalSwipe) return horizontalDistance > 0 ? "previous" : "next";
+  if (hasMoved) return "";
+  return "tap";
+}
+
+export function readerThemePalette(theme) {
+  return theme === "dark"
+    ? { background: "#252630", color: "#f7eee6" }
+    : { background: "#fffdf9", color: "#3a2a22" };
+}
+
 export function readerProgressLabel(progress) {
   return `${clampReaderProgress(progress)}%`;
 }
@@ -96,4 +135,3 @@ export function safeReaderPathSegment(value, fallback = "book") {
 
   return segment || fallback;
 }
-
