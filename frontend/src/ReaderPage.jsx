@@ -22,6 +22,7 @@ import {
 } from "./lib/readerApi.js";
 import {
   clampReaderProgress,
+  readerEpubLocationsLength,
   readerFileFormat,
   readerProgressFromEpub,
   readerProgressFromPdf,
@@ -107,7 +108,7 @@ function readerEpubProgressFromLocation(book, location) {
   const cfi = location?.start?.cfi || "";
   if (
     cfi
-    && book?.locations?.length
+    && readerEpubLocationsLength(book?.locations) > 0
     && typeof book.locations.percentageFromCfi === "function"
   ) {
     try {
@@ -143,7 +144,7 @@ function readerEpubProgressIsPrecise(book, location) {
   const cfi = location?.start?.cfi || "";
   if (
     !cfi
-    || !book?.locations?.length
+    || readerEpubLocationsLength(book?.locations) === 0
     || typeof book.locations.percentageFromCfi !== "function"
   ) return false;
 
@@ -171,17 +172,13 @@ function applyEpubTheme(rendition, theme) {
   });
 }
 
-function applyEpubReadingMode(rendition, readingMode) {
+function configureEpubPagination(rendition) {
   if (!rendition) return;
   rendition.flow?.("paginated");
-  rendition.manager?.updateAxis?.(
-    readingMode === READER_FLOW_MODES.CASCADE ? "vertical" : "horizontal",
-    true,
-  );
 
   const managerContainer = rendition.manager?.container;
   if (managerContainer?.style) {
-    managerContainer.style.scrollBehavior = readingMode === READER_FLOW_MODES.CASCADE ? "smooth" : "auto";
+    managerContainer.style.scrollBehavior = "auto";
     managerContainer.style.overscrollBehavior = "contain";
   }
 }
@@ -202,10 +199,8 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
   const renditionRef = useRef(null);
   const initialCfiRef = useRef(initialProgress?.locator?.cfi || "");
   const initialProgressRef = useRef(clampReaderProgress(initialProgress?.progress));
-  const currentLocationRef = useRef(initialProgress?.locator?.cfi || "");
   const readingModeRef = useRef(readingMode);
   const themeRef = useRef(theme);
-  const flowChangeIdRef = useRef(0);
   const callbackRef = useRef({ onChapterChange, onProgress, onQuoteSelected, onTapNavigate, onUserNavigation });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -223,12 +218,13 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
     let book = null;
     let rendition = null;
     let locationTimer = null;
-    let idleCallback = null;
     let resolveEngineReady = null;
     const engineReadyPromise = new Promise((resolve) => {
       resolveEngineReady = resolve;
     });
     const startupTimers = new Set();
+    const pageTurnTimers = new Set();
+    let pageTurnInProgress = false;
     setLoading(true);
     setError("");
     setToc([]);
@@ -251,12 +247,56 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
     let locationsPromise = null;
     const relocatedHandlerRef = { current: null };
 
+    const getLocationsCacheKey = () => {
+      try {
+        const bookKey = book?.key?.();
+        return bookKey ? `librelula:epub-locations:1600:${bookKey}` : "";
+      } catch {
+        return "";
+      }
+    };
+
     const ensureLocations = async () => {
-      if (book?.locations?.length) return book.locations;
+      if (readerEpubLocationsLength(book?.locations) > 0) return book.locations;
       if (!book?.locations?.generate) return null;
-      locationsPromise ||= book.locations.generate(1600);
-      await locationsPromise;
-      return book.locations;
+
+      if (!locationsPromise) {
+        locationsPromise = (async () => {
+          const cacheKey = getLocationsCacheKey();
+          if (cacheKey && typeof book.locations.load === "function") {
+            try {
+              const cachedLocations = window.localStorage?.getItem(cacheKey);
+              if (cachedLocations) {
+                book.locations.load(cachedLocations);
+                if (readerEpubLocationsLength(book.locations) > 0) return book.locations;
+              }
+            } catch {
+              // La caché es opcional: Safari privado puede bloquear localStorage.
+            }
+          }
+
+          await book.locations.generate(1600);
+
+          if (
+            cacheKey
+            && readerEpubLocationsLength(book.locations) > 0
+            && typeof book.locations.save === "function"
+          ) {
+            try {
+              window.localStorage?.setItem(cacheKey, book.locations.save());
+            } catch {
+              // Si no hay cuota, el mapa sigue siendo válido durante esta sesión.
+            }
+          }
+
+          return book.locations;
+        })().catch((locationsError) => {
+          locationsPromise = null;
+          throw locationsError;
+        });
+      }
+
+      return locationsPromise;
     };
 
     const scheduleLocations = () => {
@@ -284,15 +324,9 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
         }
       };
 
-      if (typeof window.requestIdleCallback === "function") {
-        idleCallback = window.requestIdleCallback(() => {
-          void generateLocations();
-        }, { timeout: 1500 });
-      } else {
-        locationTimer = window.setTimeout(() => {
-          void generateLocations();
-        }, 0);
-      }
+      locationTimer = window.setTimeout(() => {
+        void generateLocations();
+      }, 0);
     };
 
     const fetchEpubSource = async () => {
@@ -341,6 +375,9 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
 
         let suppressClickUntil = 0;
         let touchStart = null;
+        let accumulatedWheelDelta = 0;
+        let wheelResetTimer = null;
+        let lastWheelTurnAt = 0;
         const navigateFromPoint = (clientX, target) => {
           const selection = contentDocument.defaultView?.getSelection?.();
           if (selection?.toString?.().trim()) return;
@@ -405,15 +442,42 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
           navigateFromPoint(event.clientX, event.target);
         };
 
+        const handleWheel = (event) => {
+          if (readingModeRef.current !== READER_FLOW_MODES.CASCADE || event.ctrlKey) return;
+          const selection = contentDocument.defaultView?.getSelection?.();
+          if (selection?.toString?.().trim()) return;
+          if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+
+          event.preventDefault();
+          accumulatedWheelDelta += event.deltaY;
+          if (wheelResetTimer !== null) window.clearTimeout(wheelResetTimer);
+          wheelResetTimer = window.setTimeout(() => {
+            accumulatedWheelDelta = 0;
+            wheelResetTimer = null;
+          }, 140);
+
+          const now = Date.now();
+          if (Math.abs(accumulatedWheelDelta) < 36 || now - lastWheelTurnAt < 450) return;
+          const action = accumulatedWheelDelta > 0 ? "next" : "previous";
+          accumulatedWheelDelta = 0;
+          lastWheelTurnAt = now;
+          callbackRef.current.onTapNavigate?.(action);
+        };
+
         contentDocument.addEventListener("click", handleTap, { passive: true });
         contentDocument.addEventListener("touchstart", handleTouchStart, { passive: true });
         contentDocument.addEventListener("touchend", handleTouchEnd, { passive: true });
         contentDocument.addEventListener("pointerup", handlePointerUp, { passive: true });
+        contentDocument.addEventListener("wheel", handleWheel, { passive: false });
         contentTapHandlers.set(contentDocument, {
           click: handleTap,
           touchstart: handleTouchStart,
           touchend: handleTouchEnd,
           pointerup: handlePointerUp,
+          wheel: handleWheel,
+          cancel: () => {
+            if (wheelResetTimer !== null) window.clearTimeout(wheelResetTimer);
+          },
         });
       });
     };
@@ -436,6 +500,44 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
         return { book, rendition: renditionRef.current };
       }
       return engineReadyPromise;
+    };
+
+    const waitForPageTurnAnimation = (duration) => new Promise((resolve) => {
+      const timer = window.setTimeout(() => {
+        pageTurnTimers.delete(timer);
+        resolve();
+      }, duration);
+      pageTurnTimers.add(timer);
+    });
+
+    const turnEpubPage = async (direction) => {
+      const engine = await waitForEngine();
+      if (!engine || cancelled || pageTurnInProgress) return null;
+
+      const turnPage = direction === "next"
+        ? engine.rendition?.next?.bind(engine.rendition)
+        : engine.rendition?.prev?.bind(engine.rendition);
+      if (!turnPage) return null;
+      if (readingModeRef.current !== READER_FLOW_MODES.CASCADE) return turnPage();
+
+      const viewport = containerRef.current;
+      const turningClass = `is-turning-${direction}`;
+      const enteringClass = `is-entering-${direction}`;
+      pageTurnInProgress = true;
+      viewport?.classList.add(turningClass);
+
+      try {
+        const result = await turnPage();
+        if (cancelled) return result;
+        viewport?.classList.remove(turningClass);
+        viewport?.classList.add(enteringClass);
+        await waitForPageTurnAnimation(190);
+        viewport?.classList.remove(enteringClass);
+        return result;
+      } finally {
+        viewport?.classList.remove(turningClass, enteringClass);
+        pageTurnInProgress = false;
+      }
     };
 
     void (async () => {
@@ -464,7 +566,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
         },
       });
       applyEpubTheme(rendition, themeRef.current);
-      applyEpubReadingMode(rendition, readingModeRef.current);
+      configureEpubPagination(rendition);
 
       rendition.on("rendered", bindContentTapHandlers);
 
@@ -472,7 +574,6 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
         if (cancelled || !location?.start) return;
         const snapshot = createEpubProgressSnapshot(location);
         if (!snapshot) return;
-        if (snapshot.locator.cfi) currentLocationRef.current = snapshot.locator.cfi;
         callbackRef.current.onChapterChange?.(snapshot.currentChapter);
         callbackRef.current.onProgress?.(snapshot);
       };
@@ -523,14 +624,8 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
 
     if (controlsRef) {
       controlsRef.current = {
-        next: async () => {
-          const engine = await waitForEngine();
-          return engine?.rendition?.next?.() ?? null;
-        },
-        previous: async () => {
-          const engine = await waitForEngine();
-          return engine?.rendition?.prev?.() ?? null;
-        },
+        next: () => turnEpubPage("next"),
+        previous: () => turnEpubPage("previous"),
         goTo: async (target) => {
           const engine = await waitForEngine();
           return engine?.rendition?.display?.(target) ?? null;
@@ -557,9 +652,10 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
     return () => {
       cancelled = true;
       if (locationTimer !== null) window.clearTimeout(locationTimer);
-      if (idleCallback !== null) window.cancelIdleCallback?.(idleCallback);
       startupTimers.forEach((timer) => window.clearTimeout(timer));
       startupTimers.clear();
+      pageTurnTimers.forEach((timer) => window.clearTimeout(timer));
+      pageTurnTimers.clear();
       resolveEngineReady?.(null);
       resolveEngineReady = null;
       if (controlsRef) controlsRef.current = null;
@@ -570,6 +666,8 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
         contentDocument.removeEventListener("touchstart", handlers.touchstart);
         contentDocument.removeEventListener("touchend", handlers.touchend);
         contentDocument.removeEventListener("pointerup", handlers.pointerup);
+        contentDocument.removeEventListener("wheel", handlers.wheel);
+        handlers.cancel?.();
       });
       contentTapHandlers.clear();
       rendition?.destroy?.();
@@ -590,47 +688,6 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
 
   useEffect(() => {
     readingModeRef.current = readingMode;
-    const rendition = renditionRef.current;
-    if (!rendition?.flow) return undefined;
-
-    const currentLocation = rendition.currentLocation?.();
-    const preservedCfi = currentLocationRef.current || currentLocation?.start?.cfi || "";
-    const changeId = flowChangeIdRef.current + 1;
-    flowChangeIdRef.current = changeId;
-    let cancelled = false;
-    let restoreTimer = null;
-
-    const restoreLocation = () => {
-      if (cancelled || changeId !== flowChangeIdRef.current || !preservedCfi) return;
-      if (restoreTimer !== null) {
-        window.clearTimeout(restoreTimer);
-        restoreTimer = null;
-      }
-      rendition.off?.("rendered", restoreLocation);
-      try {
-        void Promise.resolve(rendition.display(preservedCfi)).catch(() => {});
-      } catch {
-        // El gestor puede estar cambiando de flujo todavía.
-      }
-    };
-
-    if (preservedCfi) {
-      rendition.on("rendered", restoreLocation);
-      restoreTimer = window.setTimeout(restoreLocation, 0);
-    }
-
-    try {
-      applyEpubReadingMode(rendition, readingMode);
-    } catch {
-      rendition.off?.("rendered", restoreLocation);
-      if (restoreTimer !== null) window.clearTimeout(restoreTimer);
-    }
-
-    return () => {
-      cancelled = true;
-      rendition.off?.("rendered", restoreLocation);
-      if (restoreTimer !== null) window.clearTimeout(restoreTimer);
-    };
   }, [readingMode]);
 
   function openTocItem(item) {

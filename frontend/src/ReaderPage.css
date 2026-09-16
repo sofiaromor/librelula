@@ -547,10 +547,44 @@
 .reader-page.is-reader-cascade .reader-epub-viewport {
   overflow: hidden;
   touch-action: pan-y;
+  will-change: transform, opacity;
+  transition: transform 140ms ease-in, opacity 140ms ease-in;
+}
+
+.reader-page.is-reader-cascade .reader-epub-viewport.is-turning-next {
+  opacity: .2;
+  transform: translateY(-26px);
+}
+
+.reader-page.is-reader-cascade .reader-epub-viewport.is-turning-previous {
+  opacity: .2;
+  transform: translateY(26px);
+}
+
+.reader-page.is-reader-cascade .reader-epub-viewport.is-entering-next {
+  animation: reader-page-enter-from-bottom 190ms ease-out;
+}
+
+.reader-page.is-reader-cascade .reader-epub-viewport.is-entering-previous {
+  animation: reader-page-enter-from-top 190ms ease-out;
 }
 
 .reader-page.is-reader-cascade .reader-epub-stage {
   background: #f1e9df;
+}
+
+@keyframes reader-page-enter-from-bottom {
+  from {
+    opacity: .2;
+    transform: translateY(26px);
+  }
+}
+
+@keyframes reader-page-enter-from-top {
+  from {
+    opacity: .2;
+    transform: translateY(-26px);
+  }
 }
 
 .reader-page.is-reader-dark {
@@ -1623,11 +1657,13 @@ body.reader-immersive-active .mobile-reader-dock {
 @media (prefers-reduced-motion: reduce) {
   .reader-toolbar-button,
   .reader-back-button,
-  .reader-page.is-reader-immersive .reader-toolbar {
+  .reader-page.is-reader-immersive .reader-toolbar,
+  .reader-page.is-reader-cascade .reader-epub-viewport {
     transition: none;
   }
 
-  .reader-loading-mark {
+  .reader-loading-mark,
+  .reader-page.is-reader-cascade .reader-epub-viewport {
     animation: none;
   }
 }

@@ -84,6 +84,16 @@ export function readerProgressFromEpub(percentage) {
   return clampReaderProgress(Number(percentage || 0) * 100);
 }
 
+export function readerEpubLocationsLength(locations) {
+  if (!locations) return 0;
+
+  const value = typeof locations.length === "function"
+    ? locations.length()
+    : locations.length;
+  const length = Number(value);
+  return Number.isFinite(length) ? Math.max(0, Math.floor(length)) : 0;
+}
+
 export function readerTouchAction({
   readingMode,
   deltaX = 0,

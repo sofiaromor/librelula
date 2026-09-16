@@ -41,7 +41,7 @@ test("muestra la primera página antes de generar el mapa ePub", () => {
   assert.ok(readyIndex >= 0);
   assert.ok(displayIndex > readyIndex);
   assert.ok(scheduleIndex > displayIndex);
-  assert.match(source, /requestIdleCallback/);
+  assert.match(source, /locationTimer = window\.setTimeout/);
 });
 
 test("no bloquea la primera página esperando la navegación", () => {
@@ -167,13 +167,17 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.doesNotMatch(source, /openNewAnnotation\(\{\s*quote: selection\.quote/);
   assert.doesNotMatch(source, /scrolled-continuous/);
   assert.match(source, /flow: "paginated"/);
-  assert.match(source, /updateAxis\?\.\(/);
-  assert.match(source, /"vertical" : "horizontal"/);
+  assert.doesNotMatch(source, /updateAxis\?\.\(/);
+  assert.match(source, /readerEpubLocationsLength\(book\?\.locations\) > 0/);
+  assert.match(source, /book\.locations\.generate\(1600\)/);
+  assert.match(source, /book\.locations\.load\(cachedLocations\)/);
+  assert.match(source, /book\.locations\.save\(\)/);
+  assert.match(source, /contentDocument\.addEventListener\("wheel", handleWheel, \{ passive: false \}\)/);
+  assert.match(source, /turnEpubPage\("next"\)/);
+  assert.match(source, /const turningClass = `is-turning-\$\{direction\}`/);
   assert.match(source, /scrollBehavior/);
-  assert.match(source, /currentLocationRef/);
-  assert.match(source, /preservedCfi/);
-  assert.match(source, /flowChangeIdRef/);
-  assert.match(source, /rendition\.display\(preservedCfi\)/);
+  assert.doesNotMatch(source, /flowChangeIdRef/);
+  assert.doesNotMatch(source, /rendition\.display\(preservedCfi\)/);
   assert.match(source, /readingMode/);
   assert.match(source, /readerTheme/);
   assert.match(source, /reader-base/);
@@ -183,6 +187,7 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.match(styles, /touch-action: auto/);
   assert.match(styles, /reader-page\.is-reader-dark/);
   assert.match(styles, /reader-page\.is-reader-cascade/);
+  assert.match(styles, /reader-page-enter-from-bottom/);
   assert.match(styles, /reader-selection-actions/);
   assert.match(styles, /flex-wrap: wrap/);
 });

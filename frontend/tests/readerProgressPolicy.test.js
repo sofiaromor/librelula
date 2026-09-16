@@ -9,7 +9,11 @@ import {
   resolveReaderSessionProgress,
   shouldAutoSaveReaderProgress,
 } from "../src/lib/readerProgressPolicy.js";
-import { readerThemePalette, readerTouchAction } from "../src/lib/readerUtils.js";
+import {
+  readerEpubLocationsLength,
+  readerThemePalette,
+  readerTouchAction,
+} from "../src/lib/readerUtils.js";
 
 test("el progreso manual no retrocede por el automático", () => {
   assert.equal(mergeReaderProgress(72, 0), 72);
@@ -89,4 +93,11 @@ test("una navegación deliberada permite guardar el porcentaje exacto aunque ret
 test("la paleta del tema puede volver de noche a día", () => {
   assert.deepEqual(readerThemePalette("dark"), { background: "#252630", color: "#f7eee6" });
   assert.deepEqual(readerThemePalette("light"), { background: "#fffdf9", color: "#3a2a22" });
+});
+
+test("detecta si ePub.js ya generó locations llamando a length como función", () => {
+  assert.equal(readerEpubLocationsLength({ length: () => 0 }), 0);
+  assert.equal(readerEpubLocationsLength({ length: () => 37 }), 37);
+  assert.equal(readerEpubLocationsLength({ length: 12 }), 12);
+  assert.equal(readerEpubLocationsLength(null), 0);
 });
