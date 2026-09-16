@@ -182,11 +182,18 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.match(source, /readerTheme/);
   assert.match(source, /reader-base/);
   assert.match(source, /themes\?\.override/);
+  assert.match(source, /formatReaderClock/);
+  assert.match(source, /reader-reading-statusbar/);
+  assert.match(source, /chapterProgress/);
+  assert.match(source, /chapterIndex/);
+  assert.match(source, /chapterCount/);
   assert.doesNotMatch(source, /progressTimerRef\.current = window\.setTimeout/);
   assert.match(styles, /-webkit-user-select: text/);
   assert.match(styles, /touch-action: auto/);
   assert.match(styles, /reader-page\.is-reader-dark/);
   assert.match(styles, /reader-page\.is-reader-cascade/);
+  assert.match(styles, /reader-reading-statusbar/);
+  assert.match(styles, /reader-page\.is-reader-immersive \.reader-reading-statusbar/);
   assert.match(styles, /reader-page-enter-from-bottom/);
   assert.match(styles, /reader-selection-actions/);
   assert.match(styles, /flex-wrap: wrap/);

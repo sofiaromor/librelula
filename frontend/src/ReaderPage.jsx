@@ -96,6 +96,60 @@ function formatLabel(format) {
   return format === "pdf" ? "PDF" : "ePub";
 }
 
+function formatReaderClock(date = new Date()) {
+  return new Intl.DateTimeFormat("es-ES", {
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function flattenReaderToc(items, result = []) {
+  if (!Array.isArray(items)) return result;
+  items.forEach((item) => {
+    if (!item || typeof item !== "object") return;
+    result.push(item);
+    flattenReaderToc(item.subitems || item.children, result);
+  });
+  return result;
+}
+
+function readerHrefKey(href) {
+  try {
+    return decodeURIComponent(String(href || "").split("#")[0]).split("/").pop() || "";
+  } catch {
+    return String(href || "").split("#")[0].split("/").pop() || "";
+  }
+}
+
+function readerEpubChapterMetadata(book, location, tocItems = []) {
+  const hrefKey = readerHrefKey(location?.start?.href);
+  const tocIndex = tocItems.findIndex((item) => readerHrefKey(item?.href) === hrefKey);
+  const spineIndex = Number(location?.start?.index);
+  const chapterCount = tocItems.length || readerEpubSpineLength(book);
+  const chapterIndex = tocIndex >= 0
+    ? tocIndex + 1
+    : Number.isFinite(spineIndex) && spineIndex >= 0
+      ? spineIndex + 1
+      : null;
+  const chapterTitle = tocIndex >= 0
+    ? String(tocItems[tocIndex]?.label || "").trim()
+    : "";
+  const displayedPage = Number(location?.start?.displayed?.page);
+  const displayedTotal = Number(location?.start?.displayed?.total);
+  const chapterProgress = Number.isFinite(displayedPage)
+    && Number.isFinite(displayedTotal)
+    && displayedTotal > 0
+    ? Math.max(0, Math.min(100, Math.round((displayedPage / displayedTotal) * 100)))
+    : null;
+
+  return {
+    chapterTitle: chapterTitle || (chapterIndex ? `Capítulo ${chapterIndex}` : "Lectura"),
+    chapterIndex,
+    chapterCount: chapterCount > 0 ? chapterCount : null,
+    chapterProgress,
+  };
+}
+
 function readerEpubSpineLength(book) {
   const spineItems = book?.spine?.spineItems;
   if (Array.isArray(spineItems) && spineItems.length > 0) return spineItems.length;
@@ -201,6 +255,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
   const initialProgressRef = useRef(clampReaderProgress(initialProgress?.progress));
   const readingModeRef = useRef(readingMode);
   const themeRef = useRef(theme);
+  const tocRef = useRef([]);
   const callbackRef = useRef({ onChapterChange, onProgress, onQuoteSelected, onTapNavigate, onUserNavigation });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -228,6 +283,7 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
     setLoading(true);
     setError("");
     setToc([]);
+    tocRef.current = [];
 
     const withStartupTimeout = (promise, message) => {
       let timer = null;
@@ -486,12 +542,16 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
       if (!location?.start) return null;
       const cfi = location.start.cfi || "";
       const chapter = location.start.href?.split("#")[0]?.split("/").pop() || "Lectura";
+      const chapterMetadata = readerEpubChapterMetadata(book, location, tocRef.current);
       return {
         progress: readerEpubProgressFromLocation(book, location),
         progressIsPrecise: readerEpubProgressIsPrecise(book, location),
         locator: { cfi },
         currentPage: null,
-        currentChapter: chapter,
+        currentChapter: chapterMetadata.chapterTitle || chapter,
+        chapterProgress: chapterMetadata.chapterProgress,
+        chapterIndex: chapterMetadata.chapterIndex,
+        chapterCount: chapterMetadata.chapterCount,
       };
     };
 
@@ -609,7 +669,11 @@ function EpubReader({ sourceUrl, initialProgress, textScale, readingMode, theme,
       void book.loaded.navigation
         .then((navigation) => {
           if (!cancelled) {
-            setToc(Array.isArray(navigation?.toc) ? navigation.toc : []);
+            const navigationToc = Array.isArray(navigation?.toc) ? navigation.toc : [];
+            tocRef.current = flattenReaderToc(navigationToc);
+            setToc(navigationToc);
+            const currentLocation = rendition.currentLocation?.();
+            if (currentLocation?.start) relocatedHandlerRef.current?.(currentLocation);
           }
         })
         .catch(() => {});
@@ -870,6 +934,9 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
           locator: { page: pageNumber, totalPages },
           currentPage: pageNumber,
           currentChapter: `Página ${pageNumber}`,
+          chapterProgress: progress,
+          chapterIndex: pageNumber,
+          chapterCount: totalPages,
         });
       })
       .catch((renderError) => {
@@ -914,6 +981,9 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
         locator: { page: pageNumber, totalPages },
         currentPage: pageNumber,
         currentChapter: `Página ${pageNumber}`,
+        chapterProgress: readerProgressFromPdf(pageNumber, totalPages),
+        chapterIndex: pageNumber,
+        chapterCount: totalPages,
       }),
     };
     return () => { controlsRef.current = null; };
@@ -1186,7 +1256,11 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const [readerTheme, setReaderTheme] = useState(READER_THEMES.LIGHT);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [currentChapter, setCurrentChapter] = useState("");
+  const [currentChapterProgress, setCurrentChapterProgress] = useState(0);
+  const [currentChapterIndex, setCurrentChapterIndex] = useState(null);
+  const [currentChapterCount, setCurrentChapterCount] = useState(null);
   const [currentPage, setCurrentPage] = useState(null);
+  const [readerClock, setReaderClock] = useState(() => formatReaderClock());
   const fileInputRef = useRef(null);
   const readerControlsRef = useRef(null);
   const latestProgressRef = useRef(null);
@@ -1204,6 +1278,12 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const userNavigationOccurredRef = useRef(false);
   const pendingAutoSaveTurnsRef = useRef(-1);
   const lastProgressLocatorRef = useRef("");
+
+  useEffect(() => {
+    const updateClock = () => setReaderClock(formatReaderClock());
+    const clockTimer = window.setInterval(updateClock, 30_000);
+    return () => window.clearInterval(clockTimer);
+  }, []);
 
   const bookId = String(book?.id || "").trim();
   const bookEpubFile = book?.epub_file || "";
@@ -1264,6 +1344,17 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         setCurrentProgress(clampReaderProgress(progress?.progress));
         setCurrentChapter(progress?.current_chapter || "");
         setCurrentPage(progress?.current_page || null);
+        setCurrentChapterProgress(clampReaderProgress(progress?.chapter_progress));
+        setCurrentChapterIndex(
+          progress?.chapter_index === null || progress?.chapter_index === undefined
+            ? null
+            : Number(progress.chapter_index),
+        );
+        setCurrentChapterCount(
+          progress?.chapter_count === null || progress?.chapter_count === undefined
+            ? null
+            : Number(progress.chapter_count),
+        );
 
         void getReaderBookAnnotations(bookId)
           .then((annotations) => {
@@ -1331,6 +1422,14 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   );
 
   const selectedFormat = selectedDocument?.format || catalogFormat || readerFileFormat(assets.epub_file) || readerFileFormat(assets.pdf_file);
+  const isPdfReader = selectedFormat === "pdf";
+  const readingStatusProgress = isPdfReader ? currentProgress : currentChapterProgress;
+  const readingStatusPosition = currentChapterIndex && currentChapterCount
+    ? `${currentChapterIndex} / ${currentChapterCount}`
+    : "—";
+  const readingStatusContext = isPdfReader
+    ? "Lectura PDF"
+    : currentChapter || "Capítulo actual";
   const catalogSourcePath = selectedFormat === "pdf" ? assets.pdf_file : assets.epub_file;
   const sourceUrl = selectedDocument?.signed_url || (catalogSourcePath ? publicUrl(catalogSourcePath) : "");
   const sourceKey = selectedDocument?.id || `catalog:${bookId}:${selectedFormat}`;
@@ -1520,6 +1619,21 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     setCurrentProgress(next.progress);
     if (next.currentPage) setCurrentPage(next.currentPage);
     if (next.currentChapter) setCurrentChapter(next.currentChapter);
+    setCurrentChapterProgress(
+      next.chapterProgress === null || next.chapterProgress === undefined
+        ? 0
+        : clampReaderProgress(next.chapterProgress),
+    );
+    setCurrentChapterIndex(
+      next.chapterIndex === null || next.chapterIndex === undefined
+        ? null
+        : Number(next.chapterIndex),
+    );
+    setCurrentChapterCount(
+      next.chapterCount === null || next.chapterCount === undefined
+        ? null
+        : Number(next.chapterCount),
+    );
 
     if (
       documentProgressIsAuthoritative
@@ -1677,6 +1791,9 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     setMessage(null);
     setCurrentProgress(0);
     setCurrentChapter("");
+    setCurrentChapterProgress(0);
+    setCurrentChapterIndex(null);
+    setCurrentChapterCount(null);
     setCurrentPage(null);
   }
 
@@ -2188,6 +2305,24 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
                 theme={readerTheme}
               />
             )}
+            <div className="reader-reading-statusbar" role="status" aria-label="Estado de lectura">
+              <div className="reader-reading-status-context" title={readingStatusContext}>
+                <span>{isPdfReader ? "Documento" : "Capítulo actual"}</span>
+                <strong>{readingStatusContext}</strong>
+              </div>
+              <div className="reader-reading-status-item">
+                <span>Hora</span>
+                <strong>{readerClock}</strong>
+              </div>
+              <div className="reader-reading-status-item">
+                <span>{isPdfReader ? "Documento" : "Capítulo"}</span>
+                <strong>{clampReaderProgress(readingStatusProgress)}%</strong>
+              </div>
+              <div className="reader-reading-status-item">
+                <span>{isPdfReader ? "Páginas" : "Capítulos"}</span>
+                <strong>{readingStatusPosition}</strong>
+              </div>
+            </div>
             <footer className="reader-reader-footer">
               <span>{selectedDocument ? `${formatLabel(selectedDocument.format)} privado` : `${formatLabel(selectedFormat)} del catálogo`}</span>
               <button type="button" onClick={() => fileInputRef.current?.click()} disabled={uploading}>{uploading ? "Subiendo…" : "Cambiar archivo"}</button>
