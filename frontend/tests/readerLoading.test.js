@@ -7,6 +7,7 @@ const engines = await readFile(new URL("../src/lib/readerEngines.js", import.met
 const readerApiSource = await readFile(new URL("../src/lib/readerApi.js", import.meta.url), "utf8");
 const catalogApiSource = await readFile(new URL("../src/lib/catalogApi.js", import.meta.url), "utf8");
 const activityMetadataSource = await readFile(new URL("../src/lib/readerActivityMetadata.js", import.meta.url), "utf8");
+const chapterNavigationSource = await readFile(new URL("../src/lib/readerChapterNavigation.js", import.meta.url), "utf8");
 const styles = await readFile(new URL("../src/ReaderPage.css", import.meta.url), "utf8");
 
 test("carga ePub y PDF bajo demanda y no en el chunk común del lector", () => {
@@ -89,15 +90,18 @@ test("protege el progreso manual hasta que la posición del archivo es autoritat
   assert.match(source, /isReaderDocumentProgressAuthoritative/);
 });
 
-test("no reinicia el EPUB cuando cambia el estado de lectura", () => {
+test("reconstruye el EPUB solo cuando cambia la fuente o el modo y conserva el progreso", () => {
   assert.match(source, /const callbackRef = useRef\(\{ onChapterChange, onProgress, onQuoteSelected, onTapNavigate, onUserNavigation \}\)/);
   assert.match(source, /callbackRef\.current\.onProgress\?\./);
   assert.match(source, /callbackRef\.current\.onQuoteSelected\?\./);
-  assert.match(source, /\}, \[controlsRef, sourceUrl\]\);/);
+  assert.match(source, /const readerRenderKey = `\$\{sourceKey\}:\$\{readingMode\}`;/);
+  assert.match(source, /getProgress\?\.\(\{ ensureLocations: false \}\)/);
+  assert.match(source, /setReaderSessionProgress\(sessionSnapshot\)/);
+  assert.match(source, /initialProgress\?\.locator\?\.cfi/);
 });
 
 test("el progreso tardío no desmonta el motor ni pisa una posición precisa", () => {
-  assert.match(source, /const readerRenderKey = sourceKey;/);
+  assert.match(source, /const readerRenderKey = `\$\{sourceKey\}:\$\{readingMode\}`;/);
   assert.match(source, /goToProgress/);
   assert.match(source, /getProgress/);
   assert.match(source, /const manualNavigationKeyRef = useRef/);
@@ -137,7 +141,8 @@ test("ofrece pantalla completa y navegación por zonas con un toque", () => {
   assert.match(source, /fraction <= 0\.32/);
   assert.match(source, /fraction >= 0\.68/);
   assert.match(source, /tapIgnoreUntilRef/);
-  assert.match(source, /reader-immersive-reveal/);
+  assert.match(source, /reader-immersive-back-button/);
+  assert.match(source, /onClick=\{handleBack\}/);
   assert.match(source, /reader-immersive-heading/);
   assert.match(styles, /\.reader-page\.is-reader-immersive/);
   assert.match(styles, /body\.reader-immersive-active \.mobile-reader-dock/);
@@ -148,7 +153,7 @@ test("ofrece pantalla completa y navegación por zonas con un toque", () => {
 test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual", () => {
   assert.match(source, /function readerEpubProgressFromLocation/);
   assert.match(source, /displayed\?\.page/);
-  assert.match(source, /spineItems/);
+  assert.match(chapterNavigationSource, /spineItems/);
   assert.match(source, /const currentLocation = rendition\.currentLocation\?\.\(\)/);
   assert.match(source, /relocatedHandlerRef\.current\?\.\(currentLocation\)/);
   assert.match(source, /READER_SAVE_MODES\.MANUAL/);
@@ -166,16 +171,23 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.match(source, /Marcar selección/);
   assert.doesNotMatch(source, /openNewAnnotation\(\{\s*quote: selection\.quote/);
   assert.doesNotMatch(source, /scrolled-continuous/);
-  assert.match(source, /flow: "paginated"/);
+  assert.match(source, /flow: isCascade \? "scrolled-doc" : "paginated"/);
+  assert.match(source, /manager: "default"/);
+  assert.match(source, /configureEpubRendering/);
+  assert.match(source, /READER_CASCADE_HOLD_MS = 1_000/);
+  assert.match(source, /touchmove/);
+  assert.match(source, /touchcancel/);
+  assert.match(source, /nextChapter/);
+  assert.match(source, /reader-cascade-boundary/);
+  assert.match(source, /scrollCascadeByPage/);
   assert.doesNotMatch(source, /updateAxis\?\.\(/);
   assert.match(source, /readerEpubLocationsLength\(book\?\.locations\) > 0/);
   assert.match(source, /book\.locations\.generate\(1600\)/);
   assert.match(source, /book\.locations\.load\(cachedLocations\)/);
   assert.match(source, /book\.locations\.save\(\)/);
-  assert.match(source, /contentDocument\.addEventListener\("wheel", handleWheel, \{ passive: false \}\)/);
   assert.match(source, /turnEpubPage\("next"\)/);
-  assert.match(source, /const turningClass = `is-turning-\$\{direction\}`/);
   assert.match(source, /scrollBehavior/);
+  assert.match(source, /overflowY = isCascade \? "auto" : "hidden"/);
   assert.doesNotMatch(source, /flowChangeIdRef/);
   assert.doesNotMatch(source, /rendition\.display\(preservedCfi\)/);
   assert.match(source, /readingMode/);
@@ -194,7 +206,7 @@ test("actualiza el progreso ePub aunque locations tarde y ofrece guardado manual
   assert.match(styles, /reader-page\.is-reader-cascade/);
   assert.match(styles, /reader-reading-statusbar/);
   assert.match(styles, /reader-page\.is-reader-immersive \.reader-reading-statusbar/);
-  assert.match(styles, /reader-page-enter-from-bottom/);
+  assert.match(styles, /reader-cascade-boundary/);
   assert.match(styles, /reader-selection-actions/);
   assert.match(styles, /flex-wrap: wrap/);
 });
