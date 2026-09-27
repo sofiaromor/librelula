@@ -31,3 +31,13 @@ test("cover star rails default to columns; only group headings are horizontal", 
     assert.deepEqual(directions, ["column"]);
   }
 });
+
+test("library avatar styles cannot leak into the reader profile", () => {
+  const selectors = [];
+  stylesheet("MiBiblioteca.css").walkRules((rule) => {
+    if (rule.selector?.includes("profile-avatar-wrap")) selectors.push(rule.selector);
+  });
+
+  assert.ok(selectors.length > 0);
+  assert.ok(selectors.every((selector) => selector.startsWith(".library-page ")));
+});
