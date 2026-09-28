@@ -840,8 +840,12 @@ export async function saveCatalogUserBookProgress({
   minutes_read: minutesRead = 0,
   total_chapters: totalChapters = 0,
   current_chapter: currentChapter = 0,
+  legacyUserId: providedLegacyUserId = null,
 }) {
-  const legacyUserId = await getCurrentLegacyUserId();
+  const parsedLegacyUserId = Number(providedLegacyUserId);
+  const legacyUserId = Number.isFinite(parsedLegacyUserId) && parsedLegacyUserId > 0
+    ? parsedLegacyUserId
+    : await getCurrentLegacyUserId();
 
   if (!legacyUserId) {
     throw apiError("Inicia sesión para guardar tu progreso.", 401);
