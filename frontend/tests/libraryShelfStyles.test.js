@@ -41,3 +41,17 @@ test("library avatar styles cannot leak into the reader profile", () => {
   assert.ok(selectors.length > 0);
   assert.ok(selectors.every((selector) => selector.startsWith(".library-page ")));
 });
+
+test("generated cover spines give titles an editorial contrast plate", () => {
+  const declarations = new Map();
+  stylesheet("LibraryBook3D.css").walkRules(
+    ".library-spine-static.is-generated .library-spine-static-title",
+    (rule) => rule.walkDecls((declaration) => declarations.set(declaration.prop, declaration.value)),
+  );
+
+  assert.match(declarations.get("background") ?? "", /rgba\(31,\s*20,\s*14/);
+  assert.match(declarations.get("border") ?? "", /rgba\(255,\s*239,\s*216/);
+  assert.match(declarations.get("box-shadow") ?? "", /rgba\(24,\s*14,\s*9/);
+  assert.equal(declarations.get("color"), "#fffaf3");
+  assert.equal(declarations.get("text-shadow"), "0 1px 2px rgba(0,0,0,.9)");
+});

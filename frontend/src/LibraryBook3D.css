@@ -421,6 +421,22 @@
   text-overflow: ellipsis;
 }
 
+.library-spine-static.is-generated .library-spine-static-title {
+  top: 8px;
+  bottom: 9px;
+  box-sizing: border-box;
+  max-width: calc(100% - 8px);
+  padding: 7px 3px;
+  border: 1px solid rgba(255, 239, 216, .42);
+  border-radius: 4px;
+  background: linear-gradient(90deg, rgba(31, 20, 14, .68), rgba(31, 20, 14, .86) 50%, rgba(31, 20, 14, .68));
+  box-shadow: 0 2px 8px rgba(24, 14, 9, .34), inset 1px 0 rgba(255,255,255,.1), inset -1px 0 rgba(0,0,0,.16);
+  color: #fffaf3;
+  font-size: .76rem;
+  letter-spacing: .01em;
+  text-shadow: 0 1px 2px rgba(0,0,0,.9);
+}
+
 .library-spine-static-author {
   right: 4px;
   bottom: 9px;
