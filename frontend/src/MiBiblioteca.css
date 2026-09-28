@@ -45,7 +45,7 @@ img {
   border-radius: 28px;
 }
 
-.profile-avatar-wrap {
+.library-page .profile-avatar-wrap {
   width: 104px;
   height: 104px;
   padding: 5px;
@@ -54,7 +54,7 @@ img {
   background: var(--cream);
 }
 
-.profile-avatar-wrap img {
+.library-page .profile-avatar-wrap img {
   width: 100%;
   height: 100%;
   display: block;
@@ -524,7 +524,7 @@ img {
     text-align: center;
   }
 
-  .profile-avatar-wrap {
+  .library-page .profile-avatar-wrap {
     margin: 0 auto;
   }
 
