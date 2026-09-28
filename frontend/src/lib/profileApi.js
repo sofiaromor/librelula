@@ -44,6 +44,7 @@ function storeSnapshot(data) {
 
 export function invalidateHomeReadingSnapshot() {
   invalidateHomeDataCaches();
+  fullProfile.invalidateProfileOverview();
   homeReadingSnapshot = null;
   if (typeof window === "undefined") return;
   try {
