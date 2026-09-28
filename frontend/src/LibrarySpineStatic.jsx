@@ -22,7 +22,7 @@ export default function LibrarySpineStatic({ item }) {
       {personalUrl
         ? <BookFaceTexture src={personalUrl} crop={item.personal_spine_crop} />
         : generatedCover
-          ? <BookFaceTexture src={generatedCover} blurred />
+          ? <BookFaceTexture src={generatedCover} />
           : null}
       <span className="library-spine-static-overlay" />
       {showTitle ? <span className="library-spine-static-title">{book.title || "Libro"}</span> : null}
