@@ -93,12 +93,12 @@ test("five stars preserve half ratings and missing scores", () => {
   }
 });
 
-test("spine composition never loses, duplicates or reorders books", () => {
+test("spine composition keeps every book upright without losing, duplicating or reordering", () => {
   for (const size of [0, 1, 3, 7, 8, 10, 12, 15, 20]) {
     const items = Object.freeze(Array.from({ length: size }, (_, id) => ({ book_id: id })));
     const { upright, stack } = composeSpineRow(items);
-    assert.deepEqual([...upright, ...stack], items);
-    assert.equal(stack.length, size >= 8 ? 3 : 0);
+    assert.deepEqual(upright, items);
+    assert.deepEqual(stack, []);
     assert.deepEqual(composeSpineRow(items), { upright, stack });
   }
 });

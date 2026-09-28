@@ -105,18 +105,18 @@ function CoverTile({ item, photoMode, onSelectBook }) {
   );
 }
 
-function SpineTile({ item, photoMode, onInspectItem, horizontal = false, leaning = false }) {
+function SpineTile({ item, photoMode, onInspectItem, leaning = false }) {
   const book = item.book || {};
   const score = normalizeShelfScore(item.score);
   const scoreLabel = formatShelfScore(item.score);
 
   const variation = spineVariation(item.book_id);
-  const className = `library-showcase-spine is-variation-${variation} ${horizontal ? "is-horizontal" : ""}`;
+  const className = `library-showcase-spine is-variation-${variation}`;
   const body = <LibrarySpineStatic item={item} />;
   const palette = ["#31534d", "#6c3f4d", "#314e6b", "#77522f", "#57476b"];
 
   return (
-    <div className={`library-showcase-spine-entry ${horizontal ? "is-horizontal" : ""} ${leaning ? "is-leaning" : ""}`} style={{ "--spine-cloth": palette[variation] }}>
+    <div className={`library-showcase-spine-entry ${leaning ? "is-leaning" : ""}`} style={{ "--spine-cloth": palette[variation] }}>
       {photoMode ? (
         <div className={className} title={`${book.title || "Libro"} · ${scoreLabel}`}>
           {body}
@@ -131,7 +131,7 @@ function SpineTile({ item, photoMode, onInspectItem, horizontal = false, leaning
           {body}
         </button>
       )}
-      {!photoMode && !horizontal ? <span className="library-showcase-spine-score" aria-label={`Tu puntuación: ${scoreLabel}`}>
+      {!photoMode ? <span className="library-showcase-spine-score" aria-label={`Tu puntuación: ${scoreLabel}`}>
         {score ? `★${score}` : "—"}
       </span> : null}
     </div>
@@ -139,7 +139,7 @@ function SpineTile({ item, photoMode, onInspectItem, horizontal = false, leaning
 }
 
 function SpineRowBooks({ items, rowIndex, photoMode, onInspectItem }) {
-  const { upright, stack } = composeSpineRow(items);
+  const { upright } = composeSpineRow(items);
   return <>
     {upright.map((item, index) => (
       <SpineTile
@@ -150,13 +150,6 @@ function SpineRowBooks({ items, rowIndex, photoMode, onInspectItem }) {
         leaning={index === upright.length - 1 && upright.length > 3 && rowIndex % 2 === 0}
       />
     ))}
-    {stack.length > 0 ? (
-      <div className="library-showcase-spine-stack">
-        {stack.map((item) => (
-          <SpineTile key={item.book_id} item={item} photoMode={photoMode} onInspectItem={onInspectItem} horizontal />
-        ))}
-      </div>
-    ) : null}
   </>;
 }
 

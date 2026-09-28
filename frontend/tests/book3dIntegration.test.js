@@ -98,13 +98,18 @@ test("painted caps continue the visible edge while unpainted caps retain horizon
   assert.match(inspector, /continuación aproximada/);
 });
 
-test("generated spines and backs expose the shared dominant color instead of blurred cover overlays", async () => {
-  for (const name of ["LibraryBook3D", "LibrarySpineStatic"]) {
-    const jsx = await readFile(new URL(`../src/${name}.jsx`, import.meta.url), "utf8");
+test("only flat shelf spines reuse a blurred cover; the 3D model keeps its composed spine", async () => {
+  const [model, staticSpine, showcase] = await Promise.all([
+    "LibraryBook3D.jsx", "LibrarySpineStatic.jsx", "LibraryShelfShowcase.jsx",
+  ].map((name) => readFile(new URL(`../src/${name}`, import.meta.url), "utf8")));
+  for (const jsx of [model, staticSpine]) {
     assert.match(jsx, /useBook3DColor\(book,/);
     assert.match(jsx, /"--book-cloth": cloth/);
-    assert.doesNotMatch(jsx, /blurred=/);
   }
+  assert.match(staticSpine, /generatedCover = String\(edition\?\.cover \|\| book\.cover/);
+  assert.match(staticSpine, /<BookFaceTexture src=\{generatedCover\} blurred \/>/);
+  assert.doesNotMatch(model, /\bblurred\b/);
+  assert.doesNotMatch(showcase, /library-showcase-spine-stack/);
   const texture = await readFile(new URL("../src/BookFaceTexture.jsx", import.meta.url), "utf8");
   assert.match(texture, /width: natural.width/);
   assert.match(texture, /naturalWidth/);
