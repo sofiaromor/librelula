@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { buildReadingStreak } from "./readingStreak.js";
 
 const EMPTY_PROFILE_DATA = {
   authenticated: false,
@@ -249,6 +250,17 @@ async function getUserBooks(legacyUserId) {
     .order("added_at", { ascending: false });
 
   if (error) throw apiError("No se pudo cargar tu actividad de lectura.");
+  return data || [];
+}
+
+async function getReadingProgressLogs(legacyUserId) {
+  const { data, error } = await supabase
+    .from("reading_progress_log")
+    .select("created_at")
+    .eq("legacy_user_id", legacyUserId)
+    .order("created_at", { ascending: true });
+
+  if (error) throw apiError("No se pudo cargar tu racha de lectura.");
   return data || [];
 }
 
@@ -511,48 +523,6 @@ function buildFavoriteGenres(userBooks, booksById) {
   return entries.map((entry) => ({ ...entry, share: Math.round((entry.count / max) * 100) }));
 }
 
-function buildActivityDays(userBooks) {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const firstDay = new Date(today);
-  firstDay.setDate(firstDay.getDate() - 181);
-  const pointsByDate = new Map();
-
-  for (const row of userBooks || []) {
-    const rawDate = activityDateFor(row);
-    if (!rawDate) continue;
-    const date = new Date(rawDate);
-    if (!Number.isFinite(date.getTime())) continue;
-    const key = date.toISOString().slice(0, 10);
-    pointsByDate.set(key, (pointsByDate.get(key) || 0) + 1);
-  }
-
-  const days = [];
-  const cursor = new Date(firstDay);
-  while (cursor <= today) {
-    const key = cursor.toISOString().slice(0, 10);
-    const points = pointsByDate.get(key) || 0;
-    days.push({
-      date: key,
-      label: cursor.toLocaleDateString("es-ES"),
-      points,
-      level: points <= 0 ? 0 : points === 1 ? 1 : points <= 3 ? 2 : 3,
-    });
-    cursor.setDate(cursor.getDate() + 1);
-  }
-
-  let streak = 0;
-  const streakCursor = new Date(today);
-  while (true) {
-    const key = streakCursor.toISOString().slice(0, 10);
-    if ((pointsByDate.get(key) || 0) <= 0) break;
-    streak += 1;
-    streakCursor.setDate(streakCursor.getDate() - 1);
-  }
-
-  return { activityDays: days, streak };
-}
-
 function pickFavoriteBooks(rows, booksById) {
   return (rows || [])
     .map((row) => booksById.get(String(row.book_id)))
@@ -604,14 +574,16 @@ async function buildProfileOverview(viewer, profile) {
 
   const legacyUserId = profile.legacy_id;
   const userBooksPromise = getUserBooks(legacyUserId);
+  const progressLogsPromise = getReadingProgressLogs(legacyUserId);
   const favoriteRowsPromise = getFavoriteBookRows(legacyUserId);
   const favoriteAuthorsPromise = getFavoriteAuthors(legacyUserId);
 
-  const [social, readerCircle, clubAchievements, userBooks, favoriteRows, favoriteAuthors, profileCollections] = await Promise.all([
+  const [social, readerCircle, clubAchievements, userBooks, progressLogs, favoriteRows, favoriteAuthors, profileCollections] = await Promise.all([
     socialPromise,
     readerCirclePromise,
     clubAchievementsPromise,
     userBooksPromise,
+    progressLogsPromise,
     favoriteRowsPromise,
     favoriteAuthorsPromise,
     profileCollectionsPromise,
@@ -625,7 +597,10 @@ async function buildProfileOverview(viewer, profile) {
   const booksById = buildBookMap(books);
   const shelfBooks = mapShelfBooks(userBooks, booksById);
   const favoriteBooks = pickFavoriteBooks(favoriteRows, booksById);
-  const activity = buildActivityDays(userBooks);
+  const activity = buildReadingStreak({
+    libraryDates: userBooks.map(activityDateFor),
+    progressLogs,
+  });
   const featuredCollection = findFeaturedCollection(profile, profileCollections);
 
   return {
