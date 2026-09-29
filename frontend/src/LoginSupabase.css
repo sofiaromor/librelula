@@ -351,6 +351,28 @@
   margin: 0;
 }
 
+.lg-note .lg-code-address {
+  margin-top: 0.6rem;
+  overflow-wrap: anywhere;
+}
+
+.lg-resend {
+  margin: 0.8rem 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #7a6550;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-size: 14px;
+}
+
+.lg-resend:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+  text-decoration: none;
+}
+
 @media (max-width: 760px) {
   .login-supabase-page {
     padding: 1rem;

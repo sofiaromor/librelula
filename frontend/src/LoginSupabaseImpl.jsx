@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { publicUrl } from "./api.js";
 import {
   getAuthRedirectUrl,
@@ -12,6 +12,7 @@ import {
   verifySignupCode,
 } from "./lib/session.js";
 import { friendlyAuthError } from "./lib/authErrors.js";
+import { getAuthEmailRetrySeconds } from "./lib/authEmailRequests.js";
 import "./LoginSupabase.css";
 
 const hasSupabaseConfig = Boolean(
@@ -42,7 +43,7 @@ const CODE_PURPOSE_COPY = {
   login: {
     label: "Código para entrar",
     resend: "Reenviar código de acceso",
-    resendSuccess: "Hemos enviado un código nuevo para entrar. Revisa tu bandeja de entrada y spam.",
+    resendSuccess: "Hemos solicitado un código nuevo para entrar. Revisa tu bandeja de entrada y spam.",
   },
   recovery: {
     label: "Código de recuperación",
@@ -63,6 +64,15 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [, setCooldownTick] = useState(0);
+  const emailRetrySeconds = getAuthEmailRetrySeconds(email);
+  const pendingRetrySeconds = getAuthEmailRetrySeconds(pendingCodeEmail);
+
+  useEffect(() => {
+    if (!email && !pendingCodeEmail) return;
+    const timer = window.setInterval(() => setCooldownTick((tick) => tick + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [email, pendingCodeEmail]);
 
   function switchPanel(panel) {
     setActivePanel(panel);
@@ -95,6 +105,10 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
       onLoginSuccess?.(session);
       goHomeAfterAuth();
     } catch (error) {
+      if (error?.code === "email_not_confirmed" || /email not confirmed/i.test(error?.message || "")) {
+        startCodeVerification("signup", email.trim().toLowerCase());
+        setSuccessMessage("Tu cuenta está pendiente de confirmar. Usa el código del correo anterior o solicita otro mensaje de verificación aquí.");
+      }
       setErrorMessage(
         friendlyAuthError(
           error,
@@ -132,6 +146,12 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
         return;
       }
 
+      if (session?.needsSignIn) {
+        setSuccessMessage("Si ya tienes una cuenta, inicia sesión o usa «¿Olvidaste tu contraseña?». Una cuenta confirmada no recibe otro correo de registro.");
+        setActivePanel("login");
+        return;
+      }
+
       onLoginSuccess?.(session);
       goHomeAfterAuth();
     } catch (error) {
@@ -164,7 +184,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
       await requestSignInCode(cleanEmail);
       startCodeVerification("login", cleanEmail);
       setSuccessMessage(
-        "Te hemos enviado un código de seis cifras para entrar sin contraseña. Revisa tu correo y la carpeta de spam.",
+        "Hemos solicitado un código de seis cifras para entrar sin contraseña. Revisa tu correo y la carpeta de spam.",
       );
     } catch (error) {
       setErrorMessage(
@@ -224,6 +244,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
 
   async function handleResendCode(event) {
     event.preventDefault();
+    if (submitting || pendingRetrySeconds > 0) return;
     const codeEmail = pendingCodeEmail || email.trim().toLowerCase();
 
     if (!codeEmail) {
@@ -233,6 +254,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
 
     setSubmitting(true);
     setErrorMessage("");
+    setSuccessMessage("");
 
     try {
       if (pendingCodePurpose === "signup") {
@@ -245,7 +267,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
         throw new Error("Solicita primero un código de verificación.");
       }
 
-      setSuccessMessage(CODE_PURPOSE_COPY[pendingCodePurpose]?.resendSuccess || "Hemos enviado un correo nuevo.");
+      setSuccessMessage(CODE_PURPOSE_COPY[pendingCodePurpose]?.resendSuccess || "Hemos solicitado un correo nuevo.");
     } catch (error) {
       setErrorMessage(
         friendlyAuthError(
@@ -337,14 +359,15 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
           </div>
 
           {errorMessage && (
-            <div className="lg-error">{errorMessage}</div>
+            <div className="lg-error" role="alert">{errorMessage}</div>
           )}
 
-          {successMessage && (
+          {(successMessage || pendingCodeEmail) && (
             <div className="lg-note">
-              <p>{successMessage}</p>
+              {successMessage && <p role="status">{successMessage}</p>}
               {pendingCodeEmail && (
                 <>
+                  <p className="lg-code-address">Correo: {pendingCodeEmail}</p>
                   <form onSubmit={handleVerifyCode} className="lg-code-form">
                     <label htmlFor="verification-code">{pendingCodeCopy.label}</label>
                     <div className="lg-code-row">
@@ -362,15 +385,16 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
                       </button>
                     </div>
                   </form>
-                  <p>
-                    <a href="#" onClick={handleResendCode}>
-                      {submitting ? "Reenviando…" : pendingCodeCopy.resend}
-                    </a>
-                  </p>
+                  <button type="button" className="lg-resend" onClick={handleResendCode} disabled={submitting || pendingRetrySeconds > 0}>
+                    {pendingRetrySeconds > 0 ? `Reenviar en ${pendingRetrySeconds} s` : pendingCodeCopy.resend}
+                  </button>
+                  <p className="lg-helper-text">Si solicitas otro correo, utiliza el código del mensaje más reciente.</p>
                 </>
               )}
             </div>
           )}
+
+          {emailRetrySeconds > 0 && <p className="lg-helper-text">Podrás solicitar otro correo en {emailRetrySeconds} s.</p>}
 
           <section className={`lg-panel${activePanel === "login" ? " active" : ""}`}>
             <div className="lg-title">
@@ -471,7 +495,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
                   Te enviaremos un código de seis cifras. No necesitas recordar la contraseña.
                 </p>
 
-                <button type="submit" className="lg-btn" disabled={submitting}>
+                <button type="submit" className="lg-btn" disabled={submitting || emailRetrySeconds > 0}>
                   {submitting ? "Enviando…" : "Enviar código al correo"}
                 </button>
               </form>
@@ -543,7 +567,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
                 </div>
               </div>
 
-              <button type="submit" className="lg-btn" disabled={submitting}>
+              <button type="submit" className="lg-btn" disabled={submitting || emailRetrySeconds > 0}>
                 {submitting ? "Creando cuenta…" : "Crear mi cuenta"}
               </button>
             </form>
@@ -587,7 +611,7 @@ export default function LoginSupabase({ onLoginSuccess, onOpenCatalog }) {
                 </div>
               </div>
 
-              <button type="submit" className="lg-btn" disabled={submitting}>
+              <button type="submit" className="lg-btn" disabled={submitting || emailRetrySeconds > 0}>
                 {submitting ? "Enviando…" : "Enviar enlace y código"}
               </button>
             </form>
