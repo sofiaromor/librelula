@@ -119,7 +119,7 @@ test("flat shelf spines reuse a sharp cover; the 3D model keeps its composed spi
 
 test("2D is a native sibling action that resets both angles without opening the book", async () => {
   const jsx = await readFile(new URL("../src/InteractiveLibraryBook3D.jsx", import.meta.url), "utf8");
-  const reset = jsx.match(/function resetTo2D\(event\) \{([\s\S]*?)\n  \}/)?.[1];
+  const reset = jsx.match(/function resetTo2D\(event\) \{([\s\S]*?)\n {2}\}/)?.[1];
   assert.ok(reset);
   assert.match(reset, /event.preventDefault\(\)/);
   assert.match(reset, /event.stopPropagation\(\)/);

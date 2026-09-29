@@ -80,6 +80,32 @@ export function readerProgressFromPdf(page, totalPages) {
   return clampReaderProgress((safePage / safeTotal) * 100);
 }
 
+export function readerProgressFromPdfPosition(page, totalPages, pageOffset = 0) {
+  const safeTotal = Math.max(1, Math.round(Number(totalPages) || 1));
+  const safePage = Math.min(safeTotal, Math.max(1, Math.round(Number(page) || 1)));
+  const numericOffset = Number(pageOffset);
+  const safeOffset = Number.isFinite(numericOffset)
+    ? Math.max(0, Math.min(1, numericOffset))
+    : 0;
+
+  return clampReaderProgress(((safePage - 1 + safeOffset) / safeTotal) * 100);
+}
+
+export function readerPdfResumeLocation(savedProgress, totalPages) {
+  const pages = Math.max(1, Math.round(Number(totalPages) || 1));
+  const progress = clampReaderProgress(savedProgress?.progress);
+  const storedPage = Number(savedProgress?.current_page || savedProgress?.locator?.page || 0);
+  const page = Math.min(pages, Math.max(1,
+    storedPage > 0 ? Math.round(storedPage) : Math.ceil(pages * progress / 100),
+  ));
+  const storedOffset = savedProgress?.locator?.offset;
+  const offset = storedOffset === undefined
+    ? Math.max(0, Math.min(1, pages * progress / 100 - (page - 1)))
+    : Math.max(0, Math.min(1, Number(storedOffset) || 0));
+
+  return { page, offset };
+}
+
 export function readerProgressFromEpub(percentage) {
   return clampReaderProgress(Number(percentage || 0) * 100);
 }
@@ -96,4 +122,3 @@ export function safeReaderPathSegment(value, fallback = "book") {
 
   return segment || fallback;
 }
-

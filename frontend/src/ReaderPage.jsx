@@ -5,6 +5,7 @@ import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 
 import "./ReaderPage.css";
 import { publicUrl } from "./api.js";
+import { recordReadingProgress } from "./lib/homeDashboardApi.js";
 import {
   createReaderAnnotation,
   deleteReaderAnnotation,
@@ -19,6 +20,8 @@ import {
   readerFileFormat,
   readerProgressFromEpub,
   readerProgressFromPdf,
+  readerProgressFromPdfPosition,
+  readerPdfResumeLocation,
 } from "./lib/readerUtils.js";
 
 GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
@@ -31,15 +34,28 @@ const NOTE_COLORS = [
   ["lilac", "Lila"],
 ];
 
+const PDF_READING_MODES = {
+  CASCADE: "cascade",
+  PAGED: "paged",
+};
+
+const READER_ACTIVITY_IDLE_TIMEOUT_MS = 5 * 60_000;
+const PDF_CASCADE_RENDER_MARGIN_PX = 1400;
+const PDF_CASCADE_READING_LINE = 0.36;
+
 function ReaderIcon({ name }) {
   const paths = {
     back: <path d="m15 5-7 7 7 7M8 12h12" />,
+    cascade: <><path d="M5 4h14v6H5zM5 14h14v6H5z" /><path d="m9 12 3 2 3-2" /></>,
     close: <path d="m6 6 12 12M18 6 6 18" />,
+    fullscreen: <><path d="M8 4H4v4M16 4h4v4M20 16v4h-4M4 16v4h4" /></>,
+    fullscreenExit: <><path d="M9 4v5H4M15 4v5h5M20 15h-5v5M4 15h5v5" /></>,
     menu: <><path d="M5 6h14M5 12h14M5 18h14" /></>,
     next: <path d="m9 5 7 7-7 7M16 12H4" />,
     prev: <path d="m15 5-7 7 7 7M8 12h12" />,
     note: <><path d="M5 4h14v16H5z" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
     plus: <><path d="M12 5v14M5 12h14" /></>,
+    pages: <><path d="M7 4h10v16H7z" /><path d="M4 7v10M20 7v10" /></>,
     upload: <><path d="M12 16V5M8 9l4-4 4 4" /><path d="M5 15v4h14v-4" /></>,
     zoomIn: <><circle cx="10.8" cy="10.8" r="5.8" /><path d="m15.2 15.2 4 4M10.8 8v5.6M8 10.8h5.6" /></>,
     zoomOut: <><circle cx="10.8" cy="10.8" r="5.8" /><path d="m15.2 15.2 4 4M8 10.8h5.6" /></>,
@@ -223,100 +239,78 @@ function EpubReader({ sourceUrl, initialProgress, textScale, onProgress, onQuote
   );
 }
 
-function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelected, controlsRef, onPageChange }) {
-  const canvasRef = useRef(null);
+function PdfPageSurface({
+  pdf,
+  pageNumber,
+  viewportWidth,
+  zoom,
+  pageAspectRatio,
+  lazy,
+  scrollRootRef,
+  registerPage,
+  onQuoteSelected,
+}) {
   const pageRef = useRef(null);
+  const canvasRef = useRef(null);
   const textLayerRef = useRef(null);
-  const viewportRef = useRef(null);
-  const pdfRef = useRef(null);
-  const [pdf, setPdf] = useState(null);
-  const [pageNumber, setPageNumber] = useState(Math.max(1, Number(initialProgress?.current_page || initialProgress?.locator?.page || 1)));
-  const [totalPages, setTotalPages] = useState(0);
-  const [viewportWidth, setViewportWidth] = useState(760);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+  const [shouldRender, setShouldRender] = useState(!lazy);
+  const [rendered, setRendered] = useState(false);
+  const [pageError, setPageError] = useState("");
+  const targetWidth = Math.max(120, Math.round(viewportWidth * zoom));
 
   useEffect(() => {
-    const element = viewportRef.current;
-    if (!element) return undefined;
+    registerPage?.(pageNumber, pageRef.current);
+    return () => registerPage?.(pageNumber, null);
+  }, [pageNumber, registerPage]);
 
-    const updateWidth = () => {
-      const width = Math.floor(element.clientWidth - 8);
-      if (width > 0) setViewportWidth(width);
-    };
-    updateWidth();
-
-    if (typeof ResizeObserver === "undefined") {
-      window.addEventListener("resize", updateWidth);
-      return () => window.removeEventListener("resize", updateWidth);
+  useEffect(() => {
+    const element = pageRef.current;
+    if (!lazy || !element || typeof IntersectionObserver === "undefined") {
+      setShouldRender(true);
+      return undefined;
     }
 
-    const observer = new ResizeObserver(updateWidth);
+    const observer = new IntersectionObserver(
+      ([entry]) => setShouldRender(Boolean(entry?.isIntersecting)),
+      {
+        root: scrollRootRef?.current || null,
+        rootMargin: `${PDF_CASCADE_RENDER_MARGIN_PX}px 0px`,
+        threshold: 0,
+      },
+    );
     observer.observe(element);
     return () => observer.disconnect();
-  }, []);
+  }, [lazy, scrollRootRef]);
 
   useEffect(() => {
-    if (!sourceUrl) return undefined;
+    const canvas = canvasRef.current;
+    const pageElement = pageRef.current;
+    const textLayerElement = textLayerRef.current;
+    if (!pdf || !shouldRender || !canvas || !pageElement || !textLayerElement) {
+      setRendered(false);
+      return undefined;
+    }
 
     let cancelled = false;
-    const resetTimer = window.setTimeout(() => {
-      if (!cancelled) {
-        setLoading(true);
-        setError("");
-        setPdf(null);
-      }
-    }, 0);
-    const loadingTask = getDocument({ url: sourceUrl });
-
-    loadingTask.promise
-      .then((loadedPdf) => {
-        if (cancelled) {
-          loadedPdf.destroy();
-          return;
-        }
-        pdfRef.current = loadedPdf;
-        setPdf(loadedPdf);
-        setTotalPages(loadedPdf.numPages);
-        setPageNumber((current) => Math.min(loadedPdf.numPages, Math.max(1, current)));
-      })
-      .catch((loadError) => {
-        if (!cancelled) setError(loadError?.message || "No se pudo abrir este PDF.");
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-      window.clearTimeout(resetTimer);
-      loadingTask.destroy();
-      pdfRef.current?.destroy?.();
-      pdfRef.current = null;
-    };
-  }, [sourceUrl]);
-
-  useEffect(() => {
-    if (!pdf || !canvasRef.current || !pageRef.current || !textLayerRef.current) return undefined;
-
-    let cancelled = false;
+    let page = null;
     let renderTask = null;
     let textLayer = null;
+    setRendered(false);
+    setPageError("");
 
     pdf.getPage(pageNumber)
-      .then(async (page) => {
+      .then(async (loadedPage) => {
+        page = loadedPage;
         if (cancelled || !canvasRef.current || !pageRef.current || !textLayerRef.current) return;
+
         const baseViewport = page.getViewport({ scale: 1 });
-        const fitScale = Math.min(1.35, Math.max(0.35, viewportWidth / baseViewport.width));
-        const viewport = page.getViewport({ scale: fitScale * zoom });
-        const canvas = canvasRef.current;
-        const pageElement = pageRef.current;
-        const textLayerElement = textLayerRef.current;
+        const viewport = page.getViewport({ scale: targetWidth / baseViewport.width });
         const context = canvas.getContext("2d", { alpha: false });
         const outputScale = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
 
         pageElement.style.width = `${Math.ceil(viewport.width)}px`;
         pageElement.style.height = `${Math.ceil(viewport.height)}px`;
+        pageElement.style.aspectRatio = `${viewport.width} / ${viewport.height}`;
         pageElement.style.setProperty("--reader-pdf-scale", String(viewport.scale));
         canvas.width = Math.ceil(viewport.width * outputScale);
         canvas.height = Math.ceil(viewport.height * outputScale);
@@ -337,21 +331,11 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
           viewport,
         });
         await Promise.all([renderTask.promise, textLayer.render()]);
-      })
-      .then(() => {
-        if (cancelled) return;
-        const progress = readerProgressFromPdf(pageNumber, totalPages);
-        onPageChange?.(`Página ${pageNumber}`);
-        onProgress?.({
-          progress,
-          locator: { page: pageNumber },
-          currentPage: pageNumber,
-          currentChapter: `Página ${pageNumber}`,
-        });
+        if (!cancelled) setRendered(true);
       })
       .catch((renderError) => {
         if (!cancelled && renderError?.name !== "RenderingCancelledException") {
-          setError(renderError?.message || "No se pudo renderizar esta página.");
+          setPageError("No se pudo cargar esta página.");
         }
       });
 
@@ -359,22 +343,12 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
       cancelled = true;
       renderTask?.cancel?.();
       textLayer?.cancel?.();
+      textLayerElement.replaceChildren();
+      canvas.width = 0;
+      canvas.height = 0;
+      page?.cleanup?.();
     };
-  }, [onPageChange, onProgress, pageNumber, pdf, totalPages, viewportWidth, zoom]);
-
-  const goToPage = useCallback((nextPage) => {
-    setPageNumber((current) => Math.min(totalPages || 1, Math.max(1, nextPage ?? current)));
-  }, [totalPages]);
-
-  useEffect(() => {
-    if (!controlsRef) return undefined;
-    controlsRef.current = {
-      next: () => goToPage(pageNumber + 1),
-      previous: () => goToPage(pageNumber - 1),
-      goTo: (target) => goToPage(Number(target)),
-    };
-    return () => { controlsRef.current = null; };
-  }, [controlsRef, goToPage, pageNumber]);
+  }, [pageNumber, pdf, shouldRender, targetWidth]);
 
   const captureSelection = useCallback(() => {
     window.setTimeout(() => {
@@ -383,9 +357,9 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
       const focus = selection?.focusNode;
       const layer = textLayerRef.current;
       const quote = selection?.toString?.().replace(/\s+/g, " ").trim() || "";
+      const belongsToPage = (anchor && layer?.contains(anchor)) || (focus && layer?.contains(focus));
 
-      const selectionBelongsToPage = (anchor && layer?.contains(anchor)) || (focus && layer?.contains(focus));
-      if (!layer || !quote || !selectionBelongsToPage) return;
+      if (!layer || !quote || !belongsToPage) return;
       onQuoteSelected?.({
         quote,
         locator: { page: pageNumber },
@@ -395,21 +369,371 @@ function PdfReader({ sourceUrl, initialProgress, zoom, onProgress, onQuoteSelect
   }, [onQuoteSelected, pageNumber]);
 
   return (
-    <div className="reader-format-stage reader-pdf-stage">
-      <div className="reader-pdf-page-label">Página {pageNumber} de {totalPages || "…"}</div>
-      <div ref={viewportRef} className="reader-pdf-viewport" aria-label={`Página ${pageNumber} del PDF`}>
-        <div ref={pageRef} className="reader-pdf-page">
-          <canvas ref={canvasRef} />
-          <div
-            ref={textLayerRef}
-            className="reader-pdf-text-layer"
-            onMouseUp={captureSelection}
-            onTouchEnd={captureSelection}
-            aria-label="Texto seleccionable del PDF"
-          />
+    <article
+      ref={pageRef}
+      className={`reader-pdf-page${lazy ? " is-cascade-page" : ""}${rendered ? " is-rendered" : " is-placeholder"}`}
+      data-page-number={pageNumber}
+      style={{ width: `${targetWidth}px`, aspectRatio: String(pageAspectRatio) }}
+      aria-label={`Página ${pageNumber}`}
+    >
+      <canvas ref={canvasRef} aria-hidden="true" />
+      <div
+        ref={textLayerRef}
+        className="reader-pdf-text-layer"
+        onPointerUp={captureSelection}
+        onTouchEnd={captureSelection}
+        aria-label={`Texto seleccionable de la página ${pageNumber}`}
+      />
+      {!rendered && (
+        <div className={`reader-pdf-page-placeholder${pageError ? " is-error" : ""}`} aria-hidden={!pageError}>
+          <span>{pageError || `Página ${pageNumber}`}</span>
         </div>
+      )}
+      <span className="reader-pdf-page-number" aria-hidden="true">{pageNumber}</span>
+    </article>
+  );
+}
+
+function PdfReader({
+  sourceUrl,
+  initialProgress,
+  zoom,
+  readingMode,
+  onProgress,
+  onQuoteSelected,
+  controlsRef,
+  onPageChange,
+  onDocumentInfo,
+  onUserAction,
+}) {
+  const viewportRef = useRef(null);
+  const pagesContainerRef = useRef(null);
+  const pdfRef = useRef(null);
+  const pageElementsRef = useRef(new Map());
+  const scrollFrameRef = useRef(null);
+  const restoreFrameRef = useRef(null);
+  const savedInitialPage = Number(initialProgress?.current_page || initialProgress?.locator?.page || 0);
+  const initialPageRef = useRef(savedInitialPage > 0 ? Math.round(savedInitialPage) : 0);
+  const initialOffsetRef = useRef(Math.max(0, Math.min(1, Number(initialProgress?.locator?.offset || 0))));
+  const initialProgressRef = useRef(initialProgress);
+  const lastSnapshotRef = useRef(null);
+  const lastReportedRef = useRef({ page: 0, offset: -1, progress: -1 });
+  const callbacksRef = useRef({ onProgress, onPageChange, onUserAction });
+  const [pdf, setPdf] = useState(null);
+  const [pageNumber, setPageNumber] = useState(Math.max(1, savedInitialPage));
+  const [totalPages, setTotalPages] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(760);
+  const [pageAspectRatio, setPageAspectRatio] = useState(0.707);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const isCascade = readingMode === PDF_READING_MODES.CASCADE;
+
+  useEffect(() => {
+    callbacksRef.current = { onProgress, onPageChange, onUserAction };
+  }, [onProgress, onPageChange, onUserAction]);
+
+  useEffect(() => {
+    const element = viewportRef.current;
+    if (!element) return undefined;
+
+    const updateWidth = () => {
+      const width = Math.floor(element.clientWidth - (isCascade ? 16 : 8));
+      if (width > 0) setViewportWidth(width);
+    };
+    updateWidth();
+
+    if (typeof ResizeObserver === "undefined") {
+      window.addEventListener("resize", updateWidth);
+      return () => window.removeEventListener("resize", updateWidth);
+    }
+
+    const observer = new ResizeObserver(updateWidth);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [isCascade]);
+
+  useEffect(() => {
+    if (!sourceUrl) return undefined;
+
+    let cancelled = false;
+    const resetTimer = window.setTimeout(() => {
+      if (!cancelled) {
+        setLoading(true);
+        setError("");
+        setPdf(null);
+      }
+    }, 0);
+    const loadingTask = getDocument({ url: sourceUrl });
+
+    loadingTask.promise
+      .then(async (loadedPdf) => {
+        if (cancelled) {
+          await loadedPdf.destroy();
+          return;
+        }
+
+        const firstPage = await loadedPdf.getPage(1);
+        const firstViewport = firstPage.getViewport({ scale: 1 });
+        if (cancelled) {
+          await loadedPdf.destroy();
+          return;
+        }
+
+        pdfRef.current = loadedPdf;
+        const resumeLocation = readerPdfResumeLocation(initialProgressRef.current, loadedPdf.numPages);
+        initialPageRef.current = resumeLocation.page;
+        initialOffsetRef.current = resumeLocation.offset;
+        setPdf(loadedPdf);
+        setTotalPages(loadedPdf.numPages);
+        setPageAspectRatio(firstViewport.width / firstViewport.height);
+        setPageNumber(resumeLocation.page);
+        onDocumentInfo?.({ totalPages: loadedPdf.numPages });
+      })
+      .catch((loadError) => {
+        if (!cancelled) setError(loadError?.message || "No se pudo abrir este PDF.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(resetTimer);
+      void loadingTask.destroy();
+      void pdfRef.current?.destroy?.();
+      pdfRef.current = null;
+    };
+  }, [onDocumentInfo, sourceUrl]);
+
+  const registerPage = useCallback((number, element) => {
+    if (element) pageElementsRef.current.set(number, element);
+    else pageElementsRef.current.delete(number);
+  }, []);
+
+  const emitProgress = useCallback((nextPage, nextOffset = 0, force = false) => {
+    if (!totalPages) return null;
+    const safePage = Math.min(totalPages, Math.max(1, Math.round(Number(nextPage) || 1)));
+    const safeOffset = Math.max(0, Math.min(1, Number(nextOffset) || 0));
+    const progress = isCascade
+      ? readerProgressFromPdfPosition(safePage, totalPages, safeOffset)
+      : readerProgressFromPdf(safePage, totalPages);
+    const snapshot = {
+      progress,
+      locator: {
+        page: safePage,
+        ...(isCascade ? { offset: Number(safeOffset.toFixed(4)) } : {}),
+      },
+      currentPage: safePage,
+      currentChapter: `Página ${safePage} de ${totalPages}`,
+      totalPages,
+    };
+    const previous = lastReportedRef.current;
+    const unchanged = previous.page === safePage
+      && previous.progress === progress
+      && Math.abs(previous.offset - safeOffset) < 0.015;
+
+    lastSnapshotRef.current = snapshot;
+    if (unchanged && !force) return snapshot;
+
+    lastReportedRef.current = { page: safePage, offset: safeOffset, progress };
+    setPageNumber(safePage);
+    callbacksRef.current.onPageChange?.(snapshot.currentChapter);
+    callbacksRef.current.onProgress?.(snapshot);
+    return snapshot;
+  }, [isCascade, totalPages]);
+
+  const measureCascadeProgress = useCallback((force = false) => {
+    const viewport = viewportRef.current;
+    const pagesContainer = pagesContainerRef.current;
+    if (!isCascade || !viewport || !pagesContainer || !totalPages) return lastSnapshotRef.current;
+
+    const maxScroll = Math.max(0, viewport.scrollHeight - viewport.clientHeight);
+    const atEnd = maxScroll > 2 && viewport.scrollTop >= maxScroll - 2;
+    if (atEnd) return emitProgress(totalPages, 1, force);
+    if (maxScroll <= 2 || viewport.scrollTop <= 1 && initialPageRef.current === 1 && !lastSnapshotRef.current) {
+      return emitProgress(1, 0, force);
+    }
+
+    const readingLine = viewport.scrollTop + (viewport.clientHeight * PDF_CASCADE_READING_LINE);
+    const containerOffset = pagesContainer.offsetTop;
+    let activePage = Math.min(totalPages, Math.max(1, lastSnapshotRef.current?.currentPage || initialPageRef.current));
+    let activeElement = pageElementsRef.current.get(activePage) || null;
+
+    for (let number = 1; number <= totalPages; number += 1) {
+      const element = pageElementsRef.current.get(number);
+      if (!element) continue;
+      const top = containerOffset + element.offsetTop;
+      const bottom = top + element.offsetHeight;
+      if (readingLine < top) {
+        const previousNumber = Math.max(1, number - 1);
+        activePage = previousNumber;
+        activeElement = pageElementsRef.current.get(previousNumber) || element;
+        break;
+      }
+      activePage = number;
+      activeElement = element;
+      if (readingLine <= bottom) break;
+    }
+
+    if (!activeElement) return lastSnapshotRef.current;
+    const pageTop = containerOffset + activeElement.offsetTop;
+    const pageHeight = Math.max(1, activeElement.offsetHeight);
+    const pageOffset = Math.max(0, Math.min(1, (readingLine - pageTop) / pageHeight));
+    return emitProgress(activePage, pageOffset, force);
+  }, [emitProgress, isCascade, totalPages]);
+
+  const scheduleCascadeProgress = useCallback(() => {
+    if (scrollFrameRef.current !== null) return;
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      measureCascadeProgress();
+    });
+  }, [measureCascadeProgress]);
+
+  const scrollToCascadeLocation = useCallback((targetPage, targetOffset = 0, behavior = "smooth") => {
+    const viewport = viewportRef.current;
+    const pagesContainer = pagesContainerRef.current;
+    const safePage = Math.min(totalPages || 1, Math.max(1, Math.round(Number(targetPage) || 1)));
+    const element = pageElementsRef.current.get(safePage);
+    if (!viewport || !pagesContainer || !element) return false;
+
+    const safeOffset = Math.max(0, Math.min(1, Number(targetOffset) || 0));
+    const targetTop = pagesContainer.offsetTop
+      + element.offsetTop
+      + (element.offsetHeight * safeOffset)
+      - (viewport.clientHeight * PDF_CASCADE_READING_LINE);
+    const top = Math.max(0, Math.min(viewport.scrollHeight - viewport.clientHeight, targetTop));
+
+    try {
+      viewport.scrollTo({ top, behavior });
+    } catch {
+      viewport.scrollTop = top;
+    }
+    return true;
+  }, [totalPages]);
+
+  useEffect(() => {
+    if (!pdf || !totalPages || isCascade) return;
+    emitProgress(pageNumber, 0, true);
+  }, [emitProgress, isCascade, pageNumber, pdf, totalPages]);
+
+  useEffect(() => {
+    if (!pdf || !totalPages || !isCascade) return undefined;
+
+    const location = lastSnapshotRef.current?.locator || {
+      page: initialPageRef.current,
+      offset: initialOffsetRef.current,
+    };
+    let attempts = 0;
+    const restore = () => {
+      attempts += 1;
+      if (scrollToCascadeLocation(location.page, location.offset, "auto") || attempts >= 8) {
+        measureCascadeProgress(true);
+        restoreFrameRef.current = null;
+        return;
+      }
+      restoreFrameRef.current = window.requestAnimationFrame(restore);
+    };
+    restoreFrameRef.current = window.requestAnimationFrame(restore);
+
+    return () => {
+      if (restoreFrameRef.current !== null) window.cancelAnimationFrame(restoreFrameRef.current);
+      restoreFrameRef.current = null;
+    };
+  }, [isCascade, measureCascadeProgress, pdf, scrollToCascadeLocation, totalPages, viewportWidth, zoom]);
+
+  const goToPage = useCallback((nextPage) => {
+    callbacksRef.current.onUserAction?.();
+    const safePage = Math.min(totalPages || 1, Math.max(1, Math.round(Number(nextPage) || 1)));
+    if (isCascade) {
+      scrollToCascadeLocation(safePage, 0);
+      return;
+    }
+    setPageNumber(safePage);
+  }, [isCascade, scrollToCascadeLocation, totalPages]);
+
+  const scrollCascadeScreen = useCallback((direction) => {
+    callbacksRef.current.onUserAction?.();
+    const viewport = viewportRef.current;
+    if (!viewport) return;
+    const distance = Math.max(180, viewport.clientHeight * 0.88) * (direction === "next" ? 1 : -1);
+    try {
+      viewport.scrollBy({ top: distance, behavior: "smooth" });
+    } catch {
+      viewport.scrollTop += distance;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!controlsRef) return undefined;
+    controlsRef.current = {
+      next: () => (isCascade ? scrollCascadeScreen("next") : goToPage(pageNumber + 1)),
+      previous: () => (isCascade ? scrollCascadeScreen("previous") : goToPage(pageNumber - 1)),
+      goTo: (target) => goToPage(Number(target)),
+      getProgress: () => (isCascade ? measureCascadeProgress(true) : lastSnapshotRef.current),
+    };
+    return () => { controlsRef.current = null; };
+  }, [controlsRef, goToPage, isCascade, measureCascadeProgress, pageNumber, scrollCascadeScreen]);
+
+  useEffect(() => () => {
+    if (scrollFrameRef.current !== null) window.cancelAnimationFrame(scrollFrameRef.current);
+    if (restoreFrameRef.current !== null) window.cancelAnimationFrame(restoreFrameRef.current);
+  }, []);
+
+  return (
+    <div className={`reader-format-stage reader-pdf-stage${isCascade ? " is-cascade" : " is-paged"}`}>
+      <div className="reader-pdf-page-label" aria-live="polite">Página {pageNumber} de {totalPages || "…"}</div>
+      <div
+        ref={viewportRef}
+        className={`reader-pdf-viewport${isCascade ? " is-cascade" : " is-paged"}`}
+        onScroll={isCascade ? scheduleCascadeProgress : undefined}
+        onWheel={() => callbacksRef.current.onUserAction?.()}
+        onTouchStart={() => callbacksRef.current.onUserAction?.()}
+        onPointerDown={() => callbacksRef.current.onUserAction?.()}
+        aria-label={isCascade ? `PDF en lectura continua, página ${pageNumber} de ${totalPages || "…"}` : `Página ${pageNumber} del PDF`}
+      >
+        {isCascade ? (
+          <div ref={pagesContainerRef} className="reader-pdf-cascade-pages">
+            {Array.from({ length: totalPages }, (_, index) => {
+              const number = index + 1;
+              return (
+                <PdfPageSurface
+                  key={number}
+                  pdf={pdf}
+                  pageNumber={number}
+                  viewportWidth={viewportWidth}
+                  zoom={zoom}
+                  pageAspectRatio={pageAspectRatio}
+                  lazy
+                  scrollRootRef={viewportRef}
+                  registerPage={registerPage}
+                  onQuoteSelected={onQuoteSelected}
+                />
+              );
+            })}
+            {totalPages > 0 && (
+              <div className="reader-pdf-end-marker" role="status">
+                <span aria-hidden="true">✦</span>
+                <strong>Has llegado al final del documento</strong>
+                <small>{totalPages} páginas leídas</small>
+              </div>
+            )}
+          </div>
+        ) : (
+          <PdfPageSurface
+            pdf={pdf}
+            pageNumber={pageNumber}
+            viewportWidth={viewportWidth}
+            zoom={zoom}
+            pageAspectRatio={pageAspectRatio}
+            lazy={false}
+            scrollRootRef={viewportRef}
+            registerPage={registerPage}
+            onQuoteSelected={onQuoteSelected}
+          />
+        )}
       </div>
-      {loading && <div className="reader-stage-overlay"><ReaderLoading text="Abriendo tu PDF…" /></div>}
+      {loading && <div className="reader-stage-overlay"><ReaderLoading text="Preparando las páginas…" /></div>}
       {error && (
         <div className="reader-stage-overlay">
           <div className="reader-reader-error" role="alert">
@@ -585,6 +909,9 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const [notesOpen, setNotesOpen] = useState(false);
   const [message, setMessage] = useState(null);
   const [error, setError] = useState("");
+  const [pdfReadingMode, setPdfReadingMode] = useState(PDF_READING_MODES.CASCADE);
+  const [immersiveMode, setImmersiveMode] = useState(false);
+  const [readerDocumentPages, setReaderDocumentPages] = useState(0);
   const [currentProgress, setCurrentProgress] = useState(0);
   const [currentChapter, setCurrentChapter] = useState("");
   const [currentPage, setCurrentPage] = useState(null);
@@ -596,7 +923,13 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const progressSaveCountRef = useRef(0);
   const mountedRef = useRef(true);
   const flushProgressRef = useRef(null);
+  const progressActivityTimerRef = useRef(null);
+  const progressActivityBaselineRef = useRef({ sourceKey: "", progress: 0 });
+  const progressActivityInFlightRef = useRef(false);
   const touchStartRef = useRef(null);
+  const readerPageRef = useRef(null);
+  const nativeFullscreenRef = useRef(false);
+  const activityArmedRef = useRef(false);
   const readerStartedRef = useRef("");
 
   const bookId = String(book?.id || "").trim();
@@ -670,7 +1003,13 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   const sourceKey = selectedDocument?.id || `catalog:${bookId}:${selectedFormat}`;
   const savedProgressMatchesSource = !readerState.progress
     || String(readerState.progress.document_id || "") === String(selectedDocument?.id || "");
-  const sourceProgress = savedProgressMatchesSource ? readerState.progress : null;
+  const storedSourceProgress = savedProgressMatchesSource ? readerState.progress : null;
+  const catalogProgress = clampReaderProgress(book?.progress);
+  const sourceProgress = useMemo(() => storedSourceProgress || (
+    selectedFormat === "pdf" && catalogProgress > 0
+      ? { progress: catalogProgress, locator: {}, current_page: null, current_chapter: "" }
+      : null
+  ), [catalogProgress, selectedFormat, storedSourceProgress]);
   const visibleAnnotations = useMemo(
     () => readerState.annotations || [],
     [readerState.annotations],
@@ -678,7 +1017,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
 
   const persistProgress = useCallback((snapshot = latestProgressRef.current, { quiet = false } = {}) => {
     window.clearTimeout(progressTimerRef.current);
-    if (!snapshot || !bookId) return Promise.resolve(null);
+    if (!snapshot || !bookId || (selectedFormat === "pdf" && !activityArmedRef.current)) return Promise.resolve(null);
 
     const pending = {
       ...snapshot,
@@ -716,13 +1055,74 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         progressSaveCountRef.current = Math.max(0, progressSaveCountRef.current - 1);
         if (mountedRef.current && progressSaveCountRef.current === 0) setSavingProgress(false);
       });
-  }, [bookId]);
+  }, [bookId, selectedFormat]);
+
+  const clearProgressActivityTimer = useCallback(() => {
+    if (progressActivityTimerRef.current === null) return;
+    window.clearTimeout(progressActivityTimerRef.current);
+    progressActivityTimerRef.current = null;
+  }, []);
+
+  const recordProgressActivity = useCallback(async () => {
+    if (!bookId || !sourceUrl || progressActivityInFlightRef.current) return null;
+
+    progressActivityInFlightRef.current = true;
+    try {
+      let snapshot = latestProgressRef.current;
+      const liveSnapshot = await Promise.resolve(readerControlsRef.current?.getProgress?.());
+      if (liveSnapshot) {
+        snapshot = {
+          ...(snapshot || {}),
+          ...liveSnapshot,
+          documentId: selectedDocument?.id || null,
+        };
+        latestProgressRef.current = snapshot;
+      }
+      if (!snapshot) return null;
+
+      const nextProgress = clampReaderProgress(snapshot.progress);
+      const baseline = progressActivityBaselineRef.current;
+      const previousProgress = baseline.sourceKey === sourceKey
+        ? clampReaderProgress(baseline.progress)
+        : clampReaderProgress(sourceProgress?.progress);
+      if (nextProgress <= previousProgress) return null;
+
+      const saved = await persistProgress(snapshot, { quiet: true });
+      if (!saved) return null;
+      const progressLog = await recordReadingProgress({
+        bookId,
+        previousProgress,
+        newProgress: nextProgress,
+        totalPages: snapshot.totalPages || readerDocumentPages || book?.pages,
+      });
+      if (progressLog?.id) {
+        progressActivityBaselineRef.current = { sourceKey, progress: nextProgress };
+      }
+      return progressLog;
+    } catch {
+      // Guardar la posición sigue siendo prioritario si falla el registro social.
+      return null;
+    } finally {
+      progressActivityInFlightRef.current = false;
+    }
+  }, [book, bookId, persistProgress, readerDocumentPages, selectedDocument, sourceKey, sourceProgress, sourceUrl]);
+
+  const scheduleProgressActivity = useCallback(() => {
+    clearProgressActivityTimer();
+    if (!bookId || !sourceUrl) return;
+
+    progressActivityTimerRef.current = window.setTimeout(() => {
+      progressActivityTimerRef.current = null;
+      void recordProgressActivity();
+    }, READER_ACTIVITY_IDLE_TIMEOUT_MS);
+  }, [bookId, clearProgressActivityTimer, recordProgressActivity, sourceUrl]);
 
   useEffect(() => {
     flushProgressRef.current = persistProgress;
   }, [persistProgress]);
 
   const handleProgress = useCallback((details) => {
+    const previous = latestProgressRef.current;
     const next = {
       ...details,
       progress: clampReaderProgress(details?.progress),
@@ -733,15 +1133,30 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     if (next.currentPage) setCurrentPage(next.currentPage);
     if (next.currentChapter) setCurrentChapter(next.currentChapter);
 
-    window.clearTimeout(progressTimerRef.current);
-    progressTimerRef.current = window.setTimeout(() => {
-      void persistProgress(next);
-    }, 650);
-  }, [persistProgress, selectedDocument?.id]);
+    if (selectedFormat !== "pdf" || activityArmedRef.current) {
+      window.clearTimeout(progressTimerRef.current);
+      progressTimerRef.current = window.setTimeout(() => {
+        void persistProgress(next);
+      }, 650);
+    }
+
+    const previousOffset = Number(previous?.locator?.offset);
+    const nextOffset = Number(next.locator?.offset);
+    const moved = Boolean(previous) && (
+      previous.currentPage !== next.currentPage
+      || previous.locator?.cfi !== next.locator?.cfi
+      || (Number.isFinite(previousOffset) && Number.isFinite(nextOffset) && Math.abs(previousOffset - nextOffset) >= 0.015)
+      || previous.progress !== next.progress
+    );
+    if (moved && activityArmedRef.current) scheduleProgressActivity();
+  }, [persistProgress, scheduleProgressActivity, selectedDocument?.id, selectedFormat]);
 
   useEffect(() => {
     if (!sourceUrl || !bookId || readerStartedRef.current === sourceKey || loading) return;
     readerStartedRef.current = sourceKey;
+    clearProgressActivityTimer();
+    activityArmedRef.current = false;
+    setReaderDocumentPages(0);
     const startingPosition = {
       documentId: selectedDocument?.id || null,
       progress: clampReaderProgress(sourceProgress?.progress),
@@ -750,8 +1165,11 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
       currentChapter: sourceProgress?.current_chapter || "",
     };
     latestProgressRef.current = startingPosition;
-    void persistProgress(startingPosition);
-  }, [bookId, loading, persistProgress, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
+    progressActivityBaselineRef.current = {
+      sourceKey,
+      progress: startingPosition.progress,
+    };
+  }, [bookId, clearProgressActivityTimer, loading, selectedDocument?.id, sourceKey, sourceProgress, sourceUrl]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -800,8 +1218,11 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   }, [annotationComposer, sourceUrl]);
 
   async function selectSource(documentId, format = "") {
+    clearProgressActivityTimer();
+    if (activityArmedRef.current) await recordProgressActivity();
     await persistProgress();
     latestProgressRef.current = null;
+    activityArmedRef.current = false;
     setSelectedDocumentId(documentId || "");
     if (format) setCatalogFormat(format);
     setMessage(null);
@@ -910,9 +1331,46 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   }
 
   async function handleBack() {
+    clearProgressActivityTimer();
+    if (activityArmedRef.current) await recordProgressActivity();
     await persistProgress();
+    if (document.fullscreenElement === readerPageRef.current) await document.exitFullscreen?.();
     onBack?.();
   }
+
+  async function toggleImmersiveMode() {
+    if (immersiveMode) {
+      if (document.fullscreenElement === readerPageRef.current) await document.exitFullscreen?.();
+      setImmersiveMode(false);
+      nativeFullscreenRef.current = false;
+      return;
+    }
+
+    setImmersiveMode(true);
+    try {
+      await readerPageRef.current?.requestFullscreen?.();
+      nativeFullscreenRef.current = document.fullscreenElement === readerPageRef.current;
+    } catch {
+      // El diseño a pantalla completa funciona también sin la API nativa.
+      nativeFullscreenRef.current = false;
+    }
+  }
+
+  useEffect(() => {
+    if (!immersiveMode) return undefined;
+    document.body.classList.add("reader-immersive-active");
+    const onFullscreenChange = () => {
+      if (nativeFullscreenRef.current && document.fullscreenElement !== readerPageRef.current) {
+        nativeFullscreenRef.current = false;
+        setImmersiveMode(false);
+      }
+    };
+    document.addEventListener("fullscreenchange", onFullscreenChange);
+    return () => {
+      document.body.classList.remove("reader-immersive-active");
+      document.removeEventListener("fullscreenchange", onFullscreenChange);
+    };
+  }, [immersiveMode]);
 
   function handleReaderTouchStart(event) {
     if (event.touches.length !== 1) return;
@@ -924,7 +1382,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
     const start = touchStartRef.current;
     touchStartRef.current = null;
     const touch = event.changedTouches?.[0];
-    if (!start || !touch || annotationComposer || (selectedFormat === "pdf" && textScale > 100)) return;
+    if (!start || !touch || annotationComposer || (selectedFormat === "pdf" && (textScale > 100 || pdfReadingMode === PDF_READING_MODES.CASCADE))) return;
     if (window.getSelection?.()?.toString?.().trim()) return;
 
     const distanceX = touch.clientX - start.x;
@@ -946,7 +1404,7 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
   }
 
   return (
-    <main className="reader-page">
+    <main ref={readerPageRef} className={`reader-page${immersiveMode ? " is-reader-immersive" : ""}`}>
       <header className="reader-header">
         <button type="button" className="reader-back-button" onClick={handleBack}>
           <ReaderIcon name="back" />
@@ -983,6 +1441,23 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
         </div>
 
         <div className="reader-toolbar-group reader-toolbar-actions">
+          {selectedFormat === "pdf" && sourceUrl && (
+            <button
+              type="button"
+              className={`reader-toolbar-button${pdfReadingMode === PDF_READING_MODES.CASCADE ? " is-active" : ""}`}
+              onClick={() => setPdfReadingMode((mode) => mode === PDF_READING_MODES.CASCADE ? PDF_READING_MODES.PAGED : PDF_READING_MODES.CASCADE)}
+              aria-label={pdfReadingMode === PDF_READING_MODES.CASCADE ? "Cambiar a lectura por páginas" : "Cambiar a lectura continua"}
+              aria-pressed={pdfReadingMode === PDF_READING_MODES.CASCADE}
+            >
+              <ReaderIcon name={pdfReadingMode === PDF_READING_MODES.CASCADE ? "cascade" : "pages"} />
+              <span>{pdfReadingMode === PDF_READING_MODES.CASCADE ? "Cascada" : "Páginas"}</span>
+            </button>
+          )}
+          {sourceUrl && (
+            <button type="button" className="reader-toolbar-button" onClick={toggleImmersiveMode} aria-label={immersiveMode ? "Salir de pantalla completa" : "Pantalla completa"}>
+              <ReaderIcon name={immersiveMode ? "fullscreenExit" : "fullscreen"} /><span>{immersiveMode ? "Salir" : "Ampliar"}</span>
+            </button>
+          )}
           <button type="button" className="reader-toolbar-button is-note" onClick={() => openNewAnnotation()}>
             <ReaderIcon name="plus" /><span>Nueva anotación</span>
           </button>
@@ -1053,10 +1528,13 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
                 sourceUrl={sourceUrl}
                 initialProgress={sourceProgress}
                 zoom={textScale / 100}
+                readingMode={pdfReadingMode}
                 onProgress={handleProgress}
                 onQuoteSelected={handleQuoteSelected}
                 controlsRef={readerControlsRef}
                 onPageChange={setCurrentChapter}
+                onDocumentInfo={setReaderDocumentPages}
+                onUserAction={() => { activityArmedRef.current = true; }}
               />
             ) : (
               <EpubReader
@@ -1085,6 +1563,15 @@ export default function ReaderPage({ book, isLoggedIn, onBack }) {
               <AnnotationList annotations={visibleAnnotations} onOpen={openAnnotation} onDelete={removeAnnotation} />
             </aside>
           )}
+        </div>
+      )}
+
+      {sourceUrl && !loading && !error && (
+        <div className="reader-reading-statusbar" role="status">
+          <span className="reader-reading-statusbar-title" title={book.title || "Tu libro"}>{book.title || "Tu libro"}</span>
+          <span>{selectedFormat === "pdf" && currentPage ? `Página ${currentPage}${readerDocumentPages ? ` / ${readerDocumentPages}` : ""}` : currentChapter || "Lectura"}</span>
+          <strong>{currentProgress}%</strong>
+          <small>{savingProgress ? "Guardando…" : "Posición guardada"}</small>
         </div>
       )}
 

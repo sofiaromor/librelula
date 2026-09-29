@@ -7,6 +7,8 @@ import {
   readerFileFormat,
   readerProgressFromEpub,
   readerProgressFromPdf,
+  readerProgressFromPdfPosition,
+  readerPdfResumeLocation,
   safeReaderPathSegment,
   validateReaderFile,
 } from "../src/lib/readerUtils.js";
@@ -30,6 +32,21 @@ test("calcula el progreso del PDF y del ePub dentro de 0-100", () => {
   assert.equal(readerProgressFromEpub(0.42), 42);
   assert.equal(clampReaderProgress(-4), 0);
   assert.equal(clampReaderProgress(104), 100);
+});
+
+test("calcula el progreso continuo del PDF dentro de la página visible", () => {
+  assert.equal(readerProgressFromPdfPosition(1, 4, 0), 0);
+  assert.equal(readerProgressFromPdfPosition(1, 4, 1), 25);
+  assert.equal(readerProgressFromPdfPosition(2, 4, 0.5), 38);
+  assert.equal(readerProgressFromPdfPosition(4, 4, 1), 100);
+  assert.equal(readerProgressFromPdfPosition(8, 4, 2), 100);
+});
+
+test("reanuda PDFs antiguos y nuevos sin adelantar ni perder el progreso", () => {
+  assert.deepEqual(readerPdfResumeLocation({ current_page: 3, progress: 75 }, 4), { page: 3, offset: 1 });
+  assert.deepEqual(readerPdfResumeLocation({ progress: 35 }, 10), { page: 4, offset: 0.5 });
+  assert.deepEqual(readerPdfResumeLocation({ locator: { page: 4, offset: 0.25 }, progress: 81 }, 5), { page: 4, offset: 0.25 });
+  assert.deepEqual(readerPdfResumeLocation(null, 4), { page: 1, offset: 0 });
 });
 
 test("limpia locators y mantiene rutas de Storage seguras", () => {
