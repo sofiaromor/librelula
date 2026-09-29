@@ -427,6 +427,25 @@
   overflow: auto;
 }
 
+.reader-pdf-viewport.is-cascade {
+  height: min(72vh, 860px);
+  min-height: 420px;
+  display: block;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.reader-pdf-cascade-pages {
+  position: relative;
+  width: max-content;
+  min-width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(12px, 2vw, 26px);
+  padding-bottom: 12px;
+}
+
 .reader-pdf-page {
   --total-scale-factor: var(--reader-pdf-scale, 1);
   --min-font-size: 1;
@@ -444,6 +463,46 @@
   max-width: none;
   background: white;
 }
+
+.reader-pdf-page-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: #fffdfb;
+  color: #9a897a;
+  font-size: .86rem;
+}
+
+.reader-pdf-page-placeholder.is-error {
+  color: #9a4932;
+}
+
+.reader-pdf-page-number {
+  position: absolute;
+  z-index: 2;
+  right: 14px;
+  bottom: 10px;
+  padding: 4px 9px;
+  border-radius: 99px;
+  background: rgba(53, 39, 29, .66);
+  color: #fffdf9;
+  font-size: .72rem;
+  pointer-events: none;
+}
+
+.reader-pdf-end-marker {
+  width: min(100%, 460px);
+  display: grid;
+  justify-items: center;
+  gap: 5px;
+  padding: 30px 16px;
+  color: #7c5b48;
+  text-align: center;
+}
+
+.reader-pdf-end-marker > span { color: #b36d45; font-size: 1.5rem; }
+.reader-pdf-end-marker small { color: #9a897a; }
 
 .reader-pdf-text-layer {
   position: absolute;
@@ -502,6 +561,74 @@
   color: #805037;
   font-weight: 600;
 }
+
+.reader-reading-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 12px;
+  padding: 10px 16px;
+  border: 1px solid #e5d8c9;
+  border-radius: 15px;
+  background: #fffdf9;
+  color: #806f60;
+  font-size: .88rem;
+}
+
+.reader-reading-statusbar-title {
+  min-width: 0;
+  max-width: 38%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #443329;
+  font-weight: 700;
+}
+
+.reader-reading-statusbar strong { margin-left: auto; color: #805037; }
+.reader-reading-statusbar small { white-space: nowrap; }
+
+body.reader-immersive-active { overflow: hidden; }
+
+.reader-page.is-reader-immersive {
+  position: fixed;
+  z-index: 3000;
+  inset: 0;
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: max(8px, env(safe-area-inset-top)) 12px max(8px, env(safe-area-inset-bottom));
+  overflow: hidden;
+  background: #f8f2e9;
+}
+
+.reader-page.is-reader-immersive .reader-header,
+.reader-page.is-reader-immersive .reader-source-strip,
+.reader-page.is-reader-immersive .reader-reader-footer { display: none; }
+
+.reader-page.is-reader-immersive .reader-toolbar,
+.reader-page.is-reader-immersive .reader-reading-statusbar {
+  position: relative;
+  flex: none;
+  top: auto;
+  margin: 0;
+}
+
+.reader-page.is-reader-immersive .reader-layout,
+.reader-page.is-reader-immersive .reader-main-column {
+  min-height: 0;
+  height: 100%;
+}
+
+.reader-page.is-reader-immersive .reader-layout { flex: 1; }
+.reader-page.is-reader-immersive .reader-format-stage { height: 100%; min-height: 0; }
+.reader-page.is-reader-immersive .reader-pdf-viewport { height: 100%; min-height: 0; }
+.reader-page.is-reader-immersive .reader-pdf-stage { padding: 48px 14px 14px; }
+.reader-page.is-reader-immersive .reader-notes-panel { max-height: 100%; top: 0; }
 
 .reader-notes-panel {
   position: sticky;
@@ -982,6 +1109,17 @@
   .reader-pdf-viewport {
     min-height: calc(100vh - 360px);
   }
+
+  .reader-pdf-viewport.is-cascade {
+    height: calc(100dvh - 330px);
+    min-height: 320px;
+  }
+
+  .reader-reading-statusbar { margin: 8px 4px; font-size: .77rem; }
+  .reader-reading-statusbar-title { max-width: 28%; }
+  .reader-page.is-reader-immersive { padding-right: 5px; padding-left: 5px; }
+  .reader-page.is-reader-immersive .reader-toolbar-actions .reader-toolbar-button span { display: none; }
+  .reader-page.is-reader-immersive .reader-pdf-viewport.is-cascade { height: 100%; min-height: 0; }
 
   .reader-reader-footer {
     padding-right: 4px;
