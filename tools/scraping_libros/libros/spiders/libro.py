@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import json
 from datetime import datetime, timezone
 from urllib.parse import urlsplit, urlunsplit
 
@@ -203,6 +204,24 @@ class LibroSpider(scrapy.Spider):
 
     def parse_libro(self, response):
         url_original = texto_limpio(response.meta.get("url_original") or response.url)
+        structured_books = []
+        for raw_json in response.css('script[type="application/ld+json"]::text').getall():
+            try:
+                document = json.loads(raw_json)
+            except (ValueError, TypeError):
+                continue
+            pending = document if isinstance(document, list) else [document]
+            while pending:
+                entry = pending.pop(0)
+                if not isinstance(entry, dict):
+                    continue
+                types = entry.get("@type", [])
+                types = types if isinstance(types, list) else [types]
+                if "Book" in types:
+                    structured_books.append(entry)
+                graph = entry.get("@graph", [])
+                if isinstance(graph, list):
+                    pending.extend(graph)
 
         def extraer_campo(*nombres: str) -> str | None:
             for nombre in nombres:
@@ -245,15 +264,20 @@ class LibroSpider(scrapy.Spider):
         )
         titulo_base, edicion = separar_edicion(titulo_original)
 
-        autora = texto_limpio(
-            response.xpath(
-                'normalize-space(string('
-                '//h3[contains(normalize-space(.), "Escrito por")]'
-                "))"
-            ).get()
-        )
-        if autora.lower().startswith("escrito por"):
-            autora = texto_limpio(autora[len("escrito por") :])
+        authors = [
+            texto_limpio(re.sub(r"^escrito por\s*", "", texto_limpio(node.xpath("string(.)").get()), flags=re.I))
+            for node in response.xpath('//h3[contains(normalize-space(.), "Escrito por")]')
+        ]
+        autora = ", ".join(dict.fromkeys(author for author in authors if author))
+
+        if not autora:
+            for entry in structured_books:
+                structured_authors = entry.get("author", [])
+                structured_authors = structured_authors if isinstance(structured_authors, list) else [structured_authors]
+                names = [texto_limpio(author.get("name") if isinstance(author, dict) else author) for author in structured_authors]
+                autora = ", ".join(dict.fromkeys(name for name in names if name))
+                if autora:
+                    break
 
         if not autora:
             autora = texto_limpio(
@@ -268,7 +292,7 @@ class LibroSpider(scrapy.Spider):
             autora = partes_titulo_documento[1]
 
         textos_sinopsis = response.xpath(
-            '//div[contains(@class, "resumen-content")]//p//text()'
+            '(//div[contains(@class, "resumen-content")])[1]//text()'
         ).getall()
         sinopsis = texto_limpio(" ".join(textos_sinopsis))
 
@@ -322,6 +346,21 @@ class LibroSpider(scrapy.Spider):
             anio = int(coincidencia_anio.group(0)) if coincidencia_anio else None
 
         encuadernacion = extraer_campo("Encuadernación", "Encuadernacion")
+        # Algunas fichas omiten el formato en la tabla visible y lo conservan
+        # en Book.workExample. Solo se usa la edición del ISBN de esta ficha.
+        for entry in structured_books:
+            examples = entry.get("workExample", [])
+            examples = examples if isinstance(examples, list) else [examples]
+            for example in examples:
+                if not isinstance(example, dict) or isbn_limpio(example.get("isbn")) != isbn:
+                    continue
+                book_format = str(example.get("bookFormat") or "").rsplit("/", 1)[-1]
+                encuadernacion = encuadernacion or {
+                    "Hardcover": "Tapa dura",
+                    "Paperback": "Tapa blanda",
+                    "EBook": "Ebook",
+                    "AudiobookFormat": "Audiolibro",
+                }.get(book_format)
         encuadernacion_especial = extraer_campo(
             "Encuadernación especial", "Encuadernacion especial"
         )
