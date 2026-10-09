@@ -353,6 +353,22 @@ class LibroSpider(scrapy.Spider):
             response.css('script[type="application/ld+json"]::text').getall(),
         )
 
+        # Different responses for the same ISBN can omit different fields.
+        # A fallback must enrich the original ficha, not erase its known saga.
+        recuperados = response.meta.get("campos_recuperados", {})
+        autora = autora or recuperados.get("autora")
+        saga = saga or recuperados.get("saga")
+        saga_numero = saga_numero or recuperados.get("saga_numero")
+        numero_paginas = numero_paginas or recuperados.get("numero_paginas")
+        sinopsis = sinopsis or recuperados.get("sinopsis")
+        editorial = editorial or recuperados.get("editorial")
+        imagen_portada = imagen_portada or recuperados.get("imagen_portada")
+        campos_recuperados = {
+            "autora": autora, "saga": saga, "saga_numero": saga_numero,
+            "numero_paginas": numero_paginas, "sinopsis": sinopsis,
+            "editorial": editorial, "imagen_portada": imagen_portada,
+        }
+
         ficha_incompleta = (
             not titulo_original
             or not autora
@@ -370,6 +386,7 @@ class LibroSpider(scrapy.Spider):
             meta_reintento = dict(response.meta)
             meta_reintento["reintento_ficha"] = True
             meta_reintento["url_original"] = url_original
+            meta_reintento["campos_recuperados"] = campos_recuperados
             yield scrapy.Request(
                 url_original,
                 callback=self.parse_libro,
@@ -406,6 +423,7 @@ class LibroSpider(scrapy.Spider):
             meta_latam = dict(response.meta)
             meta_latam["fallback_latam"] = True
             meta_latam["url_original"] = url_original
+            meta_latam["campos_recuperados"] = campos_recuperados
             yield scrapy.Request(
                 url_latam,
                 callback=self.parse_libro,
