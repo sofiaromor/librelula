@@ -1,21 +1,4 @@
-import { BasicPipeline, Vibrant as VibrantCore } from "@vibrant/core";
-import { DefaultGenerator } from "@vibrant/generator-default";
-import { BrowserImage } from "@vibrant/image-browser";
-import { MMCQ } from "@vibrant/quantizer-mmcq";
-
-const vibrantPipeline = new BasicPipeline()
-  .filter.register(
-    "default",
-    (red, green, blue, alpha) => alpha >= 125 && !(red > 250 && green > 250 && blue > 250),
-  )
-  .quantizer.register("mmcq", MMCQ)
-  .generator.register("default", DefaultGenerator);
-
-VibrantCore.DefaultOpts.ImageClass = BrowserImage;
-VibrantCore.DefaultOpts.quantizer = "mmcq";
-VibrantCore.DefaultOpts.generators = ["default"];
-VibrantCore.DefaultOpts.filters = ["default"];
-VibrantCore["use"](vibrantPipeline);
+import { loadDominantCoverColor } from "./lib/book3dPalette.js";
 
 export const FALLBACK_HERO_COLOR = "#4A4A52";
 export const LUMINANCE_THRESHOLD = 140;
@@ -63,39 +46,23 @@ export function lighten(hex, amount) {
 }
 
 export async function extractHeroColor(imageSource) {
-  if (!imageSource) {
-    return FALLBACK_HERO_COLOR;
+  return heroColorFromDominant(await loadDominantCoverColor(imageSource));
+}
+
+// Keep the predominant hue, adjusting only brightness for the light hero text.
+// A pale cover must not suddenly become the unrelated grey fallback.
+export function heroColorFromDominant(color) {
+  if (!isValidHeroColor(color)) return FALLBACK_HERO_COLOR;
+  let rgb = {
+    r: Number.parseInt(color.slice(1, 3), 16),
+    g: Number.parseInt(color.slice(3, 5), 16),
+    b: Number.parseInt(color.slice(5, 7), 16),
+  };
+  const brightness = luminance(rgb);
+  if (brightness > LUMINANCE_THRESHOLD) {
+    rgb = darken(rgb, 1 - LUMINANCE_THRESHOLD / brightness);
   }
-
-  try {
-    const palette = await VibrantCore.from(imageSource).getPalette();
-    const order = ["DarkVibrant", "DarkMuted", "Vibrant", "Muted"];
-    const candidate = order
-      .map((role) => palette[role])
-      .find((swatch) => swatch != null);
-
-    if (!candidate?.rgb) {
-      return FALLBACK_HERO_COLOR;
-    }
-
-    let rgb = {
-      r: Math.round(candidate.rgb[0]),
-      g: Math.round(candidate.rgb[1]),
-      b: Math.round(candidate.rgb[2]),
-    };
-
-    if (luminance(rgb) > LUMINANCE_THRESHOLD) {
-      rgb = darken(rgb, DARKEN_AMOUNT);
-    }
-
-    if (luminance(rgb) > LUMINANCE_THRESHOLD) {
-      return FALLBACK_HERO_COLOR;
-    }
-
-    return toHex(rgb).toUpperCase();
-  } catch {
-    return FALLBACK_HERO_COLOR;
-  }
+  return toHex(rgb).toUpperCase();
 }
 
 export async function extractHeroColorFromFile(file) {

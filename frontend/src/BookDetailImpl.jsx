@@ -15,7 +15,10 @@ import {
   FALLBACK_HERO_COLOR,
   lighten,
   normalizeHeroColor,
+  heroColorFromDominant,
 } from "./heroColor.js";
+import { loadDominantCoverColor } from "./lib/book3dPalette.js";
+import { bestBookImageUrl } from "./lib/book3dGeometry.js";
 import { canonicalSagaIdentity } from "./lib/sagaIdentity.js";
 
 const Book3DInspector = lazy(() => import("./Book3DInspector.jsx"));
@@ -585,6 +588,15 @@ function RatingStars({ score, label = true }) {
 
 export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectAuthor, onOpenMyReviews, onOpenReader, isAdmin, isLoggedIn, threadTarget = null, openReviewOnLoad = false }) {
   const currentBook = book;
+  const heroCover = bestBookImageUrl(currentBook?.cover);
+  const [coverColor, setCoverColor] = useState(null);
+  useEffect(() => {
+    let cancelled = false;
+    loadDominantCoverColor(heroCover).then((color) => {
+      if (!cancelled && color) setCoverColor({ source: heroCover, color });
+    });
+    return () => { cancelled = true; };
+  }, [heroCover]);
   const [book3dItem, setBook3dItem] = useState(null);
   const [book3dOpen, setBook3dOpen] = useState(false);
   const [editions, setEditions] = useState([]);
@@ -1388,7 +1400,9 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
     );
   }
 
-  const heroColor = normalizeHeroColor(currentBook.hero_color || currentBook.heroColor) || FALLBACK_HERO_COLOR;
+  const heroColor = coverColor?.source === heroCover
+    ? heroColorFromDominant(coverColor.color)
+    : normalizeHeroColor(currentBook.hero_color || currentBook.heroColor) || FALLBACK_HERO_COLOR;
   const sagaColor = lighten(heroColor, 0.55);
   const genres = parseGenres(currentBook.genre);
   const themes = parseTaxonomyItems(currentBook.themes, 12);

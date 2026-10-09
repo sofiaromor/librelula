@@ -208,7 +208,7 @@ class LibroSpider(scrapy.Spider):
             for nombre in nombres:
                 texto = response.xpath(
                     "normalize-space(string("
-                    f'//h3[@data-campo="{nombre}"]'
+                    f'//*[@data-campo="{nombre}"]'
                     "))"
                 ).get()
 

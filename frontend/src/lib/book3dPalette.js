@@ -65,7 +65,9 @@ export function bookInkColor(color) {
 }
 
 export function loadDominantCoverColor(source, frontQuad) {
-  const url = bestBookImageUrl(source);
+  // File uploads use an object URL before their cover is saved.
+  const url = typeof source === "string" && source.startsWith("blob:")
+    ? source : bestBookImageUrl(source);
   if (!url || typeof Image === "undefined" || typeof document === "undefined") return Promise.resolve("");
   const quad = normalizeFaceQuad(frontQuad);
   const key = `${url}|${JSON.stringify(quad)}`;
@@ -99,5 +101,9 @@ export function loadDominantCoverColor(source, frontQuad) {
   });
   if (colorCache.size >= MAX_CACHE_SIZE) colorCache.delete(colorCache.keys().next().value);
   colorCache.set(key, promise);
+  promise.then((color) => {
+    // A temporary image/CORS failure must not become a permanent cached miss.
+    if (!color && colorCache.get(key) === promise) colorCache.delete(key);
+  });
   return promise;
 }
