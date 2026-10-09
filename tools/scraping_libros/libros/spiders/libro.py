@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import re
 from datetime import datetime, timezone
 from urllib.parse import urlsplit, urlunsplit
@@ -56,6 +57,39 @@ def isbn_desde_url(url: str) -> str | None:
 def entero_limpio(value: object) -> int | None:
     digits = SOLO_DIGITOS.sub("", str(value or ""))
     return int(digits) if digits else None
+
+
+def autor_jsonld(response, isbn: str | None) -> str:
+    def nodos(value):
+        if isinstance(value, list):
+            for item in value:
+                yield from nodos(item)
+        elif isinstance(value, dict):
+            yield value
+            yield from nodos(value.get("@graph", []))
+
+    for script in response.css('script[type="application/ld+json"]::text').getall():
+        try:
+            data = json.loads(script)
+        except (ValueError, TypeError):
+            continue
+        for node in nodos(data):
+            types = node.get("@type", [])
+            types = [types] if isinstance(types, str) else types
+            if "Book" not in types:
+                continue
+            node_isbn = isbn_limpio(node.get("isbn")) or isbn_desde_url(
+                str(node.get("@id") or node.get("url") or "")
+            )
+            if not isbn or node_isbn != isbn:
+                continue
+            authors = node.get("author", [])
+            authors = authors if isinstance(authors, list) else [authors]
+            names = [texto_limpio(a.get("name") if isinstance(a, dict) else a) for a in authors]
+            name = ", ".join(n for n in names if n)
+            if name:
+                return name
+    return ""
 
 
 def separar_edicion(titulo: str) -> tuple[str, str | None]:
@@ -228,7 +262,6 @@ class LibroSpider(scrapy.Spider):
         partes_titulo_documento = [
             texto_limpio(parte)
             for parte in titulo_documento.split("|")
-            if texto_limpio(parte)
         ]
 
         titulo_meta = texto_limpio(
@@ -255,6 +288,9 @@ class LibroSpider(scrapy.Spider):
         if autora.lower().startswith("escrito por"):
             autora = texto_limpio(autora[len("escrito por") :])
 
+        autora_estructurada = autor_jsonld(response, isbn_desde_url(url_original))
+        autora = autora or autora_estructurada
+
         if not autora:
             autora = texto_limpio(
                 response.css('meta[name="author"]::attr(content)').get()
@@ -268,7 +304,8 @@ class LibroSpider(scrapy.Spider):
             autora = partes_titulo_documento[1]
 
         textos_sinopsis = response.xpath(
-            '//div[contains(@class, "resumen-content")]//p//text()'
+            '//div[contains(@class, "resumen-content")]//text()'
+            '[not(ancestor::script) and not(ancestor::style)]'
         ).getall()
         sinopsis = texto_limpio(" ".join(textos_sinopsis))
 
@@ -309,6 +346,8 @@ class LibroSpider(scrapy.Spider):
             extraer_campo("Número de páginas", "Numero de paginas")
         )
         editorial = extraer_campo("Editorial")
+        if not autora_estructurada and autora.casefold() == texto_limpio(editorial).casefold():
+            autora = ""
         idioma = extraer_campo("Idioma")
         fecha_publicacion = extraer_campo(
             "Fecha de lanzamiento",

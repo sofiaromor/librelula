@@ -4,6 +4,26 @@ from libros.spiders.libro import LibroSpider
 
 
 class BookMetadataTest(unittest.TestCase):
+    def test_synopsis_without_paragraph_tags_does_not_trigger_retries(self):
+        url = "https://www.casadellibro.com/libro-example/9788419654977/123"
+        html = '''<h1>Example</h1><h3>Escrito por Example Author</h3>
+        <div class="resumen-content"><strong>A direct synopsis.</strong><br>More description.</div>
+        <div data-campo="Número de páginas">Número de páginas: 272</div>'''
+        response = HtmlResponse(url, body=html.encode(), encoding="utf-8", request=Request(url))
+        item = list(LibroSpider().parse_libro(response))[0]
+        self.assertEqual(item["sinopsis"], "A direct synopsis. More description.")
+
+    def test_missing_visible_author_uses_matching_book_schema_not_publisher(self):
+        url = "https://www.casadellibro.com/libro-example/9788419654977/123"
+        html = '''<title>Example | | Publisher | Casa del Libro</title><h1>Example</h1>
+        <div class="resumen-content"><p>Synopsis.</p></div>
+        <div data-campo="Editorial">Editorial: Publisher</div>
+        <div data-campo="Número de páginas">Número de páginas: 272</div>
+        <script type="application/ld+json">[{"@type":"Book","isbn":"9788420433424","author":{"name":"Unrelated Author"}},{"@type":"Book","isbn":"9788419654977","author":{"name":"Actual Author"}}]</script>'''
+        response = HtmlResponse(url, body=html.encode(), encoding="utf-8", request=Request(url))
+        item = list(LibroSpider().parse_libro(response))[0]
+        self.assertEqual(item["autora"], "Actual Author")
+
     def test_partial_retry_keeps_original_author_and_saga(self):
         url = "https://www.casadellibro.com/libro-example/9788419654977/123"
         first = '<h1>Example</h1><h3>Escrito por Example Author</h3><h3 data-campo="Serie/Saga">Serie/Saga: Example Series</h3><div data-campo="Número">Número: 5</div>'
