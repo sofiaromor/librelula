@@ -18,7 +18,7 @@ import {
   heroColorFromDominant,
 } from "./heroColor.js";
 import { loadDominantCoverColor } from "./lib/book3dPalette.js";
-import { bestBookImageUrl } from "./lib/book3dGeometry.js";
+import { bestBookImageUrl, pickVisualEdition, resolveBookVisual } from "./lib/book3dGeometry.js";
 import { canonicalSagaIdentity } from "./lib/sagaIdentity.js";
 
 const Book3DInspector = lazy(() => import("./Book3DInspector.jsx"));
@@ -588,16 +588,28 @@ function RatingStars({ score, label = true }) {
 
 export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectAuthor, onOpenMyReviews, onOpenReader, isAdmin, isLoggedIn, threadTarget = null, openReviewOnLoad = false }) {
   const currentBook = book;
-  const heroCover = bestBookImageUrl(currentBook?.cover);
+  const [book3dItem, setBook3dItem] = useState(null);
+  const book3dPreviewItem = book3dItem?.book_id === currentBook?.id ? book3dItem : {
+    book_id: currentBook?.id,
+    book: currentBook,
+    editions: [],
+    visual_edition: null,
+  };
+  const heroEdition = book3dPreviewItem?.visual_edition
+    || pickVisualEdition(currentBook, book3dPreviewItem?.editions);
+  const heroVisual = resolveBookVisual(currentBook, heroEdition);
+  const heroCover = bestBookImageUrl(heroVisual.front_quad
+    ? heroVisual.product_image_url : heroEdition?.cover || currentBook?.cover);
+  const heroQuadKey = JSON.stringify(heroVisual.front_quad);
+  const heroSourceKey = `${heroCover}|${heroQuadKey}`;
   const [coverColor, setCoverColor] = useState(null);
   useEffect(() => {
     let cancelled = false;
-    loadDominantCoverColor(heroCover).then((color) => {
-      if (!cancelled && color) setCoverColor({ source: heroCover, color });
+    loadDominantCoverColor(heroCover, JSON.parse(heroQuadKey)).then((color) => {
+      if (!cancelled && color) setCoverColor({ source: heroSourceKey, color });
     });
     return () => { cancelled = true; };
-  }, [heroCover]);
-  const [book3dItem, setBook3dItem] = useState(null);
+  }, [heroCover, heroQuadKey, heroSourceKey]);
   const [book3dOpen, setBook3dOpen] = useState(false);
   const [editions, setEditions] = useState([]);
   const [editionsLoading, setEditionsLoading] = useState(true);
@@ -1400,7 +1412,7 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
     );
   }
 
-  const heroColor = coverColor?.source === heroCover
+  const heroColor = coverColor?.source === heroSourceKey
     ? heroColorFromDominant(coverColor.color)
     : normalizeHeroColor(currentBook.hero_color || currentBook.heroColor) || FALLBACK_HERO_COLOR;
   const sagaColor = lighten(heroColor, 0.55);
@@ -1431,13 +1443,6 @@ export default function BookDetail({ book, onBack, onEdit, onOpenSaga, onSelectA
       || reviewData?.my_review?.vibes?.length
       || reviewData?.my_review?.atmosphere,
   );
-  const book3dPreviewItem = book3dItem?.book_id === currentBook.id ? book3dItem : {
-    book_id: currentBook.id,
-    book: currentBook,
-    editions: [],
-    visual_edition: null,
-  };
-
   const ratingPromptPortal = ratingPromptOpen && typeof document !== "undefined"
     ? createPortal(
         <>
